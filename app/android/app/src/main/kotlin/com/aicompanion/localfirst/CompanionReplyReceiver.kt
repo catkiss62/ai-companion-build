@@ -28,7 +28,7 @@ class CompanionReplyReceiver : BroadcastReceiver() {
         val replyId = "notification-reply:${UUID.randomUUID()}"
         val serviceIntent = Intent(context, OverlayBubbleService::class.java)
             .setAction(OverlayBubbleService.ACTION_NOTIFICATION_REPLY)
-            .putExtra(OverlayBubbleService.EXTRA_REPLY_TEXT, text.take(6000))
+            .putExtra(OverlayBubbleService.EXTRA_REPLY_TEXT, text)
             .putExtra(OverlayBubbleService.EXTRA_REPLY_ID, replyId)
             .putExtra(
                 OverlayBubbleService.EXTRA_REPLY_TO_MESSAGE_ID,

@@ -207,18 +207,34 @@ class LocalSemanticIndex {
         timing('fallback_timeout');
         return {};
       }
-      final clipped = query.length > 16000 ? query.substring(0, 16000) : query;
-      final qkey = keyFor(clipped);
-      var q = _queries[qkey];
-      if (q == null) {
+      final chunks = _chunks(query).toList(growable: false);
+      final limit = queryBudget == null ? 8 : 2;
+      final chosen = chunks.length <= limit
+          ? chunks
+          : [
+              for (var i = 0; i < limit; i++)
+                chunks[(i * (chunks.length - 1) / (limit - 1)).round()],
+            ];
+      final keys = chosen.map(keyFor).toList(growable: false);
+      final uncached = <String, String>{
+        for (var i = 0; i < chosen.length; i++)
+          if (!_queries.containsKey(keys[i])) keys[i]: chosen[i],
+      };
+      if (uncached.isNotEmpty) {
         embeddingClock = Stopwatch()..start();
-        final result = await _embed([clipped], budget: remaining);
+        final result = await _embed(
+          uncached.values.toList(),
+          budget: remaining,
+        );
         embeddingClock.stop();
         inferenceMs = result.inferenceMs;
-        q = result.vectors.single;
-        if (_queries.length >= 16) _queries.remove(_queries.keys.first);
-        _queries[qkey] = q;
+        var i = 0;
+        for (final key in uncached.keys) {
+          if (_queries.length >= 16) _queries.remove(_queries.keys.first);
+          _queries[key] = result.vectors[i++];
+        }
       }
+      final queries = keys.map((key) => _queries[key]!).toList(growable: false);
       final scored = <MapEntry<String, double>>[];
       for (final item in chunkKeysById.entries) {
         var best = double.negativeInfinity;
@@ -228,11 +244,13 @@ class LocalSemanticIndex {
             timing('fallback_indexing');
             return {};
           }
-          var dot = 0.0;
-          for (var i = 0; i < 512; i++) {
-            dot += q[i] * v[i];
+          for (final q in queries) {
+            var dot = 0.0;
+            for (var i = 0; i < 512; i++) {
+              dot += q[i] * v[i];
+            }
+            if (dot.isFinite) best = max(best, dot);
           }
-          if (dot.isFinite) best = max(best, dot);
         }
         if (best.isFinite) scored.add(MapEntry(item.key, best.clamp(-1, 1)));
       }

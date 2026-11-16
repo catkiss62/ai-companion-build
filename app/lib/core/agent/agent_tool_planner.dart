@@ -547,6 +547,7 @@ class AgentToolPlanner {
       properties['before_seq']=const {'type':'integer','minimum':1,'description':'目录返回的next_before_seq，用于继续读取更早原文。'};
       properties['message_seq']=const {'type':'integer','minimum':1,'description':'原文给出的真实消息seq，用于追读一条长消息。'};
       properties['char_offset']=const {'type':'integer','minimum':0,'description':'长消息返回的next_char_offset，按原样续读。'};
+      properties['image_cursor']=const {'type':'string','description':'图片观察被截断时返回的 pending_image_cursors 中的序号:偏移，配合 message_seq 追读；不得与 char_offset 同时传。'};
       required.add('conversation_id');
     } else if (tool.id == AgentToolRegistry.memorySearch.id) {
       properties['query'] = const <String, Object?>{
@@ -711,7 +712,7 @@ class AgentToolPlanner {
       'rules.read' =>
         '仅在用户要你真实读取当前规则、人设或提示词时调用；讨论“规则”这个词本身不调用。',
       'qq_history.search' => '查QQ群聊/私聊档案时使用，群名先定位真实会话；目录未命中不能宣称没能力，歧义须先定位。普通闲聊/功能设计不调用。',
-      'qq_history.read' => '只用目录返回的会话ID追读，核对群名和说话者；按next_before_seq或seq/next_char_offset续读。局部不等于全部，不能借别群内容回答目标群。',
+      'qq_history.read' => '只用目录返回的会话ID追读，核对群名和说话者；按next_before_seq、seq/next_char_offset 或 seq/image_cursor 续读。局部不等于全部，不能借别群内容回答目标群。',
       'memory.search' =>
         '仅在用户要你查找过去对话/本地记忆，或当前回答确实需要核对长期记忆时调用。',
       'chat_history.search' => '仅当前回答确需核对普通聊天历史细节时使用。可从原文关键词、实际日期或memory_id定位，摘要未保留的细节也可查。只返回本页目录，歧义时继续缩小范围；功能讨论不调用。',

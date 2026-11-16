@@ -2198,7 +2198,8 @@ ${lines.join('\n')}
         final value=call.arguments[key];if(value==null) return null;
         final parsed=int.tryParse(value);if(parsed==null) throw const FormatException('qq_cursor');return parsed;
       }
-      return reader.read(cid,beforeSeq:number('before_seq'),messageSeq:number('message_seq'),offset:number('char_offset')??0);
+      return reader.read(cid,beforeSeq:number('before_seq'),messageSeq:number('message_seq'),
+        offset:number('char_offset')??0,imageCursor:call.arguments['image_cursor']);
     });
     cancellation?.throwIfCancelled();
     final complete=result.resolved && !(result.more && RegExp(r'完整|全部|从头|通读').hasMatch(latest));

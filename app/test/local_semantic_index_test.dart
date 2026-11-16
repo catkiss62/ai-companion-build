@@ -140,6 +140,25 @@ void main() {
     expect(await index.search('query', [item('a', 'text')]), isEmpty);
   });
 
+  test('long query embeds the final question within the QQ deadline', () async {
+    final dir=await Directory.systemTemp.createTemp('semantic-long-query-');
+    addTearDown(()=>dir.delete(recursive:true));
+    final encoded=<String>[];
+    final index=LocalSemanticIndex(enabled:true,
+      cacheFile:()async=>File('${dir.path}/cache'),encoder:(texts)async {
+        encoded.addAll(texts);
+        return texts.map((t)=>vector(t.contains('尾部问题')?1:0)).toList();
+      });
+    final items=[item('tail','尾部问题')];
+    final query='${'长资料'*800}尾部问题';
+    expect(await index.search(query,items,queryBudget:const Duration(milliseconds:450)),isEmpty);
+    await ready(index);encoded.clear();
+    final scores=await index.search(query,items,queryBudget:const Duration(milliseconds:450));
+    expect(encoded.any((part)=>part.contains('尾部问题')),isTrue);
+    expect(encoded.every((part)=>part.runes.length<=480),isTrue);
+    expect(scores['tail'],1);
+  });
+
   test(
     'long rows match on a later chunk and return the original ID once',
     () async {

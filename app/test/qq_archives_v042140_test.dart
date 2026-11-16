@@ -51,6 +51,14 @@ void main() {
     return (await sql.query('qq_notes', where: 'through_seq=?', whereArgs: [ids.last])).single;
   }
 
+  test('related old note preserves a matching middle and a corrected tail', () {
+    final note='开头无关内容${'甲'*1000}火车后来改成夜班车${'乙'*1000}最终改成轮船';
+    final excerpt=QqArchiveReader.relevantNoteExcerpt(note,'火车');
+    expect(excerpt,contains('火车后来改成夜班车'));
+    expect(excerpt,contains('最终改成轮船'));
+    expect(excerpt.length,lessThanOrEqualTo(900));
+  });
+
   test('group semantic recall uses older local evidence, respecting reset and invalidation', () async {
     final date = DateTime(2026, 11, 16);
     final other = QqStore.conversationId(scope, 'group', 'b');

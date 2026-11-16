@@ -89,10 +89,52 @@ void main() {
     } finally {await sql.close();}
   });
 
+  test('long nested quote retains facts after the old 2000 character boundary', () async {
+    final input=QqIncoming.parse(quoted(inner:'${'甲'*2500}尾部事实'));
+    expect(input.material.parts.single['text'],contains('尾部事实'));
+    final seq=await add(input);final sql=await db.database;
+    final row=(await sql.query('qq_archive',where:'seq=?',whereArgs:[seq])).single;
+    expect(row['context_meta'],contains('尾部事实'));
+    final rendered=jsonDecode(await QqArchiveReader(sql).render(row)) as Map;
+    expect((rendered['materials'] as List).single['text'],contains('尾部事实'));
+  });
+
+  test('bounded multi-image observations use distinct advancing image cursors', () async {
+    final raw=quoted(many:true);
+    for(final part in raw['msg_elements'] as List) {
+      (part['attachments'] as List).add({'content_type':'image/png','url':'https://fixture.invalid/extra-${part['msg_idx']}.png'});
+    }
+    final seq=await add(QqIncoming.parse(raw));final sql=await db.database;
+    final row=(await sql.query('qq_archive',where:'seq=?',whereArgs:[seq])).single;
+    for(final img in await sql.query('qq_images')) {
+      await store.observation(await store.capture(),img['id'] as String,'viewed','${'\n'*2100}尾部事实','synthetic');
+    }
+    final reader=QqArchiveReader(sql);
+    final first=jsonDecode(await reader.render(row,maxChars:21000)) as Map;
+    final cursors=(first['pending_image_cursors'] as List).cast<String>();
+    expect(cursors,isNotEmpty);
+    final initialRead=await QqHistoryReader(sql).read(cid,messageSeq:seq);
+    expect(initialRead.pendingReads.any((id)=>id.contains(':image:$seq:')),isTrue);
+    final continued=await QqHistoryReader(sql).read(cid,messageSeq:seq,imageCursor:cursors.first);
+    expect(continued.text,contains('尾部事实'));
+    final firstNumber=cursors.first.split(':').first;
+    var cursor=cursors.first;var tail=false;
+    for(var i=0;i<8;i++) {
+      final page=jsonDecode(await reader.render(row,maxChars:21000,imageCursor:cursor)) as Map;
+      final image=(page['images'] as List).single as Map;
+      if((image['observation'] as String).contains('尾部事实')) {tail=true;break;}
+      final next=(page['pending_image_cursors'] as List).cast<String>().single;
+      expect(next.split(':').first,firstNumber);
+      expect(int.parse(next.split(':').last),greaterThan(int.parse(cursor.split(':').last)));
+      cursor=next;
+    }
+    expect(tail,isTrue);
+  });
+
   test('nested/escaped material is bounded; unrecognized embedded parts stay source-unknown',() {
     final input=QqIncoming.parse(quoted(inner:List.filled(9000,'\u0001').join(),many:true));
     expect(input.urls.length,4);expect(input.material.parts.length,4);expect(input.material.partial,true);
-    expect(input.material.encode().length,lessThanOrEqualTo(12000));
+    expect(input.material.encode().length,lessThanOrEqualTo(64000));
     expect(QqMessageMaterial.decode(input.material.encode()).kind,'quote');
     final unknown=quoted()..remove('message_type')..remove('ref_msg_idx');
     expect(QqIncoming.parse(unknown).material.kind,'embedded');

@@ -32,9 +32,16 @@ class QqMessageMaterial {
     return value.substring(0, end);
   }
 
+  static String excerpt(String value, int limit) {
+    if (value.length <= limit) return value;
+    const marker = '〔中段未保存〕';
+    final available = limit - marker.length;
+    final head = available ~/ 2;
+    return '${bound(value, head)}$marker${value.substring(value.length - (available - head))}';
+  }
   static QqMessageMaterial decode(String raw) {
     if (raw.isEmpty) return const QqMessageMaterial(kind: 'legacy');
-    if (raw.length > 12000) throw const FormatException('qq_material_size');
+    if (raw.length > 64000) throw const FormatException('qq_material_size');
     final value = jsonDecode(raw);
     if (value is! Map || value.length != 7 || value['v'] is! int || value['v'] != 1 ||
         !const {'message', 'quote', 'embedded'}.contains(value['kind']) ||
@@ -49,7 +56,7 @@ class QqMessageMaterial {
     final parts = <Map<String, Object?>>[];
     for (final part in value['parts'] as List) {
       if (part is! Map || part.length != 3 || part['text'] is! String ||
-          (part['text'] as String).length > 2000 || part['index'] is! String ||
+          (part['text'] as String).length > 12000 || part['index'] is! String ||
           (part['index'] as String).length > 128 || part['image_ordinals'] is! List ||
           (part['image_ordinals'] as List).length > 8 ||
           (part['image_ordinals'] as List).any((i) => i is! int || i < 0 ||

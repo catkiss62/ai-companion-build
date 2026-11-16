@@ -462,7 +462,7 @@ class OverlayBubbleService : Service() {
                     pendingInlineReplies.add(
                         PendingInlineReply(
                             replyId = replyId,
-                            text = text.take(6000),
+                            text = text,
                             sourceMessageId = sourceMessageId,
                         ),
                     )

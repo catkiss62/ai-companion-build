@@ -1458,6 +1458,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         current.summarizedMessageCount,
         summarizeUntil,
       );
+      final batch = _summaryTranscript(source, maxCharacters: 22000);
       final result = await client.jsonCompletion(
         apiKey: apiKey,
         model: model,
@@ -1477,7 +1478,7 @@ class ImmersiveRoomController extends ChangeNotifier {
 旧现场账：${current.sceneLedger}
 
 需要吸收的原文：
-${_summaryTranscript(source, maxCharacters: 22000)}''',
+${batch.text}''',
           },
         ],
       );
@@ -1488,7 +1489,7 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
         roomId: roomId,
         rollingSummary: summary,
         sceneLedger: ledger,
-        summarizedMessageCount: summarizeUntil,
+        summarizedMessageCount: current.summarizedMessageCount + batch.count,
       );
       room = await repository.roomById(roomId);
       _safeNotify();
@@ -1497,13 +1498,13 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
     }
   }
 
-  static String _summaryTranscript(
+  static ({String text, int count}) _summaryTranscript(
     List<ImmersiveMessage> source, {
     required int maxCharacters,
   }) {
     final selected = <ImmersiveMessage>[];
     var used = 0;
-    for (final message in source.reversed) {
+    for (final message in source) {
       final cost = message.content.length + message.historicalFormLabel.length + 10;
       if (used + cost > maxCharacters && selected.isNotEmpty) {
         break;
@@ -1511,13 +1512,13 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
       selected.add(message);
       used += cost;
     }
-    return selected.reversed
+    return (count: selected.length, text: selected
         .map(
           (message) =>
               '${message.isUser ? '用户输入' : 'AI正文'}'
               '〔${message.historicalFormLabel}〕：${message.content}',
         )
-        .join('\n\n');
+        .join('\n\n'));
   }
 
   void _scheduleStreamNotify() {
