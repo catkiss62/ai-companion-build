@@ -4,13 +4,13 @@ plugins {
 }
 val syncProductionSources = tasks.register<Sync>("syncProductionSources") {
     from("../../android/app/src/main/kotlin/com/aicompanion/localfirst") {
-        include("VoiceExportPcmTuning.kt", "VoiceExportOwnership.kt")
+        include("VoiceExportPcmTuning.kt", "VoiceExportOwnership.kt", "memory/BgeTokenizer.kt")
     }
     into(layout.buildDirectory.dir("generated/production-sources"))
 }
 val syncProductionTests = tasks.register<Sync>("syncProductionTests") {
     from("../../android/app/src/test/kotlin/com/aicompanion/localfirst") {
-        include("VoiceExportPcmTuningTest.kt", "VoiceExportOwnershipTest.kt")
+        include("VoiceExportPcmTuningTest.kt", "VoiceExportOwnershipTest.kt", "memory/BgeTokenizerTest.kt")
     }
     into(layout.buildDirectory.dir("generated/production-tests"))
 }

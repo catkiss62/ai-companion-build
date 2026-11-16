@@ -8,9 +8,9 @@ import 'memory_context.dart';
 import 'memory_grounding_policy.dart';
 import 'memory_retrieval_policy.dart';
 
-/// Local-first layered retrieval. Long-term memory is admitted only when the
-/// current query provides a direct seed; importance and pinning rank admitted
-/// items but never make an unrelated memory relevant.
+/// Local-first layered retrieval with lexical and offline semantic seeds.
+/// Importance and pinning rank relevant items; source admission and revision
+/// rules remain authoritative across both retrieval paths.
 class MemoryBrain {
   MemoryBrain(this.db);
 
