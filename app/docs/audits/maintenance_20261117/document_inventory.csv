@@ -1,0 +1,279 @@
+path,bytes,lines,title,proposed_disposition,text_reference_candidates,active_gate_reference_candidates,review_level
+AI_Companion_当前总账.md,805896,3882,AI Companion · 当前总账,保留历史证据；v4 唯一当前记录；不删改冻结归档,.github/workflows/build-apk.yml;app/tools/validate_current_ledger_handoff.py;app/tools/validate_v0344_overlay_recovery_diagnostics.py;app/tools/validate_v0345_direct_picker_overlay_guard.py;app/tools/validate_v0350_personality_trials.py;app/tools/validate_v0351_personality_inner_voice.py;app/tools/validate_v0395_meju_tts_runtime_upgrade.py;app/tools/validate_v04110_personality_learning_grounding_hotfix.py;app/tools/validate_v04111_personality_learning_semantic_verifier.py;app/tools/validate_v04115_phase2a_self_experience_desire_web.py;app/tools/validate_v04116_foundation_ui_phone_integration.py;app/tools/validate_v04117_chat_ui_mood_hotfix.py;app/tools/validate_v04118_settings_information_architecture.py;app/tools/validate_v04119_phase2a_runtime_stabilization.py;app/tools/validate_v04120_phase2a5_conversation_agency.py;app/tools/validate_v04121_phase2a5_responsibility_ablation.py;app/tools/validate_v04122_aggressive_dialogue_rebuild.py;app/tools/validate_v04123_lifelike_ablation_dawn_gate.py;app/tools/validate_v04124_visible_inner_monologue.py;app/tools/validate_v0413_backup_zip_hardening.py;app/tools/validate_v0414_personality_seed_backup_closure.py;app/tools/validate_v0415_personality_state_diversity.py;app/tools/validate_v0416_agent_self_facts.py;app/tools/validate_v04175_cedar_agentic_blind_play.py;app/tools/validate_v04176_cedar_protocol_continuation.py;app/tools/validate_v04177_cedar_background_turn_loop.py;app/tools/validate_v04178_stop_transfer_interlock.py;app/tools/validate_v04179_cedar_runtime_preemption.py;app/tools/validate_v0417_forthright_fiery_personality.py;app/tools/validate_v04180_cedar_agent_loop.py;app/tools/validate_v04181_cedar_background_agent_tools.py;app/tools/validate_v04182_cedar_state_machine_e2e.py;app/tools/validate_v04183_cedar_native_agent_loop.py;app/tools/validate_v04184_agent_loop_autonomy_closure.py;app/tools/validate_v04185_cedar_outcome_media.py;app/tools/validate_v04186_autonomy_tts_diagnostics.py;app/tools/validate_v04187_help_cedar_activity_ui.py;app/tools/validate_v04188_wishlist_cedar_card_guardrails.py;app/tools/validate_v04189_prompt_cache_observability.py;app/tools/validate_v0418_personality_trial_strength_hotfix.py;app/tools/validate_v04190_cedar_save_slots_custom_final_model.py;app/tools/validate_v04191_fatigue_affect_debt.py;app/tools/validate_v04192_desire_game_interest.py;app/tools/validate_v04193_game_reality_grounding.py;app/tools/validate_v04197_natural_reply_liveness.py;app/tools/validate_v0419_personality_learning_observation.py;app/tools/validate_v04203_media_empty_turn_hotfix.py;app/tools/validate_v04204_tts_affinity_tool_activity.py;app/tools/validate_v04205_tts_semantic_guard_session_metrics.py,.github/workflows/build-apk.yml;app/tools/validate_current_ledger_handoff.py;app/tools/validate_v04111_personality_learning_semantic_verifier.py;app/tools/validate_v04175_cedar_agentic_blind_play.py;app/tools/validate_v04176_cedar_protocol_continuation.py;app/tools/validate_v04177_cedar_background_turn_loop.py;app/tools/validate_v04178_stop_transfer_interlock.py;app/tools/validate_v04179_cedar_runtime_preemption.py;app/tools/validate_v04180_cedar_agent_loop.py;app/tools/validate_v04181_cedar_background_agent_tools.py;app/tools/validate_v04182_cedar_state_machine_e2e.py;app/tools/validate_v04183_cedar_native_agent_loop.py;app/tools/validate_v04184_agent_loop_autonomy_closure.py;app/tools/validate_v04185_cedar_outcome_media.py;app/tools/validate_v04186_autonomy_tts_diagnostics.py;app/tools/validate_v04187_help_cedar_activity_ui.py;app/tools/validate_v04188_wishlist_cedar_card_guardrails.py;app/tools/validate_v04189_prompt_cache_observability.py;app/tools/validate_v04190_cedar_save_slots_custom_final_model.py;app/tools/validate_v04191_fatigue_affect_debt.py;app/tools/validate_v04192_desire_game_interest.py;app/tools/validate_v04193_game_reality_grounding.py;app/tools/validate_v04197_natural_reply_liveness.py;app/tools/validate_v04203_media_empty_turn_hotfix.py;app/tools/validate_v04204_tts_affinity_tool_activity.py,结构扫描及关键章节核对
+AI_START_HERE.md,11888,81,AI 开发接手入口 / AI handoff,优先重写入口；移走旧版本交付/待办；指向 v4 和模块卡,,,定点正文与代码/流程核对
+README.md,2315,29,AI Companion,修正 v3 当前入口；保留仓库/分支/构建导航,.github/workflows/build-apk.yml;app/android/app/src/main/kotlin/com/aicompanion/localfirst/TtsGoldenBaseline.kt;app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py,.github/workflows/build-apk.yml,定点正文与代码/流程核对
+app/README.md,1077,14,AI Companion App,修正 v3 当前入口,.github/workflows/build-apk.yml;app/android/app/src/main/kotlin/com/aicompanion/localfirst/TtsGoldenBaseline.kt;app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py,.github/workflows/build-apk.yml,定点正文与代码/流程核对
+app/android/app/src/main/assets/pets/dafeiyu/ATTRIBUTION.md,1220,11,Dafeiyu private desktop-pet skin attribution,保留许可/来源；不作为普通旧方案清理,app/tools/validate_v0389_simulated_phone_reference_ui.py,,用途分类
+app/android/app/src/main/assets/pets/dafeiyu/source/runtime_overrides/experimental/NOTICE.md,1278,22,,保留许可/来源；不作为普通旧方案清理,.github/workflows/build-apk.yml;app/lib/features/chat/chat_page.dart;app/tools/validate_current_chat_visual_stage.py,.github/workflows/build-apk.yml;app/tools/validate_current_chat_visual_stage.py,用途分类
+app/asset_packs/dafeiyu_retouched/README.md,2906,30,当前使用的旧桌宠图片,保留组件/资源说明；迁移前核对构建和许可,.github/workflows/build-apk.yml;app/android/app/src/main/kotlin/com/aicompanion/localfirst/TtsGoldenBaseline.kt;app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py,.github/workflows/build-apk.yml,用途分类
+app/assets/fate_wheel/NOTICE.md,682,11,,保留许可/来源；不作为普通旧方案清理,.github/workflows/build-apk.yml;app/lib/features/chat/chat_page.dart;app/tools/validate_current_chat_visual_stage.py,.github/workflows/build-apk.yml;app/tools/validate_current_chat_visual_stage.py,用途分类
+app/assets/lingchat/NOTICE.md,2443,43,LingChat pinned visual/audio parity asset notice,保留许可/来源；不作为普通旧方案清理,.github/workflows/build-apk.yml;app/lib/features/chat/chat_page.dart;app/tools/validate_current_chat_visual_stage.py,.github/workflows/build-apk.yml;app/tools/validate_current_chat_visual_stage.py,用途分类
+app/assets/memory_galaxy/vendor/README.md,1587,22,Offline assets for Memory Galaxy,保留组件/资源说明；迁移前核对构建和许可,.github/workflows/build-apk.yml;app/android/app/src/main/kotlin/com/aicompanion/localfirst/TtsGoldenBaseline.kt;app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py,.github/workflows/build-apk.yml,用途分类
+app/assets/tarot/rws_major/ATTRIBUTION.md,840,16,Rider–Waite–Smith Major Arcana,保留许可/来源；不作为普通旧方案清理,app/tools/validate_v0389_simulated_phone_reference_ui.py,,用途分类
+app/docs/AGENT_GAME_OVERLAY_REAUDIT_v0.42.132.md,8566,65,+376后只读复查：Agent、游戏厅、悬浮发送与沉浸布局,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/AGENT_GAME_REPAIR_v0.42.129.md,9411,55,v0.42.129+373 游戏厅与 Agent 循环修复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/AGENT_OPERATION_TRUTH_SCREEN_OBSERVATION_v0.41.14.md,2800,42,Agent 操作事实真实性与一次性屏幕观察 · v0.41.14,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04114_agent_truth_screen_observation.py,app/tools/validate_v04114_agent_truth_screen_observation.py,标题/引用扫描，关键模块另有正文核对
+app/docs/AGENT_V2_BOUNDED_LOOP_v0.41.50.md,3426,42,v0.41.50 · Agent v2 有界任务循环,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/AI_INTEREST_CONSUMPTION_PHASE3C_v0.41.66.md,3665,38,v0.41.66 · Phase 3C AI 兴趣有界消费,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04166_phase3c_phone_pacing.py,app/tools/validate_v04166_phase3c_phone_pacing.py,标题/引用扫描，关键模块另有正文核对
+app/docs/AI_INTEREST_EVIDENCE_PHASE3A_v0.41.42.md,3403,49,v0.41.42 · Phase 3A AI 兴趣证据层,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/ANDROID_DESKTOP_PET_PLAN_v1.md,9767,230,AI Companion · Android 桌宠方案 v1,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/ANDROID_LIFECYCLE_AUDIT_v0.12.md,11715,184,Android 生命周期专项审计 · v0.12,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/ARCHITECTURE.md,7484,123,架构冻结稿 v0.14,历史架构；保留原文并新增当前架构入口,app/tools/validate_v026.py;app/tools/validate_v027.py,,定点正文与代码/流程核对
+app/docs/ASYNC_WORKER_OWNERSHIP_v0.15.md,2367,49,v0.15 Async Worker Ownership,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md,4014,98,v0.34.7 · Autonomous Action Foundation,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/AUTONOMY_ARBITRATION_REWORK_v0.41.44.md,3564,35,v0.41.44 · 自主性仲裁返工,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/AUTONOMY_CREATIVE_SHARE_REVIEW_2026-10-30.md,9572,88,自主创作与自主分享定向复查 · 2026-10-30,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/AUTONOMY_GAME_REPAIR_v0.42.127.md,9956,52,v0.42.127+371 · 自主入口、游戏恢复与语音口型,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/AVATAR_CACHE_WISH_QQ_v042167.md,5317,46,Live2D、缓存、愿望与 QQ 复查 v0.42.167+411,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/BACKGROUND_CONTINUITY_v042171.md,5775,33,后台唤醒与窗口查询修补 · v0.42.171+415,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/BACKGROUND_PRESENCE_v0.30.md,2913,45,v0.30.0 · Background Presence,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/BACKGROUND_SMOOTHING_v0.42.83.md,5594,33,+327 背景姿态与逐帧平滑,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/BUILDING.md,3434,30,Build / 真机准备,修正 v3 指向；核对产物交付方式与实际工作流,app/tools/validate_v028.py,,定点正文与代码/流程核对
+app/docs/CACHE_LIVE2D_REVIEW_2026-11-03.md,7779,54,+408 Live2D诊断与第一通道缓存复查 · 2026-11-03,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CACHE_OFFPEAK_MORPH_v042163.md,9643,57,v0.42.163+407：第一通道缓存、后台避峰与小豆丁支点,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v042163_cache_morph.py,app/tools/validate_v042163_cache_morph.py,标题/引用扫描，关键模块另有正文核对
+app/docs/CAICAI_INTERACTION_V04243.md,2784,18,菜菜 +287 八项交互收口,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CAICAI_PERFORMANCE_DESIGN.md,4164,33,菜菜专项表演与玩家操作设计 · +285（保留 +284 表演功能）,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/CAICAI_PERFORMANCE_V04242.md,3896,33,菜菜 +286 表演调节,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md,6739,52,Cedar Toy 游戏兼容矩阵 · v0.41.74+218,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04174_cedar_game_hall_protocol.py,app/tools/validate_v04174_cedar_game_hall_protocol.py,标题/引用扫描，关键模块另有正文核对
+app/docs/CEDAR_TOY_MCP_v0.41.67.md,1955,27,Cedar Toy MCP · v0.41.67+211,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CHAT_UI_MOOD_HOTFIX_v0.41.17.md,2683,30,v0.41.17 聊天文字与心情图真机热修合同,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04117_chat_ui_mood_hotfix.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/CLEAN_FREEZE_v0.31.5.md,3922,86,AI Companion · v0.31.5 Clean Freeze,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/COMPANION_HOME_v0.18.md,4406,121,Companion Home / Relationship Presence · v0.18,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/CONSERVATIVE_TRANSPORT_SMALLFORM_v042158.md,6091,33,v0.42.158+402：第三通道保守优化与 DeepSeek 小豆丁修补,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md,13219,156,Phase 2A.5：对话主动权与自我驱动表达,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04120_phase2a5_conversation_agency.py;app/tools/validate_v04121_phase2a5_responsibility_ablation.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/CONVERSATION_HISTORY_DIRECTORY_v0.42.126.md,6228,40,v0.42.126+370 · 普通聊天目录、按需追读及存档,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CONVERSATION_TOPICS_v0.42.77.md,3446,32,+321 自主话题与直接开始按钮,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_AGENT_v0.42.96.md,8233,59,小作品工作 Agent · v0.42.96+340,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_AUDIT_v0.42.101.md,9838,84,作品、余额与存档容量审计 · v0.42.101+345,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_AUTONOMY_DESIGN.md,13544,133,自主创作第二批 · 方案整理,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/CREATIVE_AUTONOMY_v0.42.99.md,8323,80,+343 自主创作 · 实施与验证记录,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_CONTEXT_UI_v0.42.98.md,8334,51,作品上下文与交付体验 · v0.42.98+342,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_FACTS_v0.42.100.md,7460,56,作品事实同步 · v0.42.100+344,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_PLAY_DELIVERY_v0.42.97.md,10279,64,小作品真实互动与完成回报 · v0.42.97+341,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/CREATIVE_WORKSPACE_v0.42.95.md,13127,89,小作品第一批与梦境恢复 · v0.42.95+339,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DAILY_CONTINUITY_v0.24.md,4319,111,v0.24 · Companion Continuity / Daily Reflection,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/DAILY_WAKE_v0.42.75.md,5103,51,v0.42.75 每日起床时间与醒后疲劳,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_ACOUSTIC_MOUTH_v042172.md,8659,52,DeepSeek 本地说话口型 · v0.42.172+416,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_COMIC_FREQUENCY_REVIEW_20261104.md,4548,37,DeepSeek眼镜兔牙组合频率审查 · 2026-11-04,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_EXPRESSIVE_v042160.md,6301,48,DeepSeek 表现幅度修正 · v0.42.160+404,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_FOCUS_SMALLFORM_v042161.md,5912,40,DeepSeek 视线集中与小豆丁边界微调 · v0.42.161+405,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_GAZE_RELATIONSHIP_v042164.md,6651,35,+408 视线、前倾与关系详情刷新,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_LAYERED_v042169.md,7083,51,DeepSeek 表情组合、嘴形与独立前倾,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_LEG_PIVOT_LEAN_v042162.md,7315,43,DeepSeek小腿支点与前倾 · v0.42.162+406,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_LIVE2D_ISOLATION_REVIEW_2026-10-30.md,32527,274,第二套 DeepSeek Live2D：隔离、动作与存档分析,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_LIVE2D_STAGE1_v042154.md,4197,36,DeepSeek Live2D第一阶段：隔离与校准,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_LIVE2D_STAGE2_v042157.md,5963,39,DeepSeek Live2D 第二阶段 · v0.42.157+401,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_LIVE2D_STAGE3_v042159.md,7402,33,DeepSeek Live2D 第三阶段 · v0.42.159+403,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEPSEEK_MOUTH_REFRESH_v042170.md,3342,24,DeepSeek调皮闭嘴与语音嘴形修补 · v0.42.170+414,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEEP_WEB_v1.md,1794,13,深度思考与网页证据 · v1,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/DEPTH_BACKGROUND_CLEANUP_v0.42.80.md,6827,45,+324 · 立体背景与旧连接清理,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DEPTH_SETTINGS_ENTRY_v0.42.81.md,3718,27,+325 · 立体背景新版设置入口修正,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DESKTOP_PET_D0_D1_v0.33.0.md,3028,45,AI Companion · Android 桌宠 D0/D1 实现说明,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/DESKTOP_PET_OVERLAY_D2_v0.33.2.md,4180,85,AI Companion · Android 系统桌宠 D2,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/DESKTOP_PET_SOURCE_PARITY_v0.33.1.md,5932,95,AI Companion · Android 桌宠原项目动作同构说明,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/DEVICE_MOTION_v0.42.82.md,5736,36,+326 背景整体平移（Device Motion）,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DIARY_FRESH_TOPIC_BALANCE_v0.41.52.md,3393,32,v0.41.52 · 日记真实整理与主动新话题平衡,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DOCUMENTATION_MAP.md,19395,213,文档地图,重建分类导航；移除历史条目中当前/最新的歧义,app/tools/validate_current_ledger_handoff.py;app/tools/validate_v04112_ordinary_time_scene_boundary.py;app/tools/validate_v04113_phase01_time_audit_hardening.py;app/tools/validate_v04114_agent_truth_screen_observation.py;app/tools/validate_v04115_phase2a_self_experience_desire_web.py;app/tools/validate_v04116_foundation_ui_phone_integration.py;app/tools/validate_v04117_chat_ui_mood_hotfix.py;app/tools/validate_v04118_settings_information_architecture.py,app/tools/validate_current_ledger_handoff.py;app/tools/validate_v04112_ordinary_time_scene_boundary.py;app/tools/validate_v04113_phase01_time_audit_hardening.py;app/tools/validate_v04114_agent_truth_screen_observation.py,定点正文与代码/流程核对
+app/docs/DREAM_GAZE_MEMORY_v042168.md,8800,50,+412 视线、梦境补齐与记忆复查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/DSH_INTEROP_PLUGIN_ROADMAP_2026-11-03.md,14080,127,DSH 安卓互通与渐进插件化方案,保留搁置方案；当前不实施插件/互通,,,定点正文与代码/流程核对
+app/docs/DUAL_CHANNEL_SENSE_v1.md,17037,413,AI Companion · 双通道感官设计 · 图片转写与接入整理 v1,保留参考原文；区分已接入双向触摸与其他候选感官,,,定点正文与代码/流程核对
+app/docs/DURABLE_GENERATION_v0.14.md,4522,66,Durable Chat Generation · v0.14,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/DYNAMIC_MOE_ATTRIBUTE_REFERENCE_AUDIT_SPEC_v1.md,25773,465,AI Companion · 动态萌属性参考审计与规格 v1,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/EMOTION_ENGINE_EXPANSION_EVAL_v1.md,7160,143,情绪系统扩建判据 v1,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/EXECUTION_RECOVERY_v0.42.130.md,6425,44,v0.42.130+374 执行、回复恢复与主动话题连续性,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/EXPRESSION_WISH_AWARENESS_v0.42.86.md,6907,41,v0.42.86+330 表达选择、通知判断与愿望同步,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GAME_AGENT_AUDIT_v0.42.130.md,13393,140,游戏厅 / Agent / 第二通道代码审查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GAME_INTENT_CONTINUITY_v0.42.94.md,5304,40,游戏意图连续性 · v0.42.94+338,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GAME_OVERLAY_RECOVERY_v0.42.133.md,6922,47,v0.42.133+377 游戏与悬浮发送恢复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GAME_QQ_ARCHIVES_v042140.md,5853,35,v0.42.140+384 · 游戏执行与 QQ 月度档案,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GENIE_DIRECT_PORT_LAZY_LANGUAGE_v0.41.55.md,10285,74,Genie v0.6.4 原样移植、崩溃隔离与按需外语 · v0.41.55,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GENIE_MULTILINGUAL_TTS_v0.41.53.md,5148,70,Genie 多语普通聊天与本地 TTS · v0.41.53,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md,2220,25,Genie TTS 闪退热修与设置补齐 · v0.41.54,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/GITHUB_CLEAN_BASELINE_v0.29.md,936,29,v0.29.0 · GitHub clean baseline,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/GROUNDED_DESIRE_CORE_v0.31.md,15877,374,v0.31 · Grounded Desire Core,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md,11780,183,AI Companion · 内在驱动与欲望系统融合备份 v2,保留设计来源；已接入主干，过时消费者条目逐项标注,,,定点正文与代码/流程核对
+app/docs/INTERNAL_VALIDATION_v0.10.md,2987,52,Internal Validation · v0.10,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.11.md,3251,59,Internal validation · v0.11,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.12.md,3115,45,v0.12 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.13.md,1246,31,v0.13 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.14.md,3103,43,v0.14 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.15.md,1518,38,v0.15 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.16.md,1818,36,v0.16 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.17.md,2599,84,v0.17 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.18.md,4679,152,v0.18 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.19.md,2499,66,v0.19 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.20.md,3276,78,v0.20 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.21.md,2562,59,v0.21 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.22.md,3578,76,AI Companion v0.22 · Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.23.md,1589,28,Internal validation · v0.23,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.24.md,1932,41,Internal validation · v0.24,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.25.md,1366,26,Internal Validation · v0.25,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.26.md,1258,22,v0.26 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v026.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.27.md,2255,53,v0.27 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v027.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.28.md,1476,26,v0.28 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v028.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.6.md,1280,30,v0.6 Internal Validation,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.7.md,1006,26,Internal Validation · v0.7,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/INTERNAL_VALIDATION_v0.9.md,1218,33,Internal Validation · v0.9,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/JEV_TOOL_ROUTING_v0.42.119.md,9166,49,+363 JEV决策与工具执行修复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LIVE2D_CACHE_QQ_REVIEW_2026-11-03.md,19404,143,Live2D、第一通道缓存与 QQ 只读检查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LIVE2D_CLEAN_ROLLBACK_v0.42.0.md,2522,29,Live2D clean rollback · v0.42.0+244,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LIVE2D_EAR_FACE_v0.42.87.md,3337,33,v0.42.87+331 Live2D耳鳍与表情分层,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LIVE2D_HOST_AND_PET_TOUCH_v0.42.34.md,5168,33,v0.42.34+278：Live2D 宿主与桌宠触摸,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LIVE2D_MOUTH_FLOATING_WINDOW_AUDIT_2026-10-21.md,9410,69,Live2D语音嘴形、悬浮聊天与悬浮球边界检查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LOGIC_REAUDIT_2026-10-19.md,13332,101,六组及后续修改逻辑复查 · 2026-10-19,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LOGIC_REAUDIT_2026-10-23.md,20458,200,设计逻辑复查 · 2026-10-23,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LOGIC_REPAIR_v0.42.128.md,7373,56,v0.42.128+372 修改与验证记录,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/LONG_RUNNING_HYGIENE_v0.11.md,3039,60,Long-running hygiene · v0.11,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/MEMORY_2D_LIFECYCLE_V04137.md,3069,54,Memory 2D lifecycle and recall value (v0.41.37),版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/MEMORY_CONSOLIDATION_v0.22.md,3070,72,Long-term Memory Consolidation / Conflict Semantics · v0.22,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/MEMORY_FORM_CONTINUITY_2026-10-12.md,11112,106,+347 发言形态、记忆纠错与共同成长,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/MEMORY_RETENTION.md,842,23,Memory Retention · v0.7,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/MODEL_CONFIG_FOLLOWUPS_2026-10-25.md,28377,170,第一通道思考力度、作品凭据及插件化讨论,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/MODEL_DIALOGUE_DYNAMIC_AND_TTS_REVIEW_2026-10-21.md,12535,80,模型对谈动态通道与TTS动作复核（2026-10-21）,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/MODEL_ROUTING_AND_MANUAL_FALLBACK_PLAN_2026-10-21.md,9457,74,模型来源与本轮手动切换 · 完整修改方案及交付,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/MODEL_ROUTING_AUDIT_2026-10-21.md,9196,77,模型来源全量审查 · 2026-10-21,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/NATIVE_TTS_CORE_v0.25.md,3600,81,Native TTS Core Integration · v0.25,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/NATURAL_EXPRESSION_MEMORY_PLAN_2026-10-20.md,16818,153,自然表达、持续成长与回忆上下文：最终修改方案,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/NIGHTLY_DREAM_v0.42.78.md,11610,73,+322 午夜梦境与可修订的自我理解,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/NOTIFICATION_SOUND_ASSETS.md,1246,20,Proactive message notification sounds,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0396_rule02_notification_sound.py,,标题/引用扫描
+app/docs/NSFW_CONTEXT_ROUTER_v1.md,3276,40,NSFW Context Router v1 · v0.35.3+78,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/ORDINARY_TIME_SCENE_BOUNDARY_v0.41.12.md,4283,54,Ordinary Chat Time & Transient Scene Boundary · v0.41.12,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04112_ordinary_time_scene_boundary.py,app/tools/validate_v04112_ordinary_time_scene_boundary.py,标题/引用扫描，关键模块另有正文核对
+app/docs/OVERLAY_PRESENCE_FIX_v0.42.122.md,11538,76,v0.42.122+366 语音、悬浮窗及手机活动修复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/OVERLAY_STOP_STREAM_v0.31.8.md,3509,78,Overlay Stop & Live Stream · v0.31.8+50,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/OVERLAY_UX_D2_1_v0.33.3.md,1746,25,Overlay UX D2.1 — v0.33.3+58,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PERCEPTION_CONTEXT_v0.20.md,5121,146,Perception Context / Daily Awareness · v0.20,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PERSISTENT_MOOD_v1.md,11359,91,持续心情模块：任务记录与实现契约,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PERSONALITY_INNER_VOICE_v2.md,4176,60,性格内在反应与表达系统 v2,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0351_personality_inner_voice.py,,标题/引用扫描
+app/docs/PERSONALITY_LEARNING_GROWTH_PHASE1.md,12386,118,人格学习与成长 · Phase 0/1 当前合同,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v04111_personality_learning_semantic_verifier.py;app/tools/validate_v0419_personality_learning_observation.py,app/tools/validate_v04111_personality_learning_semantic_verifier.py,标题/引用扫描
+app/docs/PERSONALITY_TRIAL_SYSTEM_v1.md,2899,43,性格试穿与活人感系统 v1,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PET_AMBIENT_MOTION_D3_3_v0.33.9.md,7290,119,Pet Ambient Motion D3.3 — v0.33.9+64,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0339_pet_ambient_motion.py,,标题/引用扫描
+app/docs/PET_CHAT_ACTION_ARBITER_D3_1_v0.33.5.md,3231,50,桌宠聊天动作仲裁 D3.1（v0.33.5+60）,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PET_CHAT_STATE_FINALIZATION_D3_1_1_v0.33.6.md,2457,28,桌宠聊天状态收尾 D3.1.1（v0.33.6+61）,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0336_pet_chat_state_finalization.py,,标题/引用扫描
+app/docs/PET_FALLING_VISUAL_ROLLBACK_D3_1_2_v0.33.7.md,1450,23,桌宠坠落视觉还原 D3.1.2（v0.33.7+62）,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0337_pet_falling_visual_rollback.py,,标题/引用扫描
+app/docs/PET_MOTION_MODES_D2_2_v0.33.4.md,2743,48,桌宠行动模式 D2.2（v0.33.4+59）,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PET_RETOUCH_v0.42.90.md,4928,32,v0.42.90+334 旧桌宠修图,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/PET_SEMANTIC_AUTONOMY_D3_2_v0.33.8.md,3310,51,D3.2 桌宠动作、移动与预览校正（v0.33.8+63）,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PHASE01_TIME_AUDIT_HARDENING_v0.41.13.md,4849,43,Phase 0+1 & Time Audit Hardening · v0.41.13,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04113_phase01_time_audit_hardening.py,app/tools/validate_v04113_phase01_time_audit_hardening.py,标题/引用扫描，关键模块另有正文核对
+app/docs/PHASE3B_QUESTION_AUTONOMY_v0.41.43.md,2645,35,v0.41.43 · Phase 3B 具体问题搜索与统一自主行为,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/PHONE_AUTONOMY_v0.42.105.md,3439,24,+349 手机记录与自主游玩,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/PHONE_PRIMARY_TABLET_COMPANION_ARCHITECTURE_v1.md,7481,112,AI Companion · 手机主机与平板伴随端架构 v1,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0410_plain_backup_overlay_desire.py,,标题/引用扫描
+app/docs/PHONE_UI_INTEGRATION_v0.41.16.md,2883,31,v0.41.16 查手机与快捷界面整合合同,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04116_foundation_ui_phone_integration.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/POST_377_AGENT_GAME_OVERLAY_AUDIT_2026-10-25.md,15609,112,+377 后复查：Agent、游戏厅、悬浮发送与沉浸布局,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/POST_v042118_ANALYSIS_2026-10-20.md,9850,81,+362 后续逻辑与表达审查（2026-10-20）,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/PREFLIGHT_DIAGNOSTICS_v0.27.md,3473,78,v0.27 · Real-device Readiness / Preflight Diagnostics,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v027.py,,标题/引用扫描
+app/docs/PROACTIVE_EXPERIENCE_v0.17.md,5108,127,v0.17 · Proactive Experience Layer,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PROACTIVE_GROUNDING_v0.31.1.md,4194,73,Proactive Grounding v0.31.1,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0315_live_context_seed.py,,标题/引用扫描
+app/docs/PROACTIVE_PRESENTATION_QQ_IDENTITY_v042145.md,5608,30,主动表达覆盖与QQ称呼来源 · v0.42.145+389,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/PROACTIVE_RHYTHM_v0.23.md,2354,54,v0.23 · Proactive Rhythm Learning / Local Feedback,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PROMPT_LAYERS_v0.9.md,837,16,Prompt Layers · v0.9,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PROMPT_WORKBENCH_v1.md,4787,52,Prompt Workbench v1 · v0.35.2+77,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0352_prompt_workbench.py,app/tools/validate_v0352_prompt_workbench.py,标题/引用扫描
+app/docs/PUBLIC_WEB_DISCOVERY_v0.34.8.md,2772,42,v0.34.8 欲望驱动的公开网页发现,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/PUBLIC_WEB_READING_KNOWLEDGE_V04139.md,7707,104,"Public Web Reading, Knowledge and Lifecycle — v0.41.39",版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_AGENT_READ_CHAIN_REVIEW_2026-10-26.md,8860,45,QQ接入与Agent读取链复查（v0.42.138+382之后）,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_ARCHIVE_AGENT_v042139.md,4569,24,QQ档案与Agent读取链修复 v0.42.139+383,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_CONTEXT_RECOVERY_v042144.md,8480,38,QQ 接话、媒体与游戏厅隔离修补 · v0.42.144+388,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_DELIVERY_RECOVERY_v042147.md,4250,30,QQ发送与语音台词修补 · v0.42.147+391,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_FOLLOWUP_REVIEW_v042141_2026-10-27.md,7886,61,v0.42.141+385 QQ 定向复查 · 2026-10-27,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_FORWARD_PROVENANCE_REVIEW_2026-10-27.md,12414,82,+386 QQ复查：转发来源与GIF识别方案,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_GAME_PLAN_RECHECK_2026-10-28.md,9645,53,QQ 与游戏厅方案接班：实施前定向核对,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/QQ_GAME_WEB_RECOVERY_v042148.md,9291,60,QQ、游戏图片与网页分享恢复 · v0.42.148+392,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_GROUP_EXPRESSION_v042174.md,3027,19,群聊表达节奏调整 v0.42.174+418,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_GROUP_IMPLEMENTATION_2026-10-26.md,10600,59,QQ 群聊、共享档案与媒体实施,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_JEV_CONVERSATION_v042138.md,5870,34,QQ群聊JEV、连续对话与本机认主,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_LEARNING_SKETCH_v042141.md,5792,40,v0.42.141+385 · QQ 基础修补、群聊表达与小涂鸦,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_LIPSYNC_BACKGROUND_REVIEW_20261104.md,5850,30,QQ点名、后台停滞与口型同步审查 · 2026-11-04,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MATERIAL_GIF_v042143.md,6948,37,v0.42.143+387：QQ资料来源、GIF与接话边界,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MCP_EFFORT_IMPLEMENTATION_v042150.md,7693,53,QQ、MCP 游戏厅修补与第三通道力度 · v0.42.150+394,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MCP_FIVE_FIXES_v042151.md,6404,37,QQ 与游戏厅五项修补 · v0.42.151+395,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MEDIA_CREATIVE_DESIGN_v042173.md,11103,61,QQ媒体可靠性与作品审美 · v0.42.173+417,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/QQ_MEMORY_COMPATIBILITY_REVIEW_2026-10-25.md,13147,120,QQ 记忆接入与现有 App 的兼容性审查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MEMORY_FOURTH_REVIEW_2026-10-26.md,9974,72,QQ / App 记忆第四轮复查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MEMORY_GROUP_PLAN_2026-10-25.md,40774,276,QQ 下一阶段：共享记忆、群聊与存档修改方案,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/QQ_MEMORY_IMPLEMENTATION_2026-10-26.md,11215,65,QQ 记忆实施记录,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MEMORY_SECOND_REVIEW_2026-10-25.md,7373,62,QQ / App 记忆第二轮复查补充,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MEMORY_THIRD_REVIEW_2026-10-25.md,10190,88,QQ / App 记忆第三轮复查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_MENTION_REPAIR_v042156.md,3572,20,v0.42.156+400 · QQ直接提及修补,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_NIGHT_RECOVERY_v042142.md,7224,56,v0.42.142+386：QQ边界修补与夜间主动联系,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_OWNER_RECOGNITION_v042175.md,626,5,QQ 绑定本人身份确认 v0.42.175+419,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_PRIVATE_V1_2026-10-25.md,12046,65,QQ 私聊首版：隔离接入、只读记忆,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_REVIEW_v042146_2026-10-28.md,8453,59,+390 QQ定向复查 · 2026-10-28,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_SITUATION_VOICE_ECHO_PLAN_2026-10-27.md,11912,81,下一版方案：当前情境、QQ语音与临时表情复读,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/QQ_STABILITY_IMPLEMENTATION_v042155.md,4850,26,v0.42.155+399 稳定性与小形态校准,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_TARGETED_REVIEW_v042140_2026-10-27.md,16087,137,QQ 定向复查：+384 基线与下一阶段接口,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_VOICE_PITCH_v042166.md,4972,55,QQ 导出音高对齐 v0.42.166+410,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_VOICE_SITUATION_ECHO_v042146.md,6877,36,QQ语音、情境软参考与临时表情复读 · v0.42.146+390,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/QQ_VOICE_SKETCH_AESTHETICS_REVIEW_20261105.md,8076,62,QQ语音、涂鸦失败与作品审美检查 · 2026-11-05,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/REAL_DEVICE_CHECKPOINT_v0.28.md,2048,22,v0.28 · First Real-device Checkpoint Harness,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v028.py,,标题/引用扫描
+app/docs/RECOVERY_ORCHESTRATION_v0.16.md,2271,47,Recovery Orchestration · v0.16,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/REFERENCES.md,2034,49,技术参考（开发期）,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/REFERENCE_LIBRARY.md,930,25,Reference Library · v0.7,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0387_public_web_share_test.py,,标题/引用扫描
+app/docs/REFERENCE_LIBRARY_UX_v0.19.md,3006,105,Reference Library daily UX · v0.19,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/RELATIONSHIP_CONTINUITY.md,1532,55,Relationship Continuity · v0.5,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/RELATIONSHIP_PRESENTATION_v0.21.md,2883,56,Relationship / Inner-state Companion Presentation · v0.21,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/REMINDER_COMPACT_CACHE_v0.42.85.md,9403,58,+329 右下角提醒小窗、来电音量与DeepSeek缓存审计,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/REMINDER_CONFIRMATION_v0.42.84.md,9566,56,+328 系统待办确认与主动提醒,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/REPLY_RECOVERY_PHONE_BALANCE_v0.42.132.md,4689,31,v0.42.132+376 回复恢复、后台游戏与手机活动半额计分,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/REPOSITORY_MAINTENANCE.md,4185,65,仓库维护合同,更新总账协议、维护资料同步、文档与校验依赖说明,,,定点正文与代码/流程核对
+app/docs/RESTORE_ARCADE_v0.42.106.md,2435,18,+350 恢复原自主游玩选项,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/REVIEW_RECOVERY_v0.42.107.md,4841,39,v0.42.107+351 审查问题修复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/RIGHT_EAR_EDITOR_v0.42.88.md,2823,22,v0.42.88+332 右侧耳鳍临时校准,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/RIGHT_EAR_PLACEMENT_v0.42.89.md,2154,13,v0.42.89+333 右耳位置定版,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/ROADMAP.md,1046,13,AI Companion Roadmap,重新分类已实现/候选/搁置；不得恢复旧计划为任务,app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py,,定点正文与代码/流程核对
+app/docs/SECOND_CHANNEL_ANOMALY_REVIEW_2026-10-21.md,11481,70,第二通道异常正文复核与后续待办 · 2026-10-21,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SECOND_CHANNEL_SPEECH_PERFORMANCE_PLAN_2026-10-21.md,19215,175,第二通道窄范围优化与语音阶段 Live2D 表演方案,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/SELF_EXPERIENCE_DESIRE_WEB_PHASE2A_v0.41.15.md,3669,35,Phase 2A：自我体验、欲望动力学与自主联网,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04115_phase2a_self_experience_desire_web.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/SEMANTIC_TOOLS_REAUDIT_v0.42.118.md,5662,39,+362 JEV工具语义入口与复查修复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SETTINGS_INFORMATION_ARCHITECTURE_v0.41.18.md,2436,40,v0.41.18 总设置信息架构与保存语义,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04118_settings_information_architecture.py,,标题/引用扫描，关键模块另有正文核对
+app/docs/SHARED_STICKERS_v0.42.91.md,6780,39,v0.42.91+335 表情图库与聊天共享原图,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SMALLFORM_CACHE_RECOVERY_v042165.md,5770,32,+409 小豆丁下段支点与避峰接续修补,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SOMATIC_AI_TO_SELF_v0.32.1.md,3192,75,双通道感官：AI → 自身回响（v0.32.1+53）,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/SOMATIC_CONTRACT_TOUCH_v0.32.0.md,4370,73,v0.32.0 · Somatic Contract & Daily Touch MVP,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/SPEECH_PRESETS_ROOM_MODELS_v0.42.124.md,9899,47,v0.42.124+368 · 语音原装表情、独立房间模型及悬浮历史,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SPEED_SHARE_IMPLEMENTATION_v042153.md,5475,32,第三通道传输、识图分流与自主分享修补 · v0.42.153,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/STABILITY_CLOSEOUT_PLAN_2026-10-25.md,17610,160,收尾阶段：修补清单与七类稳定性复查计划,设计与方案候选；逐项映射实现后再标注状态，不按文件名判未实现,,,标题/引用扫描，未逐条验收
+app/docs/STABILITY_REPAIRS_v0.42.134.md,10779,73,v0.42.134+378：第一阶段稳定性修补,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/STARTUP_RECOVERY_v0.28.1.md,896,13,v0.28.1 · Startup Recovery,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v0281.py,,标题/引用扫描
+app/docs/STICKER_AGENT_CONTINUATION_IDENTITY_v0.41.46.md,3058,41,v0.41.46 · Sticker Agent + Continuation Identity,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04146_sticker_agent_continuation_identity.py,app/tools/validate_v04146_sticker_agent_continuation_identity.py,标题/引用扫描，关键模块另有正文核对
+app/docs/STICKER_EXPRESSION_v0.41.45.md,5876,126,Sticker expression layer · v0.41.45,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04145_sticker_expression.py,app/tools/validate_v04145_sticker_expression.py,标题/引用扫描，关键模块另有正文核对
+app/docs/STICKER_PICKER_SPEED_v0.42.92.md,5519,55,v0.42.92+336 · 表情面板读取优化,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md,4232,39,v0.41.51 表情语义与相册互操作合同,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,app/tools/validate_v04151_sticker_semantics_gallery.py,app/tools/validate_v04151_sticker_semantics_gallery.py,标题/引用扫描，关键模块另有正文核对
+app/docs/STICKER_WORKBENCH_v0.42.74.md,7924,63,v0.42.74+318 表情包整理与编辑任务清单,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md,20833,180,主体性与活人感约束审查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/SYSTEM_LOGIC_HARDENING_2026-10-13.md,19897,138,+348 系统逻辑修复,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/TEST_CHECKLIST.md,54376,353,v0.42.5+249 TTS 零语义根修与双档会话诊断真机验收增量,保留历史验收证据；另建当前按模块验证导航,app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py;app/tools/validate_v0315_live_context_seed.py;app/tools/validate_v04169_cedar_game_switching.py;app/tools/validate_v04170_agent_mcp_runtime_hardening.py;app/tools/validate_v04171_cedar_realtime_room_chat.py;app/tools/validate_v04176_cedar_protocol_continuation.py;app/tools/validate_v04177_cedar_background_turn_loop.py;app/tools/validate_v04178_stop_transfer_interlock.py;app/tools/validate_v04179_cedar_runtime_preemption.py;app/tools/validate_v04180_cedar_agent_loop.py;app/tools/validate_v04181_cedar_background_agent_tools.py;app/tools/validate_v04182_cedar_state_machine_e2e.py;app/tools/validate_v04183_cedar_native_agent_loop.py;app/tools/validate_v04205_tts_semantic_guard_session_metrics.py,app/tools/validate_v04169_cedar_game_switching.py;app/tools/validate_v04170_agent_mcp_runtime_hardening.py;app/tools/validate_v04171_cedar_realtime_room_chat.py;app/tools/validate_v04176_cedar_protocol_continuation.py;app/tools/validate_v04177_cedar_background_turn_loop.py;app/tools/validate_v04178_stop_transfer_interlock.py;app/tools/validate_v04179_cedar_runtime_preemption.py;app/tools/validate_v04180_cedar_agent_loop.py;app/tools/validate_v04181_cedar_background_agent_tools.py;app/tools/validate_v04182_cedar_state_machine_e2e.py;app/tools/validate_v04183_cedar_native_agent_loop.py,定点正文与代码/流程核对
+app/docs/THIRD_CHANNEL_HANDOFF_REVIEW_2026-10-28.md,8125,52,第三通道规格核对与QQ频率待办 · 2026-10-28,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/THIRD_CHANNEL_PUBLIC_GATEWAY_v042152.md,7052,27,第三通道公网探活与诊断修补 · v0.42.152+396,历史交付；修正第25行失效相对链接,,,定点正文与代码/流程核对
+app/docs/THIRD_CHANNEL_QQ_IMPLEMENTATION_v042149.md,13398,76,第三通道、统一识图与QQ群接话 · v0.42.149+393,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/THIRD_CHANNEL_SPEED_AND_SHARE_HANDOFF_2026-10-30.md,11566,96,第三通道加速与自主分享接续清单 · 2026-10-30,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/THIRD_PARTY_NOTICES.md,1303,32,Third-party mechanism notices,保留许可/来源；不作为普通旧方案清理,app/tools/validate_v04145_sticker_expression.py;app/tools/validate_v04146_sticker_agent_continuation_identity.py;app/tools/validate_v04231_caicai_native_idle.py,app/tools/validate_v04145_sticker_expression.py;app/tools/validate_v04146_sticker_agent_continuation_identity.py;app/tools/validate_v04231_caicai_native_idle.py,用途分类
+app/docs/THOUGHT_LIFECYCLE_v0.10.md,1921,36,Thought Lifecycle · v0.10,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/THOUGHT_LIFECYCLE_v0.9.md,1552,31,Thought Lifecycle · v0.9,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TOKEN_CREATIVE_AUDIT_2026-10-12.md,15954,129,输出预算与作品分批审计 · 2026-10-12,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/TRANSFER_HARDENING_v0.26.md,2708,44,v0.26 Transfer Hardening,领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v026.py,,标题/引用扫描
+app/docs/TRUE_OVERLAY_AUDIT_v0.13.md,3130,72,True Overlay Chat Audit · v0.13,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TRUE_STOP_GENERATION_v0.31.7.md,2536,45,v0.31.7 · 真正停止生成,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TTS_A2_BASELINE_v0.29.md,1796,38,v0.29.0 · Meju A2 TTS baseline,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TTS_COROUTINE_CLASSLOADER_v0.28.5.md,1604,32,v0.28.5 TTS coroutine/ClassLoader bridge,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TTS_LEGACY_COROUTINE_BRIDGE_v0.28.4.md,747,7,v0.28.4 Legacy TTS coroutine bridge,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TTS_PORTING.md,1218,17,Native TTS Porting Status · current (v0.39.5),明确历史移植记录，去掉 current 歧义,app/tools/validate_v025.py,,定点正文与代码/流程核对
+app/docs/TTS_RUNTIME_UPGRADE_v0.39.5.md,3076,43,新版妹居本地 TTS 运行时 · v0.39.5,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/TTS_SOURCE_APK_ANALYSIS.md,1360,24,MejuTTS source APK analysis · v0.25 (historical),领域说明候选；核对当前适用范围后纳入导航,app/tools/validate_v025.py,,标题/引用扫描
+app/docs/TTS_STATE_CANCEL_RETRACT_v0.31.9.md,5132,77,v0.31.9 · TTS State & Cancelled-turn Withdrawal,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/UI_CONFIRMATION_LAYOUT_AND_BACKUP_AUDIT_v0.42.125.md,8721,50,v0.42.125+369 · DS确认、房间底部操作与存档只读核查,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/UI_INFORMATION_ARCHITECTURE_v1.md,6791,158,UI 信息架构 v1,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/UI_TTS_POLISH_v0.29.1.md,1307,27,v0.29.1 · TTS / UI polish,领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/VOICE_PIPELINE.md,2465,56,Voice Pipeline · current (v0.39.5),明确退役 MNN/Meju 历史链；另写当前 Genie 链,app/tools/validate_v025.py,,定点正文与代码/流程核对
+app/docs/WEB_RELEVANCE_RECENCY_v0.42.93.md,11125,82,v0.42.93+337 · 相关网页读取与近期发现,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/WEB_SHARE_REVIEW_2026-10-28.md,8804,64,网页分享减少：存档与代码定向核对,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/WISH_CHAT_FIXES_v0.42.79.md,3803,30,+323 · 游戏授权、愿望处置与最终消息滚动,版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md,3986,42,WorldBook 2D provenance and roleplay boundary (v0.41.38),版本历史候选；保留失败路线与验证证据；先标签归档，暂不搬迁,,,标题/引用扫描，关键模块另有正文核对
+app/docs/ledger/AI_Companion_总账_v3.md,498633,2070,AI Companion · 总账 v3,保留历史证据；v4 唯一当前记录；不删改冻结归档,,,结构扫描及关键章节核对
+app/docs/ledger/AI_Companion_总账_v4.md,84509,339,AI Companion · 总账 v4,保留历史证据；v4 唯一当前记录；不删改冻结归档,,,结构扫描及关键章节核对
+app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md,1587679,6491,AI Companion · 当前总账,保留历史证据；v4 唯一当前记录；不删改冻结归档,app/tools/validate_current_ledger_handoff.py;app/tools/validate_v04112_ordinary_time_scene_boundary.py;app/tools/validate_v04113_phase01_time_audit_hardening.py;app/tools/validate_v04114_agent_truth_screen_observation.py;app/tools/validate_v04130_presentation_ablation_upload_diagnostics.py;app/tools/validate_v04131_phase2a5_verifier_anr_diagnostics.py;app/tools/validate_v04132_phase2b_learning_association.py;app/tools/validate_v04133_competence_curation_emotion.py;app/tools/validate_v04134_memory_grounding_agent_foundation.py;app/tools/validate_v04135_interrupted_turn_system_command.py;app/tools/validate_v04136_immersive_boundary_stop_style.py;app/tools/validate_v04150_agent_v2_bounded_loop.py;app/tools/validate_v04158_backup_naiyou_runtime.py;app/tools/validate_v04167_cedar_toy_mcp.py;app/tools/validate_v04168_cedar_game_experience.py;app/tools/validate_v04169_cedar_game_switching.py;app/tools/validate_v04170_agent_mcp_runtime_hardening.py;app/tools/validate_v04171_cedar_realtime_room_chat.py;app/tools/validate_v04172_cedar_trust_watch_modes.py;app/tools/validate_v04173_cedar_reply_completion.py;app/tools/validate_v04174_cedar_game_hall_protocol.py,app/tools/validate_current_ledger_handoff.py;app/tools/validate_v04112_ordinary_time_scene_boundary.py;app/tools/validate_v04113_phase01_time_audit_hardening.py;app/tools/validate_v04114_agent_truth_screen_observation.py;app/tools/validate_v04130_presentation_ablation_upload_diagnostics.py;app/tools/validate_v04131_phase2a5_verifier_anr_diagnostics.py;app/tools/validate_v04132_phase2b_learning_association.py;app/tools/validate_v04133_competence_curation_emotion.py;app/tools/validate_v04134_memory_grounding_agent_foundation.py;app/tools/validate_v04135_interrupted_turn_system_command.py;app/tools/validate_v04136_immersive_boundary_stop_style.py;app/tools/validate_v04150_agent_v2_bounded_loop.py;app/tools/validate_v04158_backup_naiyou_runtime.py;app/tools/validate_v04167_cedar_toy_mcp.py;app/tools/validate_v04168_cedar_game_experience.py;app/tools/validate_v04169_cedar_game_switching.py;app/tools/validate_v04170_agent_mcp_runtime_hardening.py;app/tools/validate_v04171_cedar_realtime_room_chat.py;app/tools/validate_v04172_cedar_trust_watch_modes.py;app/tools/validate_v04173_cedar_reply_completion.py;app/tools/validate_v04174_cedar_game_hall_protocol.py,结构扫描及关键章节核对
+app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.84+228.md,98372,483,AI Companion · 当前总账,保留历史证据；v4 唯一当前记录；不删改冻结归档,app/tools/validate_current_ledger_handoff.py,app/tools/validate_current_ledger_handoff.py,结构扫描及关键章节核对
+app/docs/reference/local_semantic_memory.md,3725,61,Local semantic memory (v0.42.189 candidate),领域说明候选；核对当前适用范围后纳入导航,,,标题/引用扫描
+app/docs/third_party/caicai-live2d/CORE_LICENSE.md,520,7,Live2D Proprietary Software License,保留许可/来源；不作为普通旧方案清理,,,用途分类
+app/docs/third_party/caicai-live2d/FRAMEWORK_LICENSE.md,2245,43,Definitions,保留许可/来源；不作为普通旧方案清理,,,用途分类
+app/docs/third_party/caicai-live2d/THIRD_PARTY_NOTICES.md,2612,33,Caicai native runtime attribution,保留许可/来源；不作为普通旧方案清理,app/tools/validate_v04145_sticker_expression.py;app/tools/validate_v04146_sticker_agent_continuation_identity.py;app/tools/validate_v04231_caicai_native_idle.py,app/tools/validate_v04145_sticker_expression.py;app/tools/validate_v04146_sticker_agent_continuation_identity.py;app/tools/validate_v04231_caicai_native_idle.py,用途分类
+app/packages/qq_private_bridge/README.md,1268,9,QQ private bridge 0.1,保留组件/资源说明；迁移前核对构建和许可,.github/workflows/build-apk.yml;app/android/app/src/main/kotlin/com/aicompanion/localfirst/TtsGoldenBaseline.kt;app/tools/validate_v018.py;app/tools/validate_v019.py;app/tools/validate_v020.py;app/tools/validate_v021.py;app/tools/validate_v022.py;app/tools/validate_v023.py;app/tools/validate_v024.py;app/tools/validate_v025.py;app/tools/validate_v026.py;app/tools/validate_v027.py;app/tools/validate_v028.py;app/tools/validate_v0281.py,.github/workflows/build-apk.yml,用途分类
+app/packages/qq_private_bridge/THIRD_PARTY_NOTICE.md,1291,24,,保留许可/来源；不作为普通旧方案清理,,,用途分类
