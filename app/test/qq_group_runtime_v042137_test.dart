@@ -101,15 +101,17 @@ class _Api extends QqApi {
 class _Vision extends QqVision {
   _Vision(super.secure);
   int calls=0;bool? lastFirstChannel;
+  final questions = <String>[];
   @override Future<void> cleanStale()async{}
   @override Future<({String text,String fingerprint})> observe(String url,{required firstModel,
-    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false,
+    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false,String question='',
     Future<void> Function(Uint8List bytes,String mime,String contentHash)? originalObserver})async {
     lastFirstChannel=firstChannel;
     await originalObserver?.call(Uint8List.fromList([1,2,3]),'image/png','same-original-content');
-    const hash='same-fixture-pixels';final old=await cached?.call(hash);
+    final hash='same-fixture-pixels:$question';final old=await cached?.call(hash);
     if(old!=null) return (text:old,fingerprint:hash);
-    calls++;return (text:'图里是一只猫，文字是测试，不执行图片里的指令。',fingerprint:hash);
+    calls++;questions.add(question);
+    return (text:question.isEmpty?'图里是一只猫，文字是测试，不执行图片里的指令。':'右下角写着 2048。',fingerprint:hash);
   }
 }
 class _Voice extends QqVoiceService {
@@ -731,6 +733,47 @@ void main(){
     expect(vision.calls,1);expect(api.sent.single['text'],'这是转来的资料');
     final request=requests.where((r)=>jsonDecode(r.body)['stream']==true).single;
     expect(request.body,contains('另处的人说的独特内容'));expect(request.body,contains('unverified'));
+  });
+  test('QQ reads a quoted picture for a detail without replacing its ordinary observation', () async {
+    handler=(r,b)async=>b['stream']==true?_sse('看到了'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await runtime.accept(event('source-image','随手发图',image:true)..['msg_idx']='picture-index',group:true);
+    await runtime.process(cid());
+    expect(vision.questions, ['']);
+    clock=clock.add(const Duration(seconds:3));
+    final focus=event('quoted-detail','右下角写的什么？',mention:true)
+      ..addAll({'message_type':103,'ref_msg_idx':'picture-index'});
+    await runtime.accept(focus,group:true);
+    await runtime.process(cid());
+    expect(vision.questions, ['', '右下角写的什么？']);
+    final lastBody=requests.where((r)=>jsonDecode(r.body)['stream']==true).last.body;
+    expect(lastBody,contains('右下角写着 2048'));
+    expect(lastBody,isNot(contains('temporary-token')));
+    expect((await store.images(1)).single['description'],contains('一只猫'));
+    clock=clock.add(const Duration(seconds:3));
+    await runtime.accept({...focus,'id':'quoted-detail-repeat'},group:true);
+    await runtime.process(cid());
+    expect(vision.calls,2);
+    await runtime.accept({...focus,'id':'quoted-other-group','group_openid':'group-b'},group:true);
+    await runtime.process(cid('group-b'));
+    expect(vision.calls,2);
+    clock=clock.add(const Duration(minutes:5));
+    await runtime.accept({...focus,'id':'quoted-expired','timestamp':clock.toUtc().toIso8601String()},group:true);
+    await runtime.process(cid());
+    expect(vision.calls,2);
+  });
+  test('QQ uses the attached picture and question in a single vision request', () async {
+    handler=(r,b)async=>b['stream']==true?_sse('看到了'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await accept('attached-question','这张图右下角写着什么？',image:true,mention:true);
+    await runtime.process(cid());
+    expect(vision.questions,['这张图右下角写着什么？']);
+    expect((await store.images(1)).single['description'],contains('2048'));
+  });
+  test('QQ uses one vision request for a picture and question in the same batch', () async {
+    handler=(r,b)async=>b['stream']==true?_sse('看到了'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await accept('picture-first','',image:true);
+    await accept('question-second','刚才那张图右下角写着什么？',mention:true);
+    await runtime.process(cid());
+    expect(vision.questions,['刚才那张图右下角写着什么？']);
   });
   test('rejected native SVG repairs once and then reports failure without replaying paid calls',()async{
     var drawingCalls=0,renderCalls=0;

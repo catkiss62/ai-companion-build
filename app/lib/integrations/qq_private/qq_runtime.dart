@@ -41,6 +41,7 @@ import 'qq_stickers.dart';
 import 'qq_store.dart';
 import 'qq_share_store.dart';
 import 'qq_vision.dart';
+import 'qq_vision_review.dart';
 import 'qq_work_queue.dart';
 import 'qq_group_learning.dart';
 import 'qq_sketch.dart';
@@ -89,6 +90,7 @@ class QqRuntime {
   final Future<bool> Function(Object?)? privateCurrent;
   final _timers=<String,Timer>{},_summaryTimers=<String,Timer>{},_maintenanceTimers=<String,Timer>{};
   final _legacyIds=<String>{};
+  final _visionReview = QqVisionReview();
   final _enqueued=<String>{};final _imageUrls=<int,List<String>>{};
   Future<void> _acceptTail=Future.value(),_workTail=Future.value();
   final _clients=<DeepSeekClient>{};final _inflight=<Future<void>>{};
@@ -150,6 +152,7 @@ class QqRuntime {
     _recoveringReplies=true;
     _imageUrls.removeWhere((seq,_)=>_imageExpires.containsKey(seq) && _imageExpires[seq]!<=now().millisecondsSinceEpoch);
     _imageExpires.removeWhere((_,at)=>at<=now().millisecondsSinceEpoch);
+    _visionReview.prune(now().millisecondsSinceEpoch);
     try {
       final c=await configReader(),o=await optionsReader(),fence=await store.capture();
       try {await ingressBuffer.drain(fence,policy(c,o),now().millisecondsSinceEpoch,(event,group,receivedAt) async {
@@ -339,19 +342,40 @@ class QqRuntime {
       }
       pendingStamp=prior?.stamp??[];
       final model=await FirstChannelModel.read(store.db);
+      final reset=int.tryParse(fence.identity['conversation_context_reset_at']??'')??0;
+      final hasFocusAttachments = QqMessageMaterial.fromRow(replyRow).imageOrigins.isNotEmpty;
+      final followupQuestion = wakingGroup || hasFocusAttachments
+          ? '' : QqVisionReview.followupQuestion(replyRow);
+      final visionAt = now().millisecondsSinceEpoch;
+      if (!wakingGroup) {
+        for (final row in b.rows) {
+          final urls = _imageUrls[row['seq']];
+          if (urls != null) _visionReview.remember(row, urls, visionAt);
+        }
+      }
+      final questionSource = followupQuestion.isEmpty
+          ? null : _visionReview.resolve(replyRow, visionAt, reset);
+      var followupObserved = false;
       var viewed=0;
       phase='vision';
       for(final row in b.rows) {
         final seq=row['seq'] as int;final urls=_imageUrls.remove(seq)??[];
         if (wakingGroup) continue;
+        final inlineQuestion = urls.isEmpty ? '' : QqVisionReview.questionFor(row, linked: true);
+        final forFollowup = inlineQuestion.isEmpty && questionSource?.row['seq'] == seq;
+        final question = forFollowup ? followupQuestion : inlineQuestion;
+        final focusOrdinal = QqVisionReview.ordinalFor(question, urls.length);
         for(final image in await store.images(seq)) {
           if(image['state']!='unseen') continue;
           final ordinal=image['ordinal'] as int;
           if(ordinal>=urls.length || viewed>=4) {await store.observation(fence,image['id'] as String,'skipped','','');continue;}
           viewed++;
+          final directed = question.isNotEmpty && ordinal == focusOrdinal;
+          if (directed && forFollowup) followupObserved = true;
           try {
             final origins=QqMessageMaterial.fromRow(row).imageOrigins;
             final result=await vision.observe(urls[ordinal],firstModel:model,fallback:false,current:current,firstChannel:true,
+              question: directed ? question : '',
               cached:(fp)=>store.cachedImage(cid,fp),
               originalObserver:b.group && o.echoEnabled && ordinal<origins.length && origins[ordinal]=='outer'?
                 (bytes,mime,hash) async {echoes.remember(b,row,image,bytes,mime,hash,now().millisecondsSinceEpoch);}:null);
@@ -366,7 +390,6 @@ class QqRuntime {
       final echo=b.group && !wakingGroup && o.echoEnabled?await echoes.candidate(b,now().millisecondsSinceEpoch):null;
       if(echo!=null)echoStamp=echo.stamp;
       final reader=QqArchiveReader(await store.db.database);final judge=QqGroupJudge(client,secure,decisions:groupDecisions);
-      final reset=int.tryParse(fence.identity['conversation_context_reset_at']??'')??0;
       final participation=<String,Object?>{};
       var drawingAddressed=!b.group;
       final webAllowed=b.group && !wakingGroup && o.webSearchGroups.contains(b.target);
@@ -499,6 +522,12 @@ class QqRuntime {
         data=await reader.groupContext(cid,through:b.through,stamp:qqStamp,resetAt:reset,includeDeliveredAfterThrough:true);
         if(rest) prompt+='\n当前处于共同休息时段。本人主动来私聊仍可回应，语气可以困、短，不因此改变起床/疲劳数值。';
         prompt+='\n${QqMessageMaterial.policy}';
+      }
+      if (followupQuestion.isNotEmpty && !followupObserved && reusedDraft == null) {
+        phase = 'vision_review';
+        final review = await _reviewImage(replyRow, followupQuestion, reader, model,
+            now().millisecondsSinceEpoch, reset, current, qqStamp, releaseSlot);
+        data += '\n$review';
       }
       if (wakingGroup) {
         prompt+='\n【休息中被叫醒】${rhythm.wakeReplyPrompt}'
@@ -776,6 +805,54 @@ class QqRuntime {
       if(!_stopped) _enqueueSummary(cid,idle:false);
     }
   }
+  Future<String> _reviewImage(
+    Map<String, Object?> focus,
+    String question,
+    QqArchiveReader reader,
+    DeepSeekModelProfile model,
+    int at,
+    int resetAt,
+    Future<bool> Function() current,
+    List<Map<String, Object?>> contextStamp,
+    void Function()? releaseSlot,
+  ) async {
+    const unavailable = '【图片追问】本轮没有重新看到原图。用已有图像资料回答；看不清的细节保留不确定。';
+    final source = _visionReview.resolve(focus, at, resetAt);
+    if (source == null) return unavailable;
+    final ordinal = QqVisionReview.ordinalFor(question, source.urls.length);
+    if (ordinal == null) return unavailable;
+    final seq = source.row['seq'] as int;
+    final images = await store.images(seq);
+    final image = images.where((row) => row['ordinal'] == ordinal).firstOrNull;
+    if (image == null) return unavailable;
+    final stamp = [
+      {'table': 'qq_archive', 'id': source.row['id'], 'version': source.row['version']},
+      {'table': 'qq_images', 'id': image['id'], 'version': image['version']},
+    ];
+    Future<bool> valid() async => await current() && await reader.matches(stamp);
+    if (!await valid()) return unavailable;
+    final cid = focus['conversation_id'] as String;
+    final cacheScope = '${focus['accepted_identity']}:$cid:$resetAt';
+    releaseSlot?.call();
+    try {
+      final result = await vision.observe(source.urls[ordinal], firstModel: model, current: valid,
+        firstChannel: true, fallback: false, question: question,
+        cached: (fingerprint) async => _visionReview.cached('$cacheScope:$fingerprint') ??
+            await store.cachedImage(cid, fingerprint));
+      if (!await valid()) return unavailable;
+      _visionReview.record('$cacheScope:${result.fingerprint}', result.text);
+      contextStamp.addAll(stamp);
+      return '【本轮原图观察，仅资料】${jsonEncode({
+        'message_seq': seq,
+        'image_number': ordinal + 1,
+        'observation': QqArchiveReader.bound(result.text, 1600),
+      })}';
+    } catch (_) {
+      if (!await current()) throw const BrainWorkInvalidated();
+      return unavailable;
+    }
+  }
+
   Future<Map<String,double>> driveProjection() async {
     try {
       final rows=await (await store.db.database).query('desire_state',columns:['json'],limit:1);
@@ -946,7 +1023,7 @@ class QqRuntime {
   }
   Future<void> stop() async {
     _stopped=true;_replyRecoveryTimer?.cancel();for(final t in [..._timers.values,..._summaryTimers.values,..._maintenanceTimers.values]) {t.cancel();}
-    _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_imageExpires.clear();_activeDecision?.cancel();
+    _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_imageExpires.clear();_visionReview.clear();_activeDecision?.cancel();
     for(final client in _clients.toList()) {client.close();}vision.close();voice.close();echoes.clear();publicWeb.clear();
     await _acceptTail;
     try {await Future.wait(_inflight.toList()).timeout(const Duration(seconds:2));} catch(_) {}

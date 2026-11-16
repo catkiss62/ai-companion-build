@@ -29,9 +29,19 @@ class MemoryEmbeddingBridge(context: Context, engine: FlutterEngine) {
                 }
                 worker.execute {
                     try {
+                        val cold = session == null
+                        val loadStart = System.nanoTime()
                         initialize(app)
+                        val inferenceStart = System.nanoTime()
                         val vectors = texts.map { embed(it) }
-                        main.post { result.success(vectors) }
+                        val inferenceMs = (System.nanoTime() - inferenceStart) / 1_000_000
+                        main.post {
+                            result.success(mapOf(
+                                "vectors" to vectors,
+                                "loadMs" to if (cold) (inferenceStart - loadStart) / 1_000_000 else null,
+                                "inferenceMs" to inferenceMs
+                            ))
+                        }
                     } catch (e: Exception) {
                         main.post { result.error("local_embedding_failed", e.javaClass.simpleName, null) }
                     }

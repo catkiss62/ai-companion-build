@@ -9822,6 +9822,7 @@ class AppDatabase {
     bool promptAdmission = false,
     DateTime? now,
   }) async {
+    final recallClock = semanticMemoryIndex.enabled ? (Stopwatch()..start()) : null;
     final db = await database;
     final proactive = retrievalMode == 'proactive';
     final explicitRecall = retrievalMode == 'explicitRecall' ||
@@ -9871,11 +9872,15 @@ class AppDatabase {
     final semanticItems = proactive ? <MemoryItem>[] : (await db.query('memory_items',
       where: "source_valid = 1 AND status = 'active' AND semantic_type IN ('current_fact','shared_experience')"))
       .map(MemoryItem.fromDb).where((item) => !promptAdmission || MemoryAdmissionPolicy.forPrompt(item)).toList();
-    final semanticScores = proactive ? <String,double>{} : await semanticMemoryIndex.search(query, semanticItems);
+    SemanticQueryTiming semanticTiming = (mode: 'skipped', embeddingMs: null, inferenceMs: null);
+    final semanticScores = proactive ? <String,double>{} : await semanticMemoryIndex.search(
+      query, semanticItems, onTiming: (sample) => semanticTiming = sample,
+    );
     final allCandidates = <String,MemoryItem>{for(final item in semanticItems)item.id:item,
       for(final entry in scored)entry.item.id:entry.item, for(final item in successors)item.id:item};
+    final lexicalIds = [for (final item in successors) item.id, for (final entry in scored) entry.item.id];
     final rankedIds = HybridMemoryRanking.rank(
-      lexical: [for(final item in successors)item.id, for(final entry in scored)entry.item.id],
+      lexical: lexicalIds,
       semantic: semanticScores, limit: max(limit, 40));
     final directSelected = rankedIds.take(limit).map((id) => allCandidates[id]!).toList(growable:false);
     final seedTopics = directSelected
@@ -9959,6 +9964,15 @@ class AppDatabase {
         ],
       );
     });
+    if (recallClock != null) {
+      final semanticOnlySelected = semanticScores.isEmpty ? 0 : selected.where((item) =>
+          rankedIds.contains(item.id) && !lexicalIds.contains(item.id)).length;
+      semanticMemoryIndex.recordRecallTiming(
+        mode: retrievalMode, query: semanticTiming,
+        totalMs: recallClock.elapsedMilliseconds,
+        semanticOnlySelected: semanticOnlySelected,
+      );
+    }
     return selected;
   }
 
@@ -10063,6 +10077,7 @@ class AppDatabase {
       'localSemanticStatus': semanticMemoryIndex.status,
       'localSemanticIndexed': semanticMemoryIndex.indexedCount,
       'localSemanticPending': semanticMemoryIndex.pendingCount,
+      'localSemanticTiming': semanticMemoryIndex.timingStats(),
       'windowHours': 24,
       'runs': (row['runs'] as num?)?.toInt() ?? 0,
       'candidates': (row['candidates'] as num?)?.toInt() ?? 0,

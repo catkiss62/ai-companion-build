@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -9,6 +10,12 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/memory_item.dart';
+
+typedef SemanticQueryTiming = ({
+  String mode,
+  int? embeddingMs,
+  int? inferenceMs,
+});
 
 /// Derived, disposable index. Source rows remain authoritative on every lookup.
 /// Model identity includes tokenizer and pooling; never shares cloud vectors.
@@ -28,6 +35,36 @@ class LocalSemanticIndex {
   String status = 'not_started';
   int indexedCount = 0;
   int pendingCount = 0;
+  int? _modelLoadMs;
+  Stopwatch? _indexClock;
+  int _indexedThisBuild = 0;
+  final _recent = Queue<Map<String, Object?>>();
+
+  void recordRecallTiming({
+    required String mode,
+    required SemanticQueryTiming query,
+    required int totalMs,
+    required int semanticOnlySelected,
+  }) {
+    if (!enabled) return;
+    if (_recent.length == 8) _recent.removeFirst();
+    _recent.add({
+      'retrievalMode': mode,
+      'queryMode': query.mode,
+      'embeddingMs': query.embeddingMs,
+      'nativeInferenceMs': query.inferenceMs,
+      'totalMs': totalMs,
+      'semanticOnlySelected': semanticOnlySelected,
+    });
+  }
+
+  Map<String, Object?> timingStats() => {
+    'modelLoadMs': _modelLoadMs,
+    'indexBuildMs': _indexClock?.elapsedMilliseconds,
+    'indexBuildRunning': _indexClock?.isRunning ?? false,
+    'indexBuildItems': _indexedThisBuild,
+    'latest': _recent.toList().reversed.toList(),
+  };
 
   static String textFor(MemoryItem item) =>
       '${item.content}\n${item.tags.join(' ')}';
@@ -55,14 +92,19 @@ class LocalSemanticIndex {
     }
   }
 
-  Future<List<Float32List>> _embed(List<String> texts) async {
-    if (encoder != null) return encoder!(texts);
+  Future<({List<Float32List> vectors, int? inferenceMs})> _embed(
+    List<String> texts,
+  ) async {
+    if (encoder != null)
+      return (vectors: await encoder!(texts), inferenceMs: null);
     final raw = await _channel
-        .invokeListMethod<dynamic>('embed', {'texts': texts})
+        .invokeMapMethod<String, dynamic>('embed', {'texts': texts})
         .timeout(const Duration(seconds: 10));
-    if (raw == null || raw.length != texts.length)
+    _modelLoadMs ??= raw?['loadMs'] as int?;
+    final vectors = raw?['vectors'] as List?;
+    if (vectors == null || vectors.length != texts.length)
       throw const FormatException('embedding_count');
-    return raw.map((v) {
+    final decoded = vectors.map((v) {
       final vector = Float32List.fromList(
         (v as List).map((n) => (n as num).toDouble()).toList(),
       );
@@ -71,16 +113,30 @@ class LocalSemanticIndex {
       }
       return vector;
     }).toList();
+    return (vectors: decoded, inferenceMs: raw?['inferenceMs'] as int?);
   }
 
   /// Old archives are indexed asynchronously. A partially built index is never
   /// used to bias retrieval toward whichever rows happened to finish first.
   Future<Map<String, double>> search(
     String query,
-    List<MemoryItem> items,
-  ) async {
-    if (!enabled || query.trim().isEmpty || items.isEmpty) return {};
-    if (_retryAfter != null && DateTime.now().isBefore(_retryAfter!)) return {};
+    List<MemoryItem> items, {
+    void Function(SemanticQueryTiming)? onTiming,
+  }) async {
+    void timing(String mode, {int? embeddingMs, int? inferenceMs}) =>
+        onTiming?.call((
+          mode: mode,
+          embeddingMs: embeddingMs,
+          inferenceMs: inferenceMs,
+        ));
+    if (!enabled || query.trim().isEmpty || items.isEmpty) {
+      timing('skipped');
+      return {};
+    }
+    if (_retryAfter != null && DateTime.now().isBefore(_retryAfter!)) {
+      timing('fallback_unavailable');
+      return {};
+    }
     await (_loading ??= _load());
     final texts = <String, String>{
       for (final item in items) keyFor(textFor(item)): textFor(item),
@@ -92,14 +148,21 @@ class LocalSemanticIndex {
     pendingCount = missing.length;
     if (missing.isNotEmpty) {
       if (!_building) unawaited(_build(texts, missing));
+      timing('fallback_indexing');
       return {};
     }
+    Stopwatch? embeddingClock;
+    int? inferenceMs;
     try {
       final clipped = query.length > 16000 ? query.substring(0, 16000) : query;
       final qkey = keyFor(clipped);
       var q = _queries[qkey];
       if (q == null) {
-        q = (await _embed([clipped])).single;
+        embeddingClock = Stopwatch()..start();
+        final result = await _embed([clipped]);
+        embeddingClock.stop();
+        inferenceMs = result.inferenceMs;
+        q = result.vectors.single;
         if (_queries.length >= 16) _queries.remove(_queries.keys.first);
         _queries[qkey] = q;
       }
@@ -114,10 +177,20 @@ class LocalSemanticIndex {
       }
       scored.sort((a, b) => b.value.compareTo(a.value));
       status = 'ready';
+      timing(
+        embeddingClock == null ? 'cache_hit' : 'inference',
+        embeddingMs: embeddingClock?.elapsedMilliseconds,
+        inferenceMs: inferenceMs,
+      );
       return Map.fromEntries(scored.take(40));
     } catch (_) {
       status = 'unavailable';
       _retryAfter = DateTime.now().add(const Duration(minutes: 1));
+      timing(
+        'fallback_error',
+        embeddingMs: embeddingClock?.elapsedMilliseconds,
+        inferenceMs: inferenceMs,
+      );
       return {};
     }
   }
@@ -128,10 +201,12 @@ class LocalSemanticIndex {
   ) async {
     _building = true;
     status = 'indexing';
+    _indexClock = Stopwatch()..start();
+    _indexedThisBuild = 0;
     try {
       for (var i = 0; i < missing.length; i += 2) {
         final batch = missing.sublist(i, min(i + 2, missing.length));
-        final vectors = await _embed(
+        final result = await _embed(
           batch
               .map(
                 (e) => e.value.length > 16000
@@ -141,8 +216,9 @@ class LocalSemanticIndex {
               .toList(),
         );
         for (var j = 0; j < batch.length; j++) {
-          _vectors[batch[j].key] = vectors[j];
+          _vectors[batch[j].key] = result.vectors[j];
         }
+        _indexedThisBuild += batch.length;
         indexedCount += batch.length;
         pendingCount -= batch.length;
         if (i % 32 == 0) await _save();
@@ -156,6 +232,7 @@ class LocalSemanticIndex {
       status = 'unavailable';
       _retryAfter = DateTime.now().add(const Duration(minutes: 1));
     } finally {
+      _indexClock?.stop();
       _building = false;
     }
   }

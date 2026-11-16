@@ -41,6 +41,14 @@ cool down simply because an item was recently injected; proactive cooldowns rema
 Diagnostics expose model identity, status, indexed and pending counts. The
 author's published 91.7%/97.7% is not a result measured on this application.
 
+Since v0.42.190+434, `memoryRetrieval.localSemanticTiming` in the redacted
+report includes model load, latest indexing run elapsed time/count and up to
+eight retrieval samples for the current process. Each sample separates the
+query embedding wait from native inference, distinguishes cache and fallback
+paths, and reports total retrieval time and semantic-only selections. Null
+timing means that operation was not observed in this process or sample. This
+sampling uses existing operations and adds no persistence.
+
 ## Validation and remaining device checks
 
 Candidate 6205e4ff (v0.42.189+433) passed independent CI 43812990054,

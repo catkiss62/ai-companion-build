@@ -28,9 +28,14 @@ void main() {
       expect(red,true);expect(cyan,true); // First and last real frames survive.
     } finally {image?.dispose();codec.dispose();}
   });
-  test('variable frame durations select by time rather than six fixed indices',() async {
+  test('variable duration animation keeps the previous three-cell budget',() async {
     final result=await QqVisionFrames.prepare(variable,current:()async=>true,budget:const Duration(seconds:10));
-    expect(result.times,[0,1100,1400]);expect(result.label,contains('可能漏掉短暂变化'));
+    expect(result.times.length,3);expect(result.times.first,0);expect(result.times.last,1400);expect(result.label,contains('可能漏掉短暂变化'));
+  });
+  test('brief visual change replaces a redundant held frame at the same cell budget', () async {
+    final flash = base64Decode('R0lGODlhFAAUAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAggAAACwAAAAAFAAUAAAIIgABCBxIsKDBgwgTKlzIsKHDhxAjSpxIsaLFixgzatxoMSAAIfkEAQIAAQAsAAAAABQAFACBAP//AAAAAAAAAAAACCIAAQgcSLCgwYMIEypcyLChw4cQI0qcSLGixYsYM2rcaDEgACH5BAFEAAEALAAAAAAUABQAgf8AAAAAAAAAAAAAAAgiAAEIHEiwoMGDCBMqXMiwocOHECNKnEixosWLGDNq3GgxIAA7');
+    final result = await QqVisionFrames.prepare(flash, current: () async => true);
+    expect(result.times, [0, 1300]);
   });
   for(final limit in ['count','pixels','time']) {
     test('animation $limit bound explicitly degrades to first frame',() async {
