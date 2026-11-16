@@ -126,13 +126,13 @@ void main() {
       expect((await db.relevantMemories('device_key')).map((m) => m.id), ['literal']);
       expect(await db.relevantMemories('完全无关的棒球比赛'), isEmpty);
     });
-    test('explicit recall bypasses repetition cooldown without weakening ordinary admission', () async {
+    test('ordinary knowledge remains available after injection; unrelated recall stays empty', () async {
       await rawMemory('shell', 'shell beach treasure');
       expect((await db.relevantMemories('shell')).length, 1);
       const cue = 'shell unknown1 unknown2 unknown3';
-      expect(await db.relevantMemories(cue), isEmpty);
+      expect((await db.relevantMemories(cue)).map((m) => m.id), ['shell']);
       expect((await db.relevantMemories(cue, retrievalMode: 'explicitRecall')).map((m) => m.id), ['shell']);
-      expect(await db.relevantMemories(cue), isEmpty);
+      expect((await db.relevantMemories(cue)).map((m) => m.id), ['shell']);
       expect(await db.relevantMemories('unrelated tomato', retrievalMode: 'explicitRecall'), isEmpty);
     });
     test('old summary beyond latest eight is searchable without overlapping recent raw turns', () async {

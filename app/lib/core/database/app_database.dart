@@ -1,3 +1,5 @@
+import '../memory/local_semantic_index.dart';
+import '../memory/hybrid_memory_ranking.dart';
 import '../illustration/illustration_job.dart';
 import '../autonomy/public_web_share_recovery.dart';
 import '../autonomy/web_read_failure.dart';
@@ -131,6 +133,8 @@ class ConversationContextResetResult {
 
 class AppDatabase {
   AppDatabase._();
+
+  final LocalSemanticIndex semanticMemoryIndex = LocalSemanticIndex();
 
   static final AppDatabase instance = AppDatabase._();
 
@@ -9848,7 +9852,7 @@ class AppDatabase {
         query: query,
         item: item,
         now: instant,
-        enforceCooldown: recordRecall && !explicitRecall,
+        enforceCooldown: recordRecall && proactive && !explicitRecall,
       );
       if (!decision.direct) {
         blockedNoDirect += 1;
@@ -9864,8 +9868,16 @@ class AppDatabase {
     }
     scored.sort((left, right) => right.score.compareTo(left.score));
     final successors=proactive?<MemoryItem>[]:await MemorySuccessorRecall.find(db,query);
-    final directSelected=<String,MemoryItem>{for(final item in successors)item.id:item,
-      for(final entry in scored)entry.item.id:entry.item}.values.take(limit).toList(growable:false);
+    final semanticItems = proactive ? <MemoryItem>[] : (await db.query('memory_items',
+      where: "source_valid = 1 AND status = 'active' AND semantic_type IN ('current_fact','shared_experience')"))
+      .map(MemoryItem.fromDb).where((item) => !promptAdmission || MemoryAdmissionPolicy.forPrompt(item)).toList();
+    final semanticScores = proactive ? <String,double>{} : await semanticMemoryIndex.search(query, semanticItems);
+    final allCandidates = <String,MemoryItem>{for(final item in semanticItems)item.id:item,
+      for(final entry in scored)entry.item.id:entry.item, for(final item in successors)item.id:item};
+    final rankedIds = HybridMemoryRanking.rank(
+      lexical: [for(final item in successors)item.id, for(final entry in scored)entry.item.id],
+      semantic: semanticScores, limit: max(limit, 40));
+    final directSelected = rankedIds.take(limit).map((id) => allCandidates[id]!).toList(growable:false);
     final seedTopics = directSelected
         .map((item) => item.topicKey)
         .where((topic) => topic.isNotEmpty)
@@ -9882,13 +9894,19 @@ class AppDatabase {
     final associatedSelected = TopicAssociationPolicy.selectAssociated(
       directSeeds: directSelected,
       candidates: associationPool,
-      limit: min(3, max(0, limit - directSelected.length)),
-      blocked: (item) => recordRecall && _memoryAssociationCooldownBlocked(item, instant),
+      limit: min(3, limit),
+      blocked: (item) => proactive && recordRecall && _memoryAssociationCooldownBlocked(item, instant),
     );
-    final selected = <MemoryItem>[
-      ...directSelected,
-      ...associatedSelected,
-    ];
+    final associationIds = {for (final item in associatedSelected) item.id};
+    final combined = <String,MemoryItem>{for(final item in directSelected)item.id:item,
+      for(final item in associatedSelected)item.id:item};
+    double finalRank(MemoryItem item) {
+      final rank = rankedIds.indexOf(item.id);
+      if (!associationIds.contains(item.id)) return rank < 0 ? 0 : 1 / (rank + 1);
+      return 0.12 + 0.06 * item.importance + 0.04 * item.confidence;
+    }
+    final combinedSorted = combined.values.toList()..sort((a,b)=>finalRank(b).compareTo(finalRank(a)));
+    final selected = combinedSorted.take(limit).toList();
 
     if (recordRecall) await db.transaction((txn) async {
       for (final item in selected) {
@@ -9929,7 +9947,7 @@ class AppDatabase {
             : associationPool
                 .where((item) => seedTopics.contains(item.topicKey))
                 .length,
-        'associated_selected_count': associatedSelected.length,
+        'associated_selected_count': selected.where((item) => associationIds.contains(item.id)).length,
       });
       await txn.delete(
         'memory_retrieval_audit',
@@ -10041,6 +10059,10 @@ class AppDatabase {
     );
     final row = totals.isEmpty ? const <String, Object?>{} : totals.first;
     return <String, Object?>{
+      'localSemanticModel': LocalSemanticIndex.modelIdentity,
+      'localSemanticStatus': semanticMemoryIndex.status,
+      'localSemanticIndexed': semanticMemoryIndex.indexedCount,
+      'localSemanticPending': semanticMemoryIndex.pendingCount,
       'windowHours': 24,
       'runs': (row['runs'] as num?)?.toInt() ?? 0,
       'candidates': (row['candidates'] as num?)?.toInt() ?? 0,

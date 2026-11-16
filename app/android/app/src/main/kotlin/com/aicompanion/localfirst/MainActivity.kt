@@ -52,6 +52,7 @@ class MainActivity : FlutterActivity() {
             }
         com.aicompanion.localfirst.qq.QqPrivateBridge(this, flutterEngine)
         CreativeBridge(this, flutterEngine)
+        com.aicompanion.localfirst.memory.MemoryEmbeddingBridge(this, flutterEngine)
         bridge = SystemBridge(this, flutterEngine)
         ttsBridge = NativeTtsBridge(this, flutterEngine)
         emotionSoundBridge = EmotionSoundBridge(this, flutterEngine)

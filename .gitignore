@@ -20,3 +20,6 @@ app/android/app/src/main/assets/pets/dafeiyu/source/runtime_overrides/experiment
 
 # Restored frozen pet pack; reviewed PNG revisions live in app/asset_packs/dafeiyu_retouched.
 /app/android/app/src/main/assets/pets/dafeiyu/source/assets/
+
+# Reproducibly fetched offline embedding assets
+app/android/app/src/main/assets/memory_embedding/
