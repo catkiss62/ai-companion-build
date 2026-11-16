@@ -61,32 +61,39 @@ class _ChatAttachmentThumbnailState extends State<ChatAttachmentThumbnail> {
     // for the same bounded footprint before, during and after image decoding.
     final maximumWidth = sticker ? 180.0 : 300.0;
     final width = (320 * ratio).clamp(0.0, maximumWidth).toDouble();
-    return SizedBox(
-      width: width,
-      height: width / ratio,
-      child: FutureBuilder<File>(
-        key: ValueKey(_file),
-        future: _file,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return const MissingChatAttachment();
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            );
-          }
-          return InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                snapshot.data!,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const MissingChatAttachment(),
-              ),
-            ),
-          );
-        },
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: width, maxHeight: width / ratio),
+      child: AspectRatio(
+        aspectRatio: ratio,
+        // The child supplies the preferred intrinsic width to the bubble.
+        // AspectRatio then sizes the image with the actual available width.
+        child: SizedBox(
+          width: width,
+          child: FutureBuilder<File>(
+            key: ValueKey(_file),
+            future: _file,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return const MissingChatAttachment();
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                );
+              }
+              return InkWell(
+                onTap: widget.onTap,
+                borderRadius: BorderRadius.circular(12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    snapshot.data!,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const MissingChatAttachment(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

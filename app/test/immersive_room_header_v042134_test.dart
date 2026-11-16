@@ -49,6 +49,16 @@ void main() {
             expect(titleRect.center.dy, closeTo(nsfw.center.dy, 2));
             expect(english.center.dy, closeTo(nsfw.center.dy, 2));
             expect(nsfw.right, lessThanOrEqualTo(width));
+            if (scale == 1) {
+              for (final label in ['中', '日', 'EN']) {
+                final border = find.ancestor(
+                  of: find.text(label),
+                  matching: find.byType(AnimatedContainer),
+                ).first;
+                expect(tester.getSize(border).height, 24);
+              }
+              expect(tester.getSize(find.widgetWithText(OutlinedButton, 'NSFW')).height, 24);
+            }
             expect(tester.takeException(), isNull);
           } finally {
             await tester.pumpWidget(const SizedBox());

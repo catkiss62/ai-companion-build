@@ -14,6 +14,7 @@ class QqSemanticRecall {
 
   final LocalSemanticIndex Function(String) _indexFactory;
   final _indexes = <String, LocalSemanticIndex>{};
+  static const _queryBudget = Duration(milliseconds: 450);
 
   static LocalSemanticIndex _groupIndex(String conversation) {
     final key = sha256.convert(utf8.encode(conversation));
@@ -51,11 +52,8 @@ class QqSemanticRecall {
       );
     }).toList();
     final scores = await index
-        .search(query, items)
-        .timeout(
-          const Duration(milliseconds: 450),
-          onTimeout: () => const <String, double>{},
-        );
+        .search(query, items, queryBudget: _queryBudget)
+        .timeout(_queryBudget, onTimeout: () => const <String, double>{});
     if (scores.isEmpty) return const [];
     final related = notes
         .where((note) => (scores[note['id']] ?? -1) >= .55)

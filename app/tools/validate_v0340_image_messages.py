@@ -18,6 +18,7 @@ attachment = read("lib/core/models/message_attachment.dart")
 storage = read("lib/core/storage/message_attachment_storage.dart")
 controller = read("lib/features/chat/chat_controller.dart")
 page = read("lib/features/chat/chat_page.dart")
+image_dialog = read("lib/features/chat/chat_image_send_dialog.dart")
 history = read("lib/core/grounding/prompt_history_policy.dart")
 grounding = read("lib/core/grounding/grounding_snapshot.dart")
 snapshot = read("lib/core/sync/snapshot_service.dart")
@@ -98,7 +99,7 @@ for token in (
     "MissingChatAttachment",
     "删除图片消息？",
 ):
-    assert token in page, token
+    assert token in page or token in image_dialog, token
 
 assert "expectsReply: false" in controller
 assert "insertMessageWithAttachments" in controller

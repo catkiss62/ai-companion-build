@@ -114,8 +114,8 @@ def main() -> None:
     require(
         immersive_page,
         "ImmersiveRoomAppBar(",
-        "minHeight: 40",
-        "height: 40",
+        "minHeight: 24",
+        "height: 24",
         "重新生成这条回复？",
     )
     require(

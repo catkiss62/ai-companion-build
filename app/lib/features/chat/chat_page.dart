@@ -4,11 +4,11 @@ import '../creative/creative_pages.dart';
 import '../creative/balance_with_spend.dart';
 import 'chat_tail_follower.dart';
 import 'chat_attachment_thumbnail.dart';
+import 'chat_image_send_dialog.dart';
 import '../../widgets/caicai_stage_viewport.dart';
 import '../../widgets/room_depth_background.dart';
 import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import '../../widgets/thinking_icon.dart';
@@ -1052,31 +1052,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
       final qwenKey = await controller.secureConfig.readVisionApiKey();
       final qwenConfigured = qwenKey != null && qwenKey.trim().isNotEmpty;
       if (!mounted) return;
-      final accepted = await showDialog<ImageVisionRoute>(context: context, barrierDismissible: false,
-        builder: (context) => StatefulBuilder(builder: (context, update) => AlertDialog(
-          title: Text('一起发送 ${selected.length} 张图片'),
-          content: SizedBox(width: 340, child: SingleChildScrollView(child: Column(
-            mainAxisSize: MainAxisSize.min, children: [
-              Wrap(spacing: 8, runSpacing: 8, children: [for (final draft in selected)
-                Stack(children: [Image.file(draft.thumbnailFile, width: 120, height: 120, fit: BoxFit.contain),
-                  Positioned(right: 0, top: 0, child: IconButton(tooltip: '移除这张图片',
-                    onPressed: () => update(() => selected.remove(draft)), icon: const Icon(Icons.close)))])]),
-              const SizedBox(height: 12),
-              TextFormField(
-                initialValue: caption,
-                onChanged: (value) => caption = value,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: '附言（可选）', border: OutlineInputBorder())),
-              const SizedBox(height: 8),
-              const Text('这些图片作为一条消息发送，识别完成后一起回复。'),
-              Text(qwenConfigured
-                  ? '千问未识别成功时使用 DS 识图。'
-                  : '填写千问视觉 API Key 后可使用千问识图。'),
-            ]))),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-            OutlinedButton(onPressed: selected.isEmpty ? null : () => Navigator.pop(context, ImageVisionRoute.first), child: const Text('DS识图')),
-            FilledButton(onPressed: selected.isEmpty || !qwenConfigured ? null : () => Navigator.pop(context, ImageVisionRoute.qwen), child: const Text('千问识图'))],
-        )));
+      final accepted = await showDialog<ImageVisionRoute>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => ChatImageSendDialog(
+          selected: selected,
+          caption: caption,
+          qwenConfigured: qwenConfigured,
+          onCaptionChanged: (value) => caption = value,
+        ),
+      );
       if (accepted == null || !mounted) return;
       saved = await controller.sendPreparedImages(selected, caption: caption,
           visionRoute: accepted);
@@ -1530,53 +1515,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                                 ),
                               ),
                             ),
-                          if (controller.notice != null)
-                            Builder(builder: (context) {
-                              final isErrorNotice = GenerationPresentationPolicy
-                                  .isErrorNotice(controller.notice);
-                              final color = isErrorNotice
-                                  ? Theme.of(context).colorScheme.error
-                                  : Theme.of(context).colorScheme.onSurfaceVariant;
-                              return Container(
-                                width: double.infinity,
-                                color: isErrorNotice
-                                    ? Theme.of(context)
-                                        .colorScheme
-                                        .errorContainer
-                                        .withValues(alpha: 0.18)
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHigh,
-                                padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isErrorNotice
-                                          ? Icons.error_outline_rounded
-                                          : Icons.info_outline_rounded,
-                                      size: 17,
-                                      color: color,
-                                    ),
-                                    const SizedBox(width: 7),
-                                    Expanded(
-                                      child: Text(
-                                        controller.notice!,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(color: color),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: '关闭提示',
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: controller.dismissNotice,
-                                      icon: const Icon(Icons.close_rounded, size: 18),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
+                          if (controller.visionFallbackNotice case final notice?)
+                            _chatNotice(
+                              context,
+                              notice,
+                              onDismiss: controller.dismissVisionFallbackNotice,
+                            ),
+                          if (controller.notice case final notice?)
+                            _chatNotice(
+                              context,
+                              notice,
+                              onDismiss: controller.dismissNotice,
+                            ),
                           _composer(context),
                         ],
                       ),
@@ -1650,6 +1600,43 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
         SnackBar(content: Text('语音准备失败：$error')),
       );
     }
+  }
+
+  Widget _chatNotice(
+    BuildContext context,
+    String notice, {
+    required VoidCallback onDismiss,
+  }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isError = GenerationPresentationPolicy.isErrorNotice(notice);
+    final color = isError ? scheme.error : scheme.onSurfaceVariant;
+    return Container(
+      width: double.infinity,
+      color: isError
+          ? scheme.errorContainer.withValues(alpha: 0.18)
+          : scheme.surfaceContainerHigh,
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      child: Row(
+        children: [
+          Icon(
+            isError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
+            size: 17,
+            color: color,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(notice, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+          ),
+          IconButton(
+            tooltip: '关闭提示',
+            visualDensity: VisualDensity.compact,
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _topLanguageSelector() {

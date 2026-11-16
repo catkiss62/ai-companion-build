@@ -139,4 +139,93 @@ void main() {
     expect(index.status, 'unavailable');
     expect(await index.search('query', [item('a', 'text')]), isEmpty);
   });
+
+  test(
+    'long rows match on a later chunk and return the original ID once',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('semantic-chunks-');
+      addTearDown(() => dir.delete(recursive: true));
+      final cache = File('${dir.path}/cache');
+      final shortText = LocalSemanticIndex.textFor(item('short', '已有短记忆'));
+      final old = LocalSemanticIndex(
+        enabled: true,
+        cacheFile: () async => cache,
+        encoder: (texts) async => texts.map((_) => vector(0)).toList(),
+      );
+      await old.search('初始查询', [item('short', '已有短记忆')]);
+      await ready(old);
+      final encoded = <String>[];
+      final index = LocalSemanticIndex(
+        enabled: true,
+        cacheFile: () async => cache,
+        encoder: (texts) async {
+          encoded.addAll(texts);
+          return texts
+              .map((text) => vector(text.contains('目标事实') ? 1 : 0))
+              .toList();
+        },
+      );
+      final items = [
+        item('short', '已有短记忆'),
+        item('long', '${'🐳海' * 300}目标事实${'看' * 508}'),
+      ];
+      expect(await index.search('目标事实', items), isEmpty);
+      await ready(index);
+      expect(encoded.any((text) => text.runes.length > 480), isFalse);
+      expect(encoded, isNot(contains(shortText)));
+      expect(index.indexedCount, 2);
+      final scores = await index.search('目标事实', items);
+      expect(scores.keys, ['long', 'short']);
+      expect(scores['long'], 1);
+    },
+  );
+
+  test(
+    'query deadline reaches the native queue without marking the model unavailable',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('semantic-deadline-');
+      addTearDown(() => dir.delete(recursive: true));
+      const channel = MethodChannel('ai_companion/memory_embedding');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      var expire = true;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        final texts = call.arguments['texts'] as List;
+        if (texts.single == '群摘要\n') {
+          expect(call.arguments['budgetMs'], isNull);
+        } else {
+          expect(call.arguments['budgetMs'], inInclusiveRange(1, 450));
+          if (expire) return {'expired': true};
+        }
+        return {
+          'vectors': [vector(0)],
+        };
+      });
+      final index = LocalSemanticIndex(
+        enabled: true,
+        cacheFile: () async => File('${dir.path}/cache'),
+      );
+      final items = [item('group', '群摘要')];
+      const budget = Duration(milliseconds: 450);
+      await index.search('问题', items, queryBudget: budget);
+      await ready(index);
+      SemanticQueryTiming? timing;
+      expect(
+        await index.search(
+          '问题',
+          items,
+          queryBudget: budget,
+          onTiming: (t) => timing = t,
+        ),
+        isEmpty,
+      );
+      expect(timing?.mode, 'fallback_timeout');
+      expect(index.status, 'ready');
+      expire = false;
+      expect(await index.search('问题', items, queryBudget: budget), {
+        'group': 1.0,
+      });
+    },
+  );
 }

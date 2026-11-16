@@ -83,6 +83,21 @@ void main() {
       expect(tester.getSize(thumb), loadingSize);
       await render(attachment.copyWith(visionStatus: 'completed'), 240);
       expect(tester.getSize(thumb), loadingSize);
+      final square = MessageAttachment(
+        id: 'square',
+        messageId: 'turn',
+        kind: 'image',
+        originalPath: 'original',
+        thumbnailPath: 'thumbnail',
+        mimeType: 'image/png',
+        byteSize: 32,
+        width: 400,
+        height: 400,
+        source: 'gallery',
+        createdAt: DateTime(2026),
+      );
+      await render(square, 230);
+      expect(tester.getSize(thumb), const Size(230, 230));
       expect(storage.lookups, 1);
       expect(tester.takeException(), isNull);
     },

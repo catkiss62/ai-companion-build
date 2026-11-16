@@ -12,16 +12,27 @@ import 'package:ai_companion_localfirst/core/ai/chat_api_provider.dart';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/ai/durable_generation_runner.dart';
 import 'package:ai_companion_localfirst/core/ai/final_reply_control.dart';
+import 'package:ai_companion_localfirst/core/ai/routed_vision_client.dart';
 import 'package:ai_companion_localfirst/core/ai/third_channel_client.dart';
 import 'package:ai_companion_localfirst/core/ai/third_channel_config.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
+import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
+import 'package:ai_companion_localfirst/features/chat/chat_controller.dart';
 
 class _Paths extends PathProviderPlatform {
   _Paths(this.path); final String path;
   @override Future<String?> getApplicationSupportPath() async => path;
   @override Future<String?> getTemporaryPath() async => path;
+}
+
+class _ImageFile extends MessageAttachmentStorage {
+  _ImageFile(this.file);
+  final File file;
+  @override
+  Future<File> fileFor(String path) async => file;
 }
 http.Response _stream(String text, {bool tools = false}) => http.Response.bytes(utf8.encode(
   'data: ${jsonEncode({'choices': [{'delta': tools ? {'tool_calls': [
@@ -33,6 +44,152 @@ http.Response _stream(String text, {bool tools = false}) => http.Response.bytes(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); sqfliteFfiInit();
+  test(
+    'chat keeps the vision fallback and the later reply fallback independently',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'chat-vision-fallback-',
+      );
+      final paths = PathProviderPlatform.instance;
+      PathProviderPlatform.instance = _Paths(directory.path);
+      const bridge = MethodChannel('ai_companion/system');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        bridge,
+        (call) async =>
+            call.method == 'runtimeProcessEpoch' ? 'fixture-process' : null,
+      );
+      FlutterSecureStorage.setMockInitialValues({});
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      final secure = SecureConfig.forTesting(const FlutterSecureStorage());
+      await secure.writeApiKey('first-fixture');
+      await secure.writeEndpoint('http://first.invalid/chat');
+      await secure.writeVisionApiKey('qwen-fixture');
+      await secure.writeVisionEndpoint('http://qwen.invalid/vision');
+      await secure.writeThirdChannel(
+        const ThirdChannelConfig(
+          enabled: true,
+          baseUrl: 'http://gateway.invalid/v1',
+          apiKey: 'third-fixture',
+        ),
+      );
+      final client = DeepSeekClient(
+        secureConfig: secure,
+        thirdClientFactory: () => ThirdChannelClient(
+          clientFactory: () =>
+              MockClient((_) async => http.Response('{}', 503)),
+        ),
+        streamClientFactory: () =>
+            MockClient((_) async => _stream('<emotion>正常</emotion>\n「看到照片了。」')),
+        jsonClientFactory: () => MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': '{}'},
+                  'finish_reason': 'stop',
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+      final attempted = <String>[];
+      final vision = RoutedVisionClient(
+        secure: secure,
+        db: db,
+        clientFactory: () => MockClient((request) async {
+          attempted.add(request.url.host);
+          if (request.url.host == 'qwen.invalid')
+            return http.Response('{}', 503);
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': '{"summary":"A test image."}'},
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final file = await File(
+        '${directory.path}/thumbnail.png',
+      ).writeAsBytes([1, 2, 3]);
+      final controller = ChatController(
+        db: db,
+        client: client,
+        visionClient: vision,
+        secureConfig: secure,
+        attachmentStorage: _ImageFile(file),
+        externalRecoveryOrchestrator: true,
+      );
+      try {
+        await db.setSettingsAtomically({
+          for (final key in [
+            'tts_enabled',
+            'auto_tts',
+            'emotion_sound_enabled',
+            'cedar_toy_enabled',
+            'post_turn_queue_enabled',
+            'daily_continuity_enabled',
+            'memory_fading_enabled',
+            'memory_consolidation_enabled',
+            'relationship_continuity_enabled',
+            'personality_learning_enabled',
+            'simulated_phone_enabled',
+          ])
+            key: '0',
+        });
+        final image = MessageAttachment(
+          id: 'image',
+          messageId: 'user',
+          kind: 'image',
+          originalPath: 'original.png',
+          thumbnailPath: 'thumbnail.png',
+          mimeType: 'image/png',
+          byteSize: 3,
+          width: 8,
+          height: 8,
+          source: 'gallery',
+          createdAt: DateTime.now(),
+        );
+        final user = ChatMessage(
+          id: 'user',
+          role: 'user',
+          content: '看看图片',
+          createdAt: DateTime.now(),
+          attachments: [image],
+          expectsReply: false,
+        );
+        await db.insertMessageWithAttachments(user, [
+          image,
+        ], imageVisionRoute: ImageVisionRoute.qwen);
+        await controller
+            .retryImageVision(user)
+            .timeout(const Duration(seconds: 20));
+        expect(attempted, ['qwen.invalid', 'first.invalid']);
+        expect(
+          controller.visionFallbackNotice,
+          contains('已改用 DS 识图'),
+          reason: controller.error,
+        );
+        expect(controller.notice, contains('第三通道调用失败'));
+        controller.dismissVisionFallbackNotice();
+        expect(controller.visionFallbackNotice, isNull);
+        expect(controller.notice, contains('第三通道调用失败'));
+      } finally {
+        controller.dispose();
+        await db.closeForTesting();
+        messenger.setMockMethodCallHandler(bridge, null);
+        PathProviderPlatform.instance = paths;
+        await directory.delete(recursive: true);
+      }
+    },
+  );
   for (final scenario in ['first_base', 'second_key_missing', 'manual_first', 'active_manual_first', 'tool_entry', 'health_fallback', 'http_fallback', 'health_first', 'both_fallback']) {
     test('durable App generation preserves $scenario routing and committed model provenance', () async {
       final directory = await Directory.systemTemp.createTemp('third-chat-149-');

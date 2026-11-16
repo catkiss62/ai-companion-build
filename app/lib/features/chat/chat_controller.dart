@@ -181,6 +181,15 @@ class ChatController extends ChangeNotifier {
   List<AgentToolActivity> agentActivities = <AgentToolActivity>[];
   String? error;
   String? notice;
+  String? _visionFallbackMessageId;
+  String? get visionFallbackNotice => _visionFallbackMessageId == null
+      ? null
+      : '千问未完成此图，已改用 DS 识图。';
+
+  void dismissVisionFallbackNotice() {
+    _visionFallbackMessageId = null;
+    _safeNotify();
+  }
   ChatMessage? incompleteReplyDraft;
   String? incompleteReplyJobId;
   bool deepThinking = false;
@@ -801,6 +810,7 @@ class ChatController extends ChangeNotifier {
           deepThinking: turnDeepThinking, imageVisionRoute: visionRoute);
         return message;
       }, db: db);
+      _visionFallbackMessageId = null;
       messages = [...messages, message];
       _safeNotify();
       unawaited(_analyzeImageMessage(message.id));
@@ -967,9 +977,6 @@ class ChatController extends ChangeNotifier {
             ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
       ));
       visionRecorded = true;
-      if (route == ImageVisionRoute.qwen && observation.provider == 'deepseek') {
-        notice = '千问未完成此图，已改用 DS 识图。';
-      }
       chatLeaseHeld = await db.tryAcquireLocalLease(
         'chat_turn_lease',
         holdFor: const Duration(seconds: 30),
@@ -986,6 +993,11 @@ class ChatController extends ChangeNotifier {
         reasoningEffort: effort.apiName,
         thinking: true,
       );
+      if (!_discardedImageMessageIds.contains(messageId) &&
+          route == ImageVisionRoute.qwen &&
+          observation.provider == 'deepseek') {
+        _visionFallbackMessageId = messageId;
+      }
       if (albumEnabled) {
         try {
           await _recordUserImageAlbumDecision(
@@ -1214,6 +1226,9 @@ class ChatController extends ChangeNotifier {
       analyzingImage = false;
       _analyzingImageMessageId = null;
       error = null;
+    }
+    if (_visionFallbackMessageId == message.id) {
+      _visionFallbackMessageId = null;
     }
     messages = messages.where((item) => item.id != message.id).toList();
     _safeNotify();

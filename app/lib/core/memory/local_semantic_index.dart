@@ -71,6 +71,23 @@ class LocalSemanticIndex {
   static String keyFor(String text) =>
       sha256.convert(utf8.encode(text)).toString();
 
+  static Iterable<String> _chunks(String text) sync* {
+    // WordPiece yields at most one token per input code point in this model.
+    // Leave room for special tokens and overlap to preserve boundary context.
+    const length = 480;
+    const overlap = 48;
+    if (text.length <= length) {
+      yield text;
+      return;
+    }
+    final points = text.runes.toList();
+    for (var start = 0; start < points.length; start += length - overlap) {
+      final end = min(start + length, points.length);
+      yield String.fromCharCodes(points, start, end);
+      if (end == points.length) break;
+    }
+  }
+
   Future<File> _file() async => cacheFile != null
       ? await cacheFile!()
       : File(
@@ -93,13 +110,23 @@ class LocalSemanticIndex {
   }
 
   Future<({List<Float32List> vectors, int? inferenceMs})> _embed(
-    List<String> texts,
-  ) async {
-    if (encoder != null)
-      return (vectors: await encoder!(texts), inferenceMs: null);
+    List<String> texts, {
+    Duration? budget,
+  }) async {
+    if (encoder != null) {
+      final pending = encoder!(texts);
+      return (
+        vectors: await (budget == null ? pending : pending.timeout(budget)),
+        inferenceMs: null,
+      );
+    }
     final raw = await _channel
-        .invokeMapMethod<String, dynamic>('embed', {'texts': texts})
-        .timeout(const Duration(seconds: 10));
+        .invokeMapMethod<String, dynamic>('embed', {
+          'texts': texts,
+          if (budget != null) 'budgetMs': max(1, budget.inMilliseconds),
+        })
+        .timeout(budget ?? const Duration(seconds: 10));
+    if (raw?['expired'] == true) throw TimeoutException('embedding deadline');
     _modelLoadMs ??= raw?['loadMs'] as int?;
     final vectors = raw?['vectors'] as List?;
     if (vectors == null || vectors.length != texts.length)
@@ -122,7 +149,9 @@ class LocalSemanticIndex {
     String query,
     List<MemoryItem> items, {
     void Function(SemanticQueryTiming)? onTiming,
+    Duration? queryBudget,
   }) async {
+    final queryClock = queryBudget == null ? null : (Stopwatch()..start());
     void timing(String mode, {int? embeddingMs, int? inferenceMs}) =>
         onTiming?.call((
           mode: mode,
@@ -138,28 +167,52 @@ class LocalSemanticIndex {
       return {};
     }
     await (_loading ??= _load());
-    final texts = <String, String>{
-      for (final item in items) keyFor(textFor(item)): textFor(item),
-    };
+    final texts = <String, String>{};
+    final chunkKeysByText = <String, Set<String>>{};
+    final chunkKeysById = <String, Set<String>>{};
+    for (final item in items) {
+      final text = textFor(item);
+      chunkKeysById[item.id] = chunkKeysByText.putIfAbsent(text, () {
+        final keys = <String>{};
+        for (final chunk in _chunks(text)) {
+          final key = keyFor(chunk);
+          texts[key] = chunk;
+          keys.add(key);
+        }
+        return keys;
+      });
+    }
     final missing = texts.entries
         .where((e) => !_vectors.containsKey(e.key))
         .toList();
-    indexedCount = texts.length - missing.length;
-    pendingCount = missing.length;
+    final pendingItems = chunkKeysByText.values
+        .where((keys) => !keys.every(_vectors.containsKey))
+        .toList();
+    pendingCount = pendingItems.length;
+    indexedCount = chunkKeysByText.length - pendingCount;
     if (missing.isNotEmpty) {
-      if (!_building) unawaited(_build(texts, missing));
+      if (!_building) {
+        unawaited(_build(texts, missing, pendingItems, chunkKeysByText.length));
+      }
       timing('fallback_indexing');
       return {};
     }
     Stopwatch? embeddingClock;
     int? inferenceMs;
     try {
+      final remaining = queryBudget == null
+          ? null
+          : queryBudget - queryClock!.elapsed;
+      if (remaining != null && remaining <= Duration.zero) {
+        timing('fallback_timeout');
+        return {};
+      }
       final clipped = query.length > 16000 ? query.substring(0, 16000) : query;
       final qkey = keyFor(clipped);
       var q = _queries[qkey];
       if (q == null) {
         embeddingClock = Stopwatch()..start();
-        final result = await _embed([clipped]);
+        final result = await _embed([clipped], budget: remaining);
         embeddingClock.stop();
         inferenceMs = result.inferenceMs;
         q = result.vectors.single;
@@ -167,13 +220,21 @@ class LocalSemanticIndex {
         _queries[qkey] = q;
       }
       final scored = <MapEntry<String, double>>[];
-      for (final item in items) {
-        final v = _vectors[keyFor(textFor(item))]!;
-        var dot = 0.0;
-        for (var i = 0; i < 512; i++) {
-          dot += q[i] * v[i];
+      for (final item in chunkKeysById.entries) {
+        var best = double.negativeInfinity;
+        for (final key in item.value) {
+          final v = _vectors[key];
+          if (v == null) {
+            timing('fallback_indexing');
+            return {};
+          }
+          var dot = 0.0;
+          for (var i = 0; i < 512; i++) {
+            dot += q[i] * v[i];
+          }
+          if (dot.isFinite) best = max(best, dot);
         }
-        if (dot.isFinite) scored.add(MapEntry(item.id, dot.clamp(-1, 1)));
+        if (best.isFinite) scored.add(MapEntry(item.key, best.clamp(-1, 1)));
       }
       scored.sort((a, b) => b.value.compareTo(a.value));
       status = 'ready';
@@ -183,7 +244,14 @@ class LocalSemanticIndex {
         inferenceMs: inferenceMs,
       );
       return Map.fromEntries(scored.take(40));
-    } catch (_) {
+    } catch (error) {
+      if (error is TimeoutException && queryBudget != null) {
+        timing(
+          'fallback_timeout',
+          embeddingMs: embeddingClock?.elapsedMilliseconds,
+        );
+        return {};
+      }
       status = 'unavailable';
       _retryAfter = DateTime.now().add(const Duration(minutes: 1));
       timing(
@@ -198,6 +266,8 @@ class LocalSemanticIndex {
   Future<void> _build(
     Map<String, String> texts,
     List<MapEntry<String, String>> missing,
+    List<Set<String>> pendingItems,
+    int itemCount,
   ) async {
     _building = true;
     status = 'indexing';
@@ -206,21 +276,15 @@ class LocalSemanticIndex {
     try {
       for (var i = 0; i < missing.length; i += 2) {
         final batch = missing.sublist(i, min(i + 2, missing.length));
-        final result = await _embed(
-          batch
-              .map(
-                (e) => e.value.length > 16000
-                    ? e.value.substring(0, 16000)
-                    : e.value,
-              )
-              .toList(),
-        );
+        final result = await _embed(batch.map((e) => e.value).toList());
         for (var j = 0; j < batch.length; j++) {
           _vectors[batch[j].key] = result.vectors[j];
         }
-        _indexedThisBuild += batch.length;
-        indexedCount += batch.length;
-        pendingCount -= batch.length;
+        final before = pendingItems.length;
+        pendingItems.removeWhere((keys) => keys.every(_vectors.containsKey));
+        _indexedThisBuild += before - pendingItems.length;
+        pendingCount = pendingItems.length;
+        indexedCount = itemCount - pendingCount;
         if (i % 32 == 0) await _save();
         // Yield between batches so foreground inference can share CPU resources.
         await Future<void>.delayed(const Duration(milliseconds: 30));

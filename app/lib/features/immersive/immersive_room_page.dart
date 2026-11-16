@@ -680,7 +680,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 
   Widget _languageSelector() => Center(
         child: SizedBox(
-          height: 44,
+          height: 24,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1057,7 +1057,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        height: 40,
+        height: 24,
         child: OutlinedButton(
           onPressed: controller.sending ||
                   controller.ending ||
@@ -1435,9 +1435,9 @@ class _ImmersiveLanguageButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onPressed,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(

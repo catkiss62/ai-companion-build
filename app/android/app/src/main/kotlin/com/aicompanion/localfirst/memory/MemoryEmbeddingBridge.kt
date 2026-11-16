@@ -12,6 +12,8 @@ import org.json.JSONObject
 import java.io.File
 import java.nio.LongBuffer
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import kotlin.math.sqrt
 
 /** One shared CPU worker. Never closes the process-wide ORT environment used by TTS. */
@@ -27,13 +29,29 @@ class MemoryEmbeddingBridge(context: Context, engine: FlutterEngine) {
                     result.error("invalid_embedding_input", "Invalid embedding batch", null)
                     return@setMethodCallHandler
                 }
+                val budgetMs = call.argument<Int>("budgetMs")
+                val deadline = budgetMs?.let { System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(it.toLong()) }
                 worker.execute {
+                    fun expired() = deadline != null && deadline - System.nanoTime() <= 0
+                    fun reportExpired() = main.post { result.success(mapOf("expired" to true)) }
+                    if (expired()) {
+                        reportExpired()
+                        return@execute
+                    }
                     try {
                         val cold = session == null
                         val loadStart = System.nanoTime()
                         initialize(app)
                         val inferenceStart = System.nanoTime()
-                        val vectors = texts.map { embed(it) }
+                        val vectors = if (deadline == null) {
+                            texts.map { embed(it) }
+                        } else {
+                            embedBeforeDeadline(texts, deadline)
+                        }
+                        if (vectors == null || expired()) {
+                            reportExpired()
+                            return@execute
+                        }
                         val inferenceMs = (System.nanoTime() - inferenceStart) / 1_000_000
                         main.post {
                             result.success(mapOf(
@@ -43,7 +61,8 @@ class MemoryEmbeddingBridge(context: Context, engine: FlutterEngine) {
                             ))
                         }
                     } catch (e: Exception) {
-                        main.post { result.error("local_embedding_failed", e.javaClass.simpleName, null) }
+                        if (expired()) reportExpired()
+                        else main.post { result.error("local_embedding_failed", e.javaClass.simpleName, null) }
                     }
                 }
             }
@@ -51,6 +70,10 @@ class MemoryEmbeddingBridge(context: Context, engine: FlutterEngine) {
     companion object {
         private val worker = Executors.newSingleThreadExecutor { r ->
             Thread(r, "memory-embedding").apply { priority = Thread.MIN_PRIORITY }
+        }
+        private val deadlines by lazy {
+            ScheduledThreadPoolExecutor(1) { r -> Thread(r, "memory-embedding-deadline") }
+                .apply { removeOnCancelPolicy = true }
         }
         private var session: OrtSession? = null
         private var tokenizer: BgeTokenizer? = null
@@ -78,7 +101,25 @@ class MemoryEmbeddingBridge(context: Context, engine: FlutterEngine) {
                 session = env.createSession(model.absolutePath, options)
             } finally { options.close() }
         }
-        private fun embed(text: String): FloatArray {
+        private fun embedBeforeDeadline(texts: List<String>, deadline: Long): List<FloatArray>? {
+            val remaining = deadline - System.nanoTime()
+            if (remaining <= 0) return null
+            return OrtSession.RunOptions().use { options ->
+                var finished = false
+                val timeout = deadlines.schedule({
+                    synchronized(options) {
+                        if (!finished) options.setTerminate(true)
+                    }
+                }, deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
+                try {
+                    texts.map { embed(it, options) }
+                } finally {
+                    synchronized(options) { finished = true }
+                    timeout.cancel(false)
+                }
+            }
+        }
+        private fun embed(text: String, options: OrtSession.RunOptions? = null): FloatArray {
             val ids = tokenizer!!.encode(text)
             val shape = longArrayOf(1L, ids.size.toLong())
             val tensors = mapOf(
@@ -86,7 +127,7 @@ class MemoryEmbeddingBridge(context: Context, engine: FlutterEngine) {
                 "attention_mask" to OnnxTensor.createTensor(env, LongBuffer.wrap(LongArray(ids.size) { 1 }), shape),
                 "token_type_ids" to OnnxTensor.createTensor(env, LongBuffer.wrap(LongArray(ids.size)), shape))
             try {
-                session!!.run(tensors).use { output ->
+                session!!.run(tensors, options).use { output ->
                     val buffer = (output[0] as OnnxTensor).floatBuffer
                     val vector = FloatArray(512)
                     for (token in ids.indices) for (d in vector.indices) vector[d] += buffer.get()
