@@ -41,10 +41,13 @@ cool down simply because an item was recently injected; proactive cooldowns rema
 Diagnostics expose model identity, status, indexed and pending counts. The
 author's published 91.7%/97.7% is not a result measured on this application.
 
-## Remaining validation
+## Validation and remaining device checks
 
-Android compilation and packaged hashes, tokenizer parity, source-index mutation
-regressions, full application CI and original-signature APK. Device checks must
-cover first indexing, archive restore, normal latency, simultaneous Live2D/TTS,
+Candidate 6205e4ff (v0.42.189+433) passed independent CI 43812990054,
+Android build 43812989961, 167 source validators, all 3455 Flutter tests,
+native tests and packaged model/tokenizer hash checks. The original signing
+certificate is unchanged. Tokenizer parity (10 cases) and source-index mutation
+regressions passed. These are not device performance or recall-accuracy results.
+Device checks must cover first indexing, archive restore, normal latency, simultaneous Live2D/TTS,
 and relevance across paraphrases, unrelated queries and corrected facts.
 QQ image review and animation selection are a separate second task; no changes here.
