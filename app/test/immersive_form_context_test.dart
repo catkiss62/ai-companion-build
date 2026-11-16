@@ -47,6 +47,20 @@ void main() {
       manualRevision: qForm ? 7 : 8).encode(),
   );
 
+  test('finished long room archive reads every original message in order', () {
+    final messages=[for(var i=0;i<14;i++) ImmersiveMessage(
+      id:'m$i',roomId:'r',role:i.isEven?'user':'assistant',
+      content:'MARKER_$i ${'甲'*5000}',reasoningContent:'',createdAt:DateTime(2026))];
+    final batches=ImmersiveArchiveWorker.transcriptBatches(messages);
+    expect(batches.length,greaterThan(1));
+    expect(batches.every((batch)=>batch.length<=26000),isTrue);
+    final combined=batches.join('\n');
+    for(var i=0;i<14;i++) {
+      expect(RegExp('MARKER_$i ').allMatches(combined).length,1);
+    }
+    expect(combined.indexOf('MARKER_0 '),lessThan(combined.indexOf('MARKER_13 ')));
+  });
+
   test('room messages keep entry form when ordinary chat changes form', () async {
     await setForm(true);
     final client = _ReplyClient();

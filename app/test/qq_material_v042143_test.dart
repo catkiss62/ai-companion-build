@@ -115,8 +115,10 @@ void main() {
     expect(cursors,isNotEmpty);
     final initialRead=await QqHistoryReader(sql).read(cid,messageSeq:seq);
     expect(initialRead.pendingReads.any((id)=>id.contains(':image:$seq:')),isTrue);
+    expect(initialRead.more,isTrue);
     final continued=await QqHistoryReader(sql).read(cid,messageSeq:seq,imageCursor:cursors.first);
     expect(continued.text,contains('尾部事实'));
+    expect(continued.resolvedReads,contains('$cid:image:$seq:${cursors.first}'));
     final firstNumber=cursors.first.split(':').first;
     var cursor=cursors.first;var tail=false;
     for(var i=0;i<8;i++) {
