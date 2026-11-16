@@ -27,6 +27,8 @@ void main() {
   const secret = '金色树叶的小灯';
   setUp(() async {
     db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    // This suite tests creation lifecycle, not timezone-dependent pricing windows.
+    await db.setSetting('background_offpeak_enabled', '0');
     store = CreativeStore(db); clock = DateTime(2026, 10, 12, 12);
     FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test-key-only'});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(

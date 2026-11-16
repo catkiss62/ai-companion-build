@@ -112,7 +112,7 @@ void main() {
     const namespace='fixture';
     const policyKey='qq_options_policy_v2:$namespace';
     const old=QqOptions(namespace:namespace,groups:{'a'},ownerMembers:{'a':'trusted-member'},
-      core:'自定义参与卡',publicMemory:'已公开背景',personaSetting:'旧公开稿',
+      core:'自定义参与卡',publicMemory:'已公开背景',personaSetting:'旧公开稿',personaDefaultVersion:1,
       ownerShare:false,voiceSetting:false,echoSetting:false);
     await old.save(db:db);
     final results=await Future.wait(List.generate(2,(_)=>
@@ -133,7 +133,7 @@ void main() {
     expect(restarted.revision,edited.revision);
     // If the encrypted write committed but its SQL authority did not, only
     // repair the authority. The draft and revision must not change again.
-    await db.setSetting(policyKey,'updating:persona-default-v1:interrupted');
+    await db.setSetting(policyKey,'updating:persona-default-v2:interrupted');
     final repaired=await QqOptions.ensurePublicPersonaDefault(db:db,namespace:namespace);
     expect(repaired.revision,edited.revision);
     expect(repaired.publicPersona,edited.publicPersona);
