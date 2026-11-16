@@ -1,7 +1,7 @@
 status=success
-run_id=43852222661
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43852222661
-head_sha=b5ba1e96d565bf62e76d7e8c48fc2fa8dd77b960
+run_id=43893211272
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43893211272
+head_sha=dd9ef8d4bdcb985568f61b6d108ab27bae00c1ec
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-fa2b417f6038a1f05ef5973e858718d984fbb278c513f2d10d89701e93cbdb11  AI-Companion-v0.42.191-435-QQ-Mature-Art-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-01addcfaff4dd65e598a
+ddf4c1f6749f5b73dbf95e7f59b1e90bcbeea66a495b7294528d52f5270c7272  AI-Companion-v0.42.192-436-Image-Chat-QQ-Recall-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-04e38af9212152d53291
