@@ -1,3 +1,5 @@
+> **文档状态（2026-11-17 核对）：** 历史移植记录（v0.39.5 时点）；保留失败路线与对照材料。当前入口见 [语音维护卡](maintenance/TTS.md)，不要据此恢复旧引擎。
+
 # Native TTS Porting Status · current (v0.39.5)
 
 The historical HTML/WebView shell is not used by AI Companion.

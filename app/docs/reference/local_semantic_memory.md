@@ -1,3 +1,5 @@
+> **文档状态（2026-11-17）：** 早期方案；后续已接入本地语义召回。当前入口、分段及缓存边界见 [记忆维护卡](../maintenance/MEMORY.md)。
+
 # Local semantic memory (v0.42.189 candidate)
 
 This is a retrieval-layer addition, not a replacement for memory extraction,

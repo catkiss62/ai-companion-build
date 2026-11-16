@@ -1,3 +1,5 @@
+> **文档状态（2026-11-17 核对）：** 历史语音管线（v0.39.5 时点）；其中 Meju/MNN 描述不能当作当前实现。当前 Genie 链路见 [语音维护卡](maintenance/TTS.md)。
+
 # Voice Pipeline · current (v0.39.5)
 
 ## 普通聊天

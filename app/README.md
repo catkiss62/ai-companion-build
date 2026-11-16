@@ -1,11 +1,13 @@
 # AI Companion App
 
+Maintenance entry: [模块维护目录](docs/maintenance/INDEX.md). 新功能或行为变化须同步维护资料，并核对 App 帮助与 Agent 自查；任务状态只写当前总账。
+
 This directory contains the complete Flutter/Android application and is the repository's runtime source of truth.
 
 ## Development entry points
 
 - AI handoff, branch selection and Chinese/English feature map: [../AI_START_HERE.md](../AI_START_HERE.md).
-- Current project status and next work: [docs/ledger/AI_Companion_总账_v3.md](docs/ledger/AI_Companion_总账_v3.md). Read the top handoff snapshot first; old sections are read on demand for the module being changed.
+- Current project status and next work: [docs/ledger/AI_Companion_总账_v4.md](docs/ledger/AI_Companion_总账_v4.md). Read the top handoff snapshot first; old sections are read on demand for the module being changed.
 - Permanent legacy ledger entry: [../AI_Companion_当前总账.md](../AI_Companion_当前总账.md) (v2 read-only history and redirect).
 - Documentation ownership and reading order: [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md)
 - Build instructions: [docs/BUILDING.md](docs/BUILDING.md)

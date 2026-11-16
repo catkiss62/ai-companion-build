@@ -1,3 +1,5 @@
+> **文档状态（2026-11-17 核对）：** 历史路线图，已实施、搁置和后续计划须对照 [当前总账](ledger/AI_Companion_总账_v4.md)，不作为自动执行清单。
+
 # AI Companion Roadmap
 
 当前任务真源只有仓库根目录 [AI_Companion_当前总账.md](../../AI_Companion_当前总账.md)。本文件只保留稳定的阶段顺序，不复制版本、完成状态或 APK 信息。
