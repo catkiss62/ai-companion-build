@@ -1394,7 +1394,7 @@ class CedarToyAutonomyEngine {
       return const CedarAutonomyProgress('missing_config');
     }
     final recoveryStore = CedarToyActivityStore(db);
-    if (acceptedTask != null) await recoveryStore.restoreTimedRemoteWait(acceptedTask['id'].toString());
+    if (acceptedTask != null) await recoveryStore.restoreTimedRemoteWait(acceptedTask['id'].toString(), workFence: clockFence);
     final stalled = await recoveryStore.load();
     if (acceptedTask != null && stalled?.isUnroutableRemoteWait == true &&
         acceptedTask['sessionId'] == stalled!.id) {

@@ -2161,11 +2161,11 @@ class CedarToyActivityStore {
   /// Parks a server wait that supplied neither `next_call` nor a resume time.
   /// The remote save remains resumable, while the empty active slot allows the
   /// Agent to choose another game instead of deadlocking the whole arcade.
-  Future<void> restoreTimedRemoteWait(String taskId) async {
+  Future<void> restoreTimedRemoteWait(String taskId, {BrainWorkFence? workFence}) async {
     final sql = await db.database;
     await sql.transaction((txn) async {
-      if (await BrainWorkFence.value(txn, 'active_brain') == '0' ||
-          await BrainWorkFence.value(txn, 'transfer_lock') == '1') return;
+      if (!await BrainWorkFence.workAllowed(txn) ||
+          (workFence != null && !await workFence.matches(txn))) return;
       final task = CedarTimedPlayTaskStore.decode(await BrainWorkFence.value(txn, CedarTimedPlayTaskStore.activeKey));
       if (task?['id'] != taskId) return;
       final state = await readStateInTransaction(txn);

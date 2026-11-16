@@ -235,6 +235,10 @@ void main() {
         phase: CedarActivityPhase.paused, pauseSource: 'remote_wait_unroutable',
         nextActor: 'wait', clearNextActionAt: true)})));
     final task = (await CedarTimedPlayTaskStore(db).active())!;
+    await db.setSetting('snapshot_recovery_pending_v1', 'recovering');
+    await store.restoreTimedRemoteWait(task['id'].toString());
+    expect(await store.load(), isNull);
+    await db.setSetting('snapshot_recovery_pending_v1', '');
     await store.restoreTimedRemoteWait(task['id'].toString());
     expect((await store.load())!.isUnroutableRemoteWait, isTrue);
     await store.pauseAndRelease();
