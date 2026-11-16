@@ -215,11 +215,18 @@ class LocalSemanticIndex {
               for (var i = 0; i < limit; i++)
                 chunks[(i * (chunks.length - 1) / (limit - 1)).round()],
             ];
-      final keys = chosen.map(keyFor).toList(growable: false);
-      final uncached = <String, String>{
-        for (var i = 0; i < chosen.length; i++)
-          if (!_queries.containsKey(keys[i])) keys[i]: chosen[i],
-      };
+      // Hold cache hits across the await and any subsequent cache eviction.
+      final queryVectors = <String, Float32List>{};
+      final uncached = <String, String>{};
+      for (final chunk in chosen) {
+        final key = keyFor(chunk);
+        final cached = _queries[key];
+        if (cached == null) {
+          uncached[key] = chunk;
+        } else {
+          queryVectors[key] = cached;
+        }
+      }
       if (uncached.isNotEmpty) {
         embeddingClock = Stopwatch()..start();
         final result = await _embed(
@@ -230,11 +237,12 @@ class LocalSemanticIndex {
         inferenceMs = result.inferenceMs;
         var i = 0;
         for (final key in uncached.keys) {
-          if (_queries.length >= 16) _queries.remove(_queries.keys.first);
-          _queries[key] = result.vectors[i++];
+          final vector = result.vectors[i++];
+          queryVectors[key] = vector;
+          _queries[key] = vector;
+          if (_queries.length > 16) _queries.remove(_queries.keys.first);
         }
       }
-      final queries = keys.map((key) => _queries[key]!).toList(growable: false);
       final scored = <MapEntry<String, double>>[];
       for (final item in chunkKeysById.entries) {
         var best = double.negativeInfinity;
@@ -244,7 +252,7 @@ class LocalSemanticIndex {
             timing('fallback_indexing');
             return {};
           }
-          for (final q in queries) {
+          for (final q in queryVectors.values) {
             var dot = 0.0;
             for (var i = 0; i < 512; i++) {
               dot += q[i] * v[i];

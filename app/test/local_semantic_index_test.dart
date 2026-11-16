@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
@@ -198,6 +199,65 @@ void main() {
       expect(scores['long'], 1);
     },
   );
+
+  for (final (lane, budget, concurrentEviction) in [
+    ('App', null, false),
+    ('QQ', const Duration(milliseconds: 450), false),
+    ('App with concurrent queries', null, true),
+  ]) {
+    test('$lane retains selected chunks through query cache eviction', () async {
+      final dir = await Directory.systemTemp.createTemp('semantic-eviction-');
+      addTearDown(() => dir.delete(recursive: true));
+      final longQuery = '${'A' * 480}${'B' * 432}${'C' * 432}${'D' * 432}'
+          '${'E' * 432}${'F' * 432}${'G' * 432}尾部问题';
+      final head = longQuery.substring(0, 480);
+      final tailStarted = Completer<void>();
+      final resumeTail = Completer<void>();
+      final batches = <List<String>>[];
+      final index = LocalSemanticIndex(
+        enabled: true,
+        cacheFile: () async => File('${dir.path}/cache'),
+        encoder: (texts) async {
+          batches.add(texts);
+          if (concurrentEviction && texts.any((t) => t.endsWith('尾部问题'))) {
+            tailStarted.complete();
+            await resumeTail.future;
+          }
+          return texts.map((text) {
+            if (text == head || text.startsWith('开头事实')) return vector(0);
+            if (text.contains('尾部问题') || text.startsWith('结尾事实')) {
+              return vector(1);
+            }
+            return vector(2);
+          }).toList();
+        },
+      );
+      final items = [item('head', '开头事实'), item('tail', '结尾事实')];
+      expect(await index.search('初始化', items), isEmpty);
+      await ready(index);
+      expect((await index.search(head, items))['head'], 1.0);
+      for (var i = 0; i < 15; i++) {
+        expect(await index.search('填满缓存 $i', items), isNotEmpty);
+      }
+      batches.clear();
+
+      final pending = index.search(longQuery, items, queryBudget: budget);
+      if (concurrentEviction) {
+        try {
+          await tailStarted.future.timeout(const Duration(seconds: 2));
+          expect(await index.search('并发查询', items), isNotEmpty);
+        } finally {
+          resumeTail.complete();
+        }
+      }
+
+      expect(await pending, {'head': 1.0, 'tail': 1.0});
+      expect(batches.first, hasLength(budget == null ? 7 : 1));
+      expect(batches.first, isNot(contains(head)));
+      expect(index.status, 'ready');
+      expect((await index.search('开头事实', items))['head'], 1.0);
+    });
+  }
 
   test(
     'query deadline reaches the native queue without marking the model unavailable',
