@@ -35,9 +35,13 @@ class QqMessageMaterial {
   static String excerpt(String value, int limit) {
     if (value.length <= limit) return value;
     const marker = '〔中段未保存〕';
+    if (limit <= marker.length) return bound(value, limit);
     final available = limit - marker.length;
     final head = available ~/ 2;
-    return '${bound(value, head)}$marker${value.substring(value.length - (available - head))}';
+    var tailStart = value.length - (available - head);
+    if (tailStart < value.length && value.codeUnitAt(tailStart) >= 0xdc00 &&
+        value.codeUnitAt(tailStart) <= 0xdfff) tailStart++;
+    return '${bound(value, head)}$marker${value.substring(tailStart)}';
   }
   static QqMessageMaterial decode(String raw) {
     if (raw.isEmpty) return const QqMessageMaterial(kind: 'legacy');

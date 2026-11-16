@@ -27,11 +27,18 @@ class QqArchiveReader {
     const marker = '〔省略〕';
     final edge = limit ~/ 5;
     final middleLength = limit - edge * 2 - marker.length * 2;
-    final start = ((hit < 0 ? content.length ~/ 2 : hit) - middleLength ~/ 3)
+    var start = ((hit < 0 ? content.length ~/ 2 : hit) - middleLength ~/ 3)
         .clamp(edge, content.length - edge - middleLength);
-    return '${bound(content, edge)}$marker'
-        '${content.substring(start, start + middleLength)}$marker'
-        '${content.substring(content.length - edge)}';
+    if (content.codeUnitAt(start) >= 0xdc00 && content.codeUnitAt(start) <= 0xdfff) start++;
+    var end = start + middleLength;
+    if (end < content.length && content.codeUnitAt(end - 1) >= 0xd800 &&
+        content.codeUnitAt(end - 1) <= 0xdbff) end--;
+    var tailStart = content.length - edge;
+    if (content.codeUnitAt(tailStart) >= 0xdc00 &&
+        content.codeUnitAt(tailStart) <= 0xdfff) tailStart++;
+    return '${QqMessageMaterial.bound(content, edge)}$marker'
+        '${content.substring(start, end)}$marker'
+        '${content.substring(tailStart)}';
   }
   final _descriptors=<String,Map<String,Object?>>{};
   final _names=<String,QqDisplayNames>{};

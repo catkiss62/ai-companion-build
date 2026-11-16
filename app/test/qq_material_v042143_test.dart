@@ -131,6 +131,14 @@ void main() {
     expect(tail,isTrue);
   });
 
+  test('bounded material excerpts keep Unicode intact even at zero budget',() {
+    expect(QqMessageMaterial.excerpt('abc',0),'');
+    final excerpt=QqMessageMaterial.excerpt('🐳'*8000,12000);
+    expect(excerpt.length,lessThanOrEqualTo(12000));
+    expect(excerpt,contains('〔中段未保存〕'));
+    expect(excerpt.contains('\uFFFD'),isFalse);
+  });
+
   test('nested/escaped material is bounded; unrecognized embedded parts stay source-unknown',() {
     final input=QqIncoming.parse(quoted(inner:List.filled(9000,'\u0001').join(),many:true));
     expect(input.urls.length,4);expect(input.material.parts.length,4);expect(input.material.partial,true);
