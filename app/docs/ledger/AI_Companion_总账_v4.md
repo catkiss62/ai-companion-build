@@ -2,9 +2,9 @@
 
 ## 当前接班快照
 
-- `v0.42.195+439` 的语义召回缓存修复已在本地实现，定向测试 47 项通过。独立 CI、签名 APK 和真机待验。入口见「语义召回分段缓存修复」。
+- 当前已交付 `v0.42.195+439`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `efbe55d7fa58fd86abb408504bb2dbe70d26667e`。修复 App 与 QQ 语义查询在缓存淘汰后短时停用的问题。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615649)与[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828)通过。真机待验项见「语义召回分段缓存修复」。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828/artifacts/14266085159)
 
-- 当前已交付 `v0.42.194+438`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `15e0958bca2722515ef3dbcc69e3ebc818aeccfc`。六项上下文截取与 token 上限修复已实现；[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43930896980) 1393 项、[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145) 的 167 项源码门禁和 3484 项 Flutter 测试均通过，原签名校验通过；真机待验。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145/artifacts/14260374288)。下一步从下方「上下文截取与 token 上限六项修复」的真机待验项及专项复查入口继续。
+- 上一版 `v0.42.194+438`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `15e0958bca2722515ef3dbcc69e3ebc818aeccfc`。六项上下文截取与 token 上限修复已实现；[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43930896980) 1393 项、[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145) 的 167 项源码门禁和 3484 项 Flutter 测试均通过，原签名校验通过；真机待验。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145/artifacts/14260374288)。下一步从下方「上下文截取与 token 上限六项修复」的真机待验项及专项复查入口继续。
 
 - 上一版 `v0.42.193+437`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `8eb9d50058b0d847eac5c0793dd26563c00c4e93`。本版完成识图弹窗、沉浸顶栏与四项定点修补。独立 CI、完整构建回归与原签名校验已通过。真机待验与续查入口见本页「2026-11-17 · 识图界面与语义召回复查修补」。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43909841224/artifacts/14249367766)
 
@@ -24,7 +24,10 @@
 
 - 每次查询在开始异步推理前持有自身命中的向量，新算的向量同时纳入本轮计算和共享缓存。评分读取本轮持有的向量；共享缓存继续限制 16 项，更新已存在键时无需额外淘汰。App 八段与 QQ 首尾两段的选择策略、QQ 450ms 预算、实际编码失败时的处理沿用原逻辑。
 - 三个回归先在 +438 代码上运行，均复现召回空结果。修复后 App 满缓存、QQ 满缓存及 App 推理期间并发查询淘汰缓存均返回首尾两项正确匹配，验证缓存命中片段未重新编码且紧接着的短查询成功。语义索引、QQ 档案、正文失败策略和图像/网页预算共 47 项定向通过。改动文件分析无错误或警告，三项既有 lint 提示仍在。
-- 版本升为 v0.42.195+439，schema67。同步应用版本、自我认知构建标签、历史版本门禁、构建和产物名。167 项源码校验逐一执行，本地 163 项通过，另外 4 项为同 +438 的桌宠/特效素材及 kotlinc 环境缺口，等远端复核。23 项版本身份与构建流程用例通过。独立 CI、签名 APK 和真机待验。
+- 版本升为 v0.42.195+439，schema67。同步应用版本、自我认知构建标签、历史版本门禁、构建和产物名。167 项源码校验逐一执行，本地 163 项通过，另外 4 项为同 +438 的桌宠/特效素材及 kotlinc 环境缺口，后由远端门禁验证。23 项版本身份与构建流程用例通过。
+
+- 源码 `efbe55d7fa58fd86abb408504bb2dbe70d26667e` 的独立 CI 43941615649 完整成功，集中回归 1396 项通过。签名构建 43941615828 完整成功，167 项源码校验、3487 项全量 Flutter、原生语音、悬浮文字与菜菜桌宠检查均通过。APK 原签名指纹 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` 验证通过。下载产物 14266085159，压缩包 SHA-256 `7cf01421b642fa4e4c30c01d2675b553cbdf635705103339c865c0b1d1f123a6`。
+- 真机待验：本地索引就绪后，连续做多次召回以填满查询缓存，再用带相同开头但新结尾的长消息分别测试 App 与 QQ。核对首尾事实仍可召回、紧接着的短问句正常，并查看脱敏诊断有无 `fallback_error`。+438 上下文其他待验项仍见该版交付记录。
 
 ## 2026-11-17 · +438 上下文与 token 二次复查（仅分析）
 
