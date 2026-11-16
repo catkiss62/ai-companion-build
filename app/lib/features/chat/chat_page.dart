@@ -3,6 +3,7 @@ import '../illustration/illustration_result_view.dart';
 import '../creative/creative_pages.dart';
 import '../creative/balance_with_spend.dart';
 import 'chat_tail_follower.dart';
+import 'chat_attachment_thumbnail.dart';
 import '../../widgets/caicai_stage_viewport.dart';
 import '../../widgets/room_depth_background.dart';
 import '../../widgets/caicai_stage_editor.dart';
@@ -122,15 +123,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
   String _currentEmotionLabel = '正常';
   bool _followLatest = true;
+  bool _draggingPanel = false;
+  bool _draggingTimeline = false;
+  double? _lastTimelineViewport;
+  Timer? _viewportSettleTimer;
+
+  bool get _mayFollowTimeline => mounted && widget.active && _followLatest &&
+      !_draggingPanel && !_draggingTimeline && _viewportSettleTimer == null;
+
   late final _tailFollower = ChatTailFollower(
     controller: scroll,
-    canFollow: () => mounted && widget.active && _followLatest,
+    canFollow: () => _mayFollowTimeline,
     onProgrammaticChange: (value) => _programmaticScroll = value,
   );
   bool _programmaticScroll = false;
   bool _lastGenerationActive = false;
   String _lastStreamingReasoning = '';
   String _lastStreamingContent = '';
+  GlobalKey? _pendingTailAnchor;
+  static const _streamingBubbleKey = ValueKey('streaming-reply');
   final GlobalKey _timelineTailKey = GlobalKey();
   final GlobalKey _streamingBodyTailKey = GlobalKey();
   ProactiveNotificationSound _notificationSound =
@@ -608,6 +619,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     ]);
   }
 
+  // See assets/lingchat/NOTICE.md for the source and license of the upstream
+  // LingChat backgrounds, portraits, and sounds used by the chat stage.
   bool get _useNightBackground {
     if (_backgroundMode == 'night') return true;
     if (_backgroundMode == 'day') return false;
@@ -617,38 +630,73 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
   void _scrollToLatest() => _tailFollower.request();
 
-  void _anchorTimelineTail() {
-    _tailFollower.request();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_followLatest) return;
-      final tailContext = _timelineTailKey.currentContext;
-      if (tailContext == null) {
-        _scrollToLatest();
-        return;
-      }
-      _programmaticScroll = true;
-      unawaited(
-        Scrollable.ensureVisible(
-          tailContext,
-          alignment: 1,
-          duration: Duration.zero,
-        ).whenComplete(() => _programmaticScroll = false),
-      );
-    });
+  bool _onTimelineScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || _programmaticScroll) return false;
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _draggingTimeline = true;
+    } else if (notification is ScrollEndNotification && _draggingTimeline) {
+      _draggingTimeline = false;
+      _scrollToLatest();
+    }
+    return false;
   }
 
-  void _anchorStreamingBody() {
+  bool _onTimelineMetrics(ScrollMetricsNotification notification) {
+    if (notification.depth != 0) return false;
+    final metrics = notification.metrics;
+    final previousViewport = _lastTimelineViewport;
+    _lastTimelineViewport = metrics.viewportDimension;
+    if (previousViewport != null &&
+        previousViewport != metrics.viewportDimension) {
+      // The viewport changes each frame during keyboard and panel animations.
+      // Avoid chasing intermediate scroll extents while it is resizing.
+      _viewportSettleTimer?.cancel();
+      _viewportSettleTimer = Timer(const Duration(milliseconds: 100), () {
+        _viewportSettleTimer = null;
+        _scrollToLatest();
+      });
+    } else if (metrics.extentAfter > .5) {
+      _scrollToLatest();
+    }
+    return false;
+  }
+
+  void _finishPanelDrag() {
+    if (!_draggingPanel) return;
+    _draggingPanel = false;
+    _scrollToLatest();
+    unawaited(_setVisualSetting(
+      'chat_panel_fraction',
+      _panelFraction.toStringAsFixed(3),
+    ));
+  }
+
+  void _anchorTimelineTail() {
+    _scrollToLatest();
+    _scheduleTailAnchor(_timelineTailKey);
+  }
+
+  void _anchorStreamingBody() => _scheduleTailAnchor(_streamingBodyTailKey);
+
+  void _scheduleTailAnchor(GlobalKey target) {
+    if (!_mayFollowTimeline) return;
+    final scheduled = _pendingTailAnchor != null;
+    _pendingTailAnchor = target;
+    if (scheduled) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_followLatest) return;
-      final bodyTailContext = _streamingBodyTailKey.currentContext;
-      if (bodyTailContext == null) {
+      final target = _pendingTailAnchor;
+      _pendingTailAnchor = null;
+      if (!_mayFollowTimeline) return;
+      final anchor = target?.currentContext;
+      if (anchor == null) {
         _scrollToLatest();
         return;
       }
       _programmaticScroll = true;
       unawaited(
         Scrollable.ensureVisible(
-          bodyTailContext,
+          anchor,
           alignment: 1,
           duration: Duration.zero,
         ).whenComplete(() => _programmaticScroll = false),
@@ -690,6 +738,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     input.dispose();
     inputFocus.removeListener(_onComposerFocusChanged);
     inputFocus.dispose();
+    _viewportSettleTimer?.cancel();
     _tailFollower.dispose();
     scroll.dispose();
     super.dispose();
@@ -979,7 +1028,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   Future<void> _prepareAndConfirmImages(List<XFile> images, {required String source}) async {
     final drafts = <PreparedImageAttachment>[];
     final selected = <PreparedImageAttachment>[];
-    final caption = TextEditingController(text: input.text);
+    var caption = input.text;
     var saved = false;
     try {
       for (final image in images) {
@@ -1000,8 +1049,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
           byteSize: draft.byteSize, width: draft.width, height: draft.height);
       }
       selected.addAll(drafts);
+      final qwenKey = await controller.secureConfig.readVisionApiKey();
+      final qwenConfigured = qwenKey != null && qwenKey.trim().isNotEmpty;
       if (!mounted) return;
-      final accepted = await showDialog<bool>(context: context, barrierDismissible: false,
+      final accepted = await showDialog<ImageVisionRoute>(context: context, barrierDismissible: false,
         builder: (context) => StatefulBuilder(builder: (context, update) => AlertDialog(
           title: Text('一起发送 ${selected.length} 张图片'),
           content: SizedBox(width: 340, child: SingleChildScrollView(child: Column(
@@ -1011,16 +1062,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   Positioned(right: 0, top: 0, child: IconButton(tooltip: '移除这张图片',
                     onPressed: () => update(() => selected.remove(draft)), icon: const Icon(Icons.close)))])]),
               const SizedBox(height: 12),
-              TextField(controller: caption, maxLines: 3,
+              TextFormField(
+                initialValue: caption,
+                onChanged: (value) => caption = value,
+                maxLines: 3,
                 decoration: const InputDecoration(labelText: '附言（可选）', border: OutlineInputBorder())),
               const SizedBox(height: 8),
-              const Text('这些图片作为一条消息发送，识别完成后一起回复'),
+              const Text('这些图片作为一条消息发送，识别完成后一起回复。'),
+              Text(qwenConfigured
+                  ? '千问未识别成功时使用 DS 识图。'
+                  : '填写千问视觉 API Key 后可使用千问识图。'),
             ]))),
-          actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-            FilledButton(onPressed: selected.isEmpty ? null : () => Navigator.pop(context, true), child: const Text('发送'))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+            OutlinedButton(onPressed: selected.isEmpty ? null : () => Navigator.pop(context, ImageVisionRoute.first), child: const Text('DS识图')),
+            FilledButton(onPressed: selected.isEmpty || !qwenConfigured ? null : () => Navigator.pop(context, ImageVisionRoute.qwen), child: const Text('千问识图'))],
         )));
-      if (accepted != true || !mounted) return;
-      saved = await controller.sendPreparedImages(selected, caption: caption.text);
+      if (accepted == null || !mounted) return;
+      saved = await controller.sendPreparedImages(selected, caption: caption,
+          visionRoute: accepted);
       if (mounted && saved) {
         input.clear();
         _showMessage('图片已保存在本机，正在识别并准备回复…');
@@ -1028,7 +1087,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     } catch (error) {
       if (mounted) _showMessage('图片准备失败：$error');
     } finally {
-      caption.dispose();
       for (final draft in drafts) {
         if (!saved || !selected.contains(draft)) {
           await controller.discardPreparedImage(draft);
@@ -1052,7 +1110,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
               child: Image.file(
                 file,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const _MissingAttachment(),
+                errorBuilder: (_, __, ___) => const MissingChatAttachment(),
               ),
             ),
           ),
@@ -1171,9 +1229,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     if (approved) await controller.confirmIncompleteReply();
   }
 
+  static Key _timelineItemKey(ChatTimelineItem item) => ValueKey(
+    (item.isInterruption, item.interruption?.jobId ?? item.message!.id),
+  );
+
   @override
   Widget build(BuildContext context) {
     final timeline = controller.timelineItems;
+    final showDraft = controller.showGenerationDraft;
+    final tailIndex = timeline.length + (showDraft ? 1 : 0);
+    final indices = {
+      for (var index = 0; index < timeline.length; index++)
+        _timelineItemKey(timeline[index]): index,
+      if (showDraft) _streamingBubbleKey: timeline.length,
+      _timelineTailKey: tailIndex,
+    };
     String? latestAssistantId;
     for (final message in controller.messages.reversed) {
       if (message.isAssistant) {
@@ -1191,9 +1261,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
         ? const Center(child: CircularProgressIndicator())
         : ListView.builder(
             controller: scroll,
+            findChildIndexCallback: (key) => indices[key],
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
-            itemCount:
-                timeline.length + (controller.showGenerationDraft ? 1 : 0) + 1,
+            itemCount: tailIndex + 1,
             itemBuilder: (context, index) {
               if (index < timeline.length) {
                 final item = timeline[index];
@@ -1203,6 +1273,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   previous?.createdAt,
                 );
                 return Column(
+                  key: _timelineItemKey(item),
                   children: [
                     if (showDate) _DateSeparator(createdAt: item.createdAt),
                     if (item.isInterruption)
@@ -1321,8 +1392,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   ],
                 );
               }
-              if (controller.showGenerationDraft && index == timeline.length) {
+              if (showDraft && index == timeline.length) {
                 return _StreamingBubble(
+                  key: _streamingBubbleKey,
                   controller: controller,
                   bodyTailKey: _streamingBodyTailKey,
                 );
@@ -1433,17 +1505,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       child: Column(
                         children: [
                           Expanded(
-                            child:
-                                NotificationListener<UserScrollNotification>(
-                              onNotification: _onUserScroll,
-                              child: NotificationListener<ScrollMetricsNotification>(
-                                onNotification: (notification) {
-                                  if (notification.depth == 0 && _followLatest) {
-                                    _tailFollower.request();
-                                  }
-                                  return false;
-                                },
-                                child: timelineList,
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _onTimelineScroll,
+                              child: NotificationListener<UserScrollNotification>(
+                                onNotification: _onUserScroll,
+                                child: NotificationListener<ScrollMetricsNotification>(
+                                  onNotification: _onTimelineMetrics,
+                                  child: timelineList,
+                                ),
                               ),
                             ),
                           ),
@@ -1521,6 +1590,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       child: Center(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
+                          onVerticalDragStart: (_) => _draggingPanel = true,
                           onVerticalDragUpdate: (details) {
                             final next = (_panelFraction -
                                     details.delta.dy / constraints.maxHeight)
@@ -1528,10 +1598,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                                 .toDouble();
                             setState(() => _panelFraction = next);
                           },
-                          onVerticalDragEnd: (_) => _setVisualSetting(
-                            'chat_panel_fraction',
-                            _panelFraction.toStringAsFixed(3),
-                          ),
+                          onVerticalDragEnd: (_) => _finishPanelDrag(),
+                          onVerticalDragCancel: _finishPanelDrag,
                           child: Container(
                             width: 84,
                             height: 26,
@@ -2113,33 +2181,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                           await _loadVisualSettings();
                         },
                       ),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.copyright_outlined),
-                        title: const Text('上游与素材说明'),
-                        subtitle: const Text('LingChat · AGPL-3.0 与素材来源'),
-                        onTap: () => showDialog<void>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('LingChat 上游说明'),
-                            content: const SingleChildScrollView(
-                              child: Text(
-                                '聊天舞台的首批角色立绘、昼夜背景与情绪短音效来自 '
-                                'SlimeBoyOwO/LingChat 固定版本。软件源码采用 AGPL-3.0；'
-                                '部分素材另有上游注明的来源与非商业限制。本项目仅按个人、'
-                                '非商业学习用途接入，并把素材隔离存放，便于后续替换。'
-                                '\n\n完整文件：assets/lingchat/NOTICE.md',
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('知道了'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -2409,32 +2450,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       widget.onOpenMore?.call();
                       await _loadVisualSettings();
                     },
-                  ),
-                  _QuickPanelTile(
-                    icon: Icons.copyright_outlined,
-                    title: '上游与素材说明',
-                    subtitle: 'LingChat · AGPL-3.0 与素材来源',
-                    onTap: () => showDialog<void>(
-                      context: dialogContext,
-                      builder: (context) => AlertDialog(
-                        title: const Text('LingChat 上游说明'),
-                        content: const SingleChildScrollView(
-                          child: Text(
-                            '聊天舞台的首批角色立绘、昼夜背景与情绪短音效来自 '
-                            'SlimeBoyOwO/LingChat 固定版本。软件源码采用 AGPL-3.0；'
-                            '部分素材另有上游注明的来源与非商业限制。本项目仅按个人、'
-                            '非商业学习用途接入，并把素材隔离存放，便于后续替换。'
-                            '\n\n完整文件：assets/lingchat/NOTICE.md',
-                          ),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('知道了'),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -2937,7 +2952,8 @@ class _MessageBubble extends StatelessWidget {
           ),
         for (final attachment in message.attachments)
           if (attachment.isImage) ...[
-            _AttachmentThumbnail(
+            ChatAttachmentThumbnail(
+              key: ValueKey(attachment.id),
               attachment: attachment,
               storage: attachmentStorage,
               onTap: () => onOpenAttachment(attachment),
@@ -3503,88 +3519,9 @@ class _VisionStatus extends StatelessWidget {
   }
 }
 
-class _AttachmentThumbnail extends StatelessWidget {
-  const _AttachmentThumbnail({
-    required this.attachment,
-    required this.storage,
-    required this.onTap,
-  });
-
-  final MessageAttachment attachment;
-  final MessageAttachmentStorage storage;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final sticker = attachment.source.startsWith('assistant_sticker:') ||
-        attachment.source.startsWith('user_sticker:');
-    final animatedSticker = attachment.mimeType == 'image/gif' && sticker;
-    return FutureBuilder<File>(
-      future: storage.fileFor(
-        animatedSticker ? attachment.originalPath : attachment.thumbnailPath,
-      ),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(
-            width: 220,
-            height: 150,
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          );
-        }
-        return InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: ConstrainedBox(
-              constraints: sticker
-                  ? const BoxConstraints(
-                      minWidth: 180,
-                      maxWidth: 180,
-                      maxHeight: 320,
-                    )
-                  : const BoxConstraints(
-                      minWidth: 160,
-                      maxWidth: 300,
-                      maxHeight: 320,
-                    ),
-              child: Image.file(
-                snapshot.data!,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const _MissingAttachment(),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _MissingAttachment extends StatelessWidget {
-  const _MissingAttachment();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      height: 150,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child: const Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.broken_image_outlined),
-          SizedBox(height: 6),
-          Text('图片文件暂时不可用'),
-        ],
-      ),
-    );
-  }
-}
-
 class _StreamingBubble extends StatelessWidget {
   const _StreamingBubble({
+    super.key,
     required this.controller,
     required this.bodyTailKey,
   });

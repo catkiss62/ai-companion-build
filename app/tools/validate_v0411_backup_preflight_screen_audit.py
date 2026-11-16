@@ -64,41 +64,14 @@ else:
     assert "transfer_lock" not in verify
     assert "检查完整备份（不覆盖）" in transfer
 
-screen_tokens = (
-    (
-        "'phase': 'public_web_scheduled_user_screen_once'",
-        "'implementationStatus': 'user_turn_only'",
-        "'userTurnAvailable': true",
-        "'oneTimeProviderAvailable': true",
-    )
-    if any(version in pubspec for version in (
-        "version: 0.41.14+153", "version: 0.41.18+157"
-    ))
-    else (
-        "'phase': 'public_web_scheduled_screen_foundation_only'",
-        "'implementationStatus': 'not_implemented'",
-    )
-)
-for token in screen_tokens + (
-    "'schedulerAvailable': false",
-    "'providerAvailable': false",
-    "'futureLimit': 6",
-    "'remaining': null",
-):
-    assert token in database, token
-assert "0 次不是低概率未命中" in diagnostics
-assert "!registered.executable || !registered.autonomousAvailable" in coordinator
+assert "'phase': 'public_web_scheduled'" in database
+assert "'screenObservation': {" not in database
+assert "registered == null || !registered.executable" in coordinator
 
 assert "backup.acceptsSourceGeneration(0), isTrue" in archive_test
 assert "takeover.acceptsSourceGeneration(0), isFalse" in archive_test
 assert "SnapshotArchiveKind.backup.manifestEncryption, 'none'" in archive_test
-if any(version in pubspec for version in (
-    "version: 0.41.14+153", "version: 0.41.18+157"
-)):
-    assert "expect(screen.executable, isTrue)" in registry_test
-    assert "expect(screen.autonomousAvailable, isFalse)" in registry_test
-else:
-    assert "expect(screen.executable, isFalse)" in registry_test
+assert "expect(screen, isNull)" in registry_test
 
 assert "python3 tools/validate_v0411_backup_preflight_screen_audit.py" in workflow
 if simple_file_backup:

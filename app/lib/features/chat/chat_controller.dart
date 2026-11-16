@@ -718,7 +718,11 @@ class ChatController extends ChangeNotifier {
     String caption = '',
   }) => sendPreparedImages([draft], caption: caption);
 
-  Future<bool> sendPreparedImages(List<PreparedImageAttachment> drafts, {String caption = ''}) async {
+  Future<bool> sendPreparedImages(
+    List<PreparedImageAttachment> drafts, {
+    String caption = '',
+    ImageVisionRoute? visionRoute,
+  }) async {
     if (drafts.isEmpty) return false;
     final draft = drafts.first;
     final turnDeepThinking = deepThinking;
@@ -732,8 +736,9 @@ class ChatController extends ChangeNotifier {
       if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
         throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
       }
-      if (!await RoutedVisionClient.configured(secureConfig, db: db)) {
-        throw StateError('请先配置可用的图片识别接口。');
+      if (visionRoute == ImageVisionRoute.qwen &&
+          ((await secureConfig.readVisionApiKey())?.trim().isEmpty ?? true)) {
+        throw StateError('请选择 DS 识图，或先在模型与联网设置中填写千问视觉 API Key。');
       }
       if ((await db.getSetting('transfer_lock')) == '1') {
         throw StateError(await _activeWriteFreezeMessage());
@@ -793,7 +798,7 @@ class ChatController extends ChangeNotifier {
           expectsReply: false,
         );
         await db.insertMessageWithAttachments(message, committed,
-          deepThinking: turnDeepThinking);
+          deepThinking: turnDeepThinking, imageVisionRoute: visionRoute);
         return message;
       }, db: db);
       messages = [...messages, message];
@@ -885,14 +890,6 @@ class ChatController extends ChangeNotifier {
     final visionStarted = DateTime.now();
     GenerationJob? trustedGeneration;
     try {
-      final visionKey = await secureConfig.readVisionApiKey() ?? '';
-      if (!await RoutedVisionClient.configured(secureConfig, db: db)) {
-        throw StateError('请先配置可用的图片识别接口。');
-      }
-      final deepSeekKey = await secureConfig.readApiKey();
-      if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
-        throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
-      }
       marked = await db.markAttachmentVisionAnalyzing(attachment.id);
       if (!marked) {
         await AttachmentPipelineTelemetry.record(
@@ -907,6 +904,11 @@ class ChatController extends ChangeNotifier {
         );
         return;
       }
+      final visionKey = await secureConfig.readVisionApiKey() ?? '';
+      final deepSeekKey = await secureConfig.readApiKey();
+      if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
+        throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
+      }
       await _refreshChatRoutingSettings();
       messages = await db.recentMessages(limit: 160);
       _safeNotify();
@@ -918,22 +920,32 @@ class ChatController extends ChangeNotifier {
       );
       final albumEnabled =
           (await db.getSetting('simulated_phone_enabled')) != '0';
-      if (visionClient is RoutedVisionClient) {
-        (visionClient as RoutedVisionClient).sourceGuard = () async => !_disposed &&
-          !_discardedImageMessageIds.contains(messageId) && await db.brainWorkAllowed() &&
-          await db.messageById(messageId) != null;
+      final route = await db.imageVisionRouteForMessage(messageId);
+      final baseVision = visionClient;
+      final requestVision = baseVision is RoutedVisionClient
+          ? baseVision.forAttachment(
+              route: route,
+              current: () async => !_disposed &&
+                  !_discardedImageMessageIds.contains(messageId) &&
+                  await db.hasMessage(messageId),
+            )
+          : baseVision;
+      final QwenVisionObservation observation;
+      try {
+        observation = await requestVision.observe(
+          apiKey: visionKey,
+          endpoint: await secureConfig.readVisionEndpoint(),
+          model: await secureConfig.readVisionModel(),
+          imageFile: thumbnail,
+          caption: message.attachments.length == 1 ? message.content :
+            '同一条消息的第 ${message.attachments.indexOf(attachment)+1}/${message.attachments.length} 张图片。用户附言：${message.content}。仅描述当前图片，最终回复将结合全部图片。',
+          assessForAlbum: albumEnabled,
+          albumPreferenceHint:
+              albumEnabled ? await db.companionAlbumPreferenceHint() : '',
+        );
+      } finally {
+        if (!identical(requestVision, baseVision)) requestVision.close();
       }
-      final observation = await visionClient.observe(
-        apiKey: visionKey,
-        endpoint: await secureConfig.readVisionEndpoint(),
-        model: await secureConfig.readVisionModel(),
-        imageFile: thumbnail,
-        caption: message.attachments.length == 1 ? message.content :
-          '同一条消息的第 ${message.attachments.indexOf(attachment)+1}/${message.attachments.length} 张图片。用户附言：${message.content}。仅描述当前图片，最终回复将结合全部图片。',
-        assessForAlbum: albumEnabled,
-        albumPreferenceHint:
-            albumEnabled ? await db.companionAlbumPreferenceHint() : '',
-      );
       // Deleting an image message is a local, immediate action. The provider
       // request may already be on the wire and cannot always be cancelled, so
       // fence its late result before it can recreate a reply or surface an
@@ -955,6 +967,9 @@ class ChatController extends ChangeNotifier {
             ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
       ));
       visionRecorded = true;
+      if (route == ImageVisionRoute.qwen && observation.provider == 'deepseek') {
+        notice = '千问未完成此图，已改用 DS 识图。';
+      }
       chatLeaseHeld = await db.tryAcquireLocalLease(
         'chat_turn_lease',
         holdFor: const Duration(seconds: 30),

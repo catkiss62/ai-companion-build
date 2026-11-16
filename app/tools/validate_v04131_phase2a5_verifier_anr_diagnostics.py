@@ -84,7 +84,7 @@ repeated_note = (
     "敏感页会阻止，截图不会保存。"
 )
 assert repeated_note not in system_page
-assert "Accessibility 轻视觉" in system_page
+assert "无障碍应用感知" in system_page
 
 for token in (
     "restClosureHold = Duration(minutes: 90)",

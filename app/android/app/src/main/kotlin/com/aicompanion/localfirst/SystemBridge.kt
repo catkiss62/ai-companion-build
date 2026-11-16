@@ -376,13 +376,6 @@ class SystemBridge(
                         ?.asUsageEvent()
                     Handler(Looper.getMainLooper()).post { result.success(resolved) }
                 }.start()
-                "captureCurrentScreenOnce" -> {
-                    AccessibilityBridgeService.captureOnce { payload ->
-                        Handler(Looper.getMainLooper()).post {
-                            result.success(payload)
-                        }
-                    }
-                }
                 "saveManualSnapshot" -> startManualSave(
                     sourcePath = call.argument<String>("sourcePath") ?: "",
                     passphrase = call.argument<String>("passphrase") ?: "",

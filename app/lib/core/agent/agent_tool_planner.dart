@@ -119,11 +119,6 @@ class AgentToolPlanner {
       r'((记得|回想|找|查|搜索|看看).{0,14}(相册|保存过|保存的|存过|存的|收藏过|收藏的).{0,10}(图片|照片|图像|一张|那张)?)|'
       r'((相册|保存过|保存的|存过|存的|收藏过|收藏的).{0,14}(图片|照片|图像).{0,10}(记得|回想|找|查|看看)?)',
     ).hasMatch(text);
-    final explicitScreen = RegExp(
-      r'((看一下|看一眼|看一次|看看|查看|观察|识别|截取).{0,10}(当前|现在|此刻)?.{0,8}(屏幕|屏幕内容|屏幕画面|当前画面))|'
-      r'((当前|现在|此刻).{0,6}(屏幕|画面).{0,10}(有什么|是什么|写了什么|看得到|看见))',
-      caseSensitive: false,
-    ).hasMatch(text);
     final explicitDevice = RegExp(
       r'(看看|查看|识别|查).{0,8}(当前|现在)?.{0,8}(手机状态|app|应用|软件|前台)|'
       r'我现在.{0,8}(打开|使用|看).{0,8}(什么|哪个)',
@@ -208,7 +203,6 @@ class AgentToolPlanner {
             !explicitRules &&
             !explicitMemory &&
             !explicitAlbum &&
-            !explicitScreen &&
             !explicitDevice &&
             !explicitSystemSelf &&
             !explicitPhone &&
@@ -240,9 +234,6 @@ class AgentToolPlanner {
         AgentToolRegistry.albumSearch.id,
         {'query': _bounded(text, 160)},
       );
-    }
-    if (explicitScreen) {
-      add(AgentToolRegistry.screenObservation.id, const {});
     }
     if (explicitDevice) {
       add(AgentToolRegistry.deviceContextRead.id, const {});
@@ -292,7 +283,6 @@ class AgentToolPlanner {
   /// only schema input tokens; it does not create a second planner API call.
   static List<Map<String, Object?>> get nativeToolDefinitions =>
       AgentToolRegistry.userTurnExecutable
-          .where((tool) => tool.id != AgentToolRegistry.screenObservation.id)
           .map(_nativeDefinition)
           .toList(growable: false);
 
@@ -301,8 +291,7 @@ class AgentToolPlanner {
   /// inherit planning/reporting pressure from a permanent toolbox prompt.
   static AgentToolPlan? routeForTurn(String text, SemanticToolRoute semantic) {
     final local = routeLocally(text);
-    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' || c.reasonTag=='qq_history_recall' ||
-        c.toolId == 'screen_observation.inspect') ?? false;
+    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' || c.reasonTag=='qq_history_recall') ?? false;
     if (explicit) return local;
     if (!semantic.available) {
       final fallback = semantic.directPlan ?? local;
@@ -386,11 +375,7 @@ class AgentToolPlanner {
     }
     if (toolIds.isEmpty) return const <Map<String, Object?>>[];
     return AgentToolRegistry.userTurnModelCallable
-          .where(
-            (tool) =>
-                tool.id != AgentToolRegistry.screenObservation.id &&
-                toolIds.contains(tool.id),
-          )
+          .where((tool) => toolIds.contains(tool.id))
           .map(_nativeDefinition)
           .toList(growable: false);
   }
@@ -438,9 +423,6 @@ class AgentToolPlanner {
           !semanticTaskToolIds.contains(toolId)) continue;
       if (toolId.startsWith('cedar_toy.') && cedarStageToolIds != null &&
           !cedarStageToolIds.contains(toolId)) continue;
-      // Pixel capture requires an unmistakable local user command. A model
-      // function selection is never treated as consent.
-      if (toolId == AgentToolRegistry.screenObservation.id) continue;
       final definition = AgentToolRegistry.byId(toolId);
       if (definition == null ||
           !definition.executable ||
@@ -639,9 +621,6 @@ class AgentToolPlanner {
         'type': 'string',
         'description': '没有句柄时用于选取最近匹配条目的关键词。',
       };
-    } else if (tool.id == AgentToolRegistry.screenObservation.id) {
-      // A screen observation has no model-provided argument. The current user
-      // turn itself is the one-time authorization and native privacy Gate.
     } else if (tool.id == AgentToolRegistry.attachmentSave.id) {
       // The current user turn and its attachment are the only authority.
     } else if (tool.id == AgentToolRegistry.imageFindAndSave.id ||
@@ -754,9 +733,6 @@ class AgentToolPlanner {
         '仅在用户要求你查看自己 App 内“查手机”的内容，或回答明确依赖这些内容时调用。只读现有投影，不刷新、不生成、不标记已读。',
       'phone.read' =>
         '仅在用户要求读取一条日记、塔罗、心情、随笔、愿望、购物车、浏览器或相册内容时调用。无精确句柄可用栏目和关键词读取最近匹配项。',
-      'screen_observation.inspect' =>
-        '仅在用户当前这句话明确要求看一次此刻屏幕像素内容时调用。讨论截图/屏幕能力、询问前台 App 名称、否定/假设或普通闲聊不调用。'
-        '每次调用只截一张，经锁屏、密码、敏感包与系统安全窗口 Gate；截图不保存，也绝不自主调用。',
       'attachment.save' =>
         '只在用户明确要求保存当前消息的图片附件时调用。',
       'image.find_and_save' =>
@@ -906,7 +882,6 @@ class AgentToolPlanner {
     'room_history.read':'room_history_read',
     'phone.search': 'phone_search',
     'phone.read': 'phone_read',
-    'screen_observation.inspect': 'screen_observation_inspect',
     'attachment.save': 'attachment_save',
     'image.find_and_save': 'image_find_and_save',
     'sticker.send': 'sticker_send',
@@ -937,7 +912,6 @@ class AgentToolPlanner {
     'room_history_read':'room_history.read',
     'phone_search': 'phone.search',
     'phone_read': 'phone.read',
-    'screen_observation_inspect': 'screen_observation.inspect',
     'attachment_save': 'attachment.save',
     'image_find_and_save': 'image.find_and_save',
     'sticker_send': 'sticker.send',

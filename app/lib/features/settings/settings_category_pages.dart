@@ -1145,6 +1145,7 @@ class _ModelNetworkSettingsPageState
                         onToggle: () =>
                             setState(() => _revealTavily = !_revealTavily),
                       ),
+                      const SizedBox(height: 12),
                       _SecretField(
                         controller: _baiduSearchKey,
                         label: '百度千帆搜索 API Key（可选）',
@@ -1463,7 +1464,7 @@ class _ProactivePerceptionSettingsPageState
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.security_outlined),
                         title: const Text('权限与连接状态'),
-                        subtitle: const Text('查看轻视觉、通知、Usage 与悬浮陪伴是否真正连接。'),
+                        subtitle: const Text('查看无障碍应用感知、通知、Usage 与悬浮陪伴是否真正连接。'),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => Navigator.of(context).pushNamed('/system'),
                       ),
@@ -1784,7 +1785,7 @@ class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
                   _SettingsRouteCard(
                     icon: Icons.security_outlined,
                     title: '权限、悬浮与系统状态',
-                    subtitle: '轻视觉、通知、Usage、桌宠/悬浮球和后台连接',
+                    subtitle: '无障碍应用感知、通知、Usage、桌宠/悬浮球和后台连接',
                     onTap: () => Navigator.of(context).pushNamed('/system'),
                   ),
                   _SettingsSectionCard(

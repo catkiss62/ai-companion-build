@@ -107,7 +107,7 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.191+435';
+  static const buildLabel = 'v0.42.192+436';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(id:'qq_history',title:'QQ历史档案读取',status:'implemented_bounded',
@@ -187,12 +187,6 @@ class AgentSelfReader {
       title: '记忆实体与时态绑定',
       status: 'implemented_bounded',
       detail: '长期记忆保留行动者、对象、归属和时态；旧进行中进度按最后证据时间呈现，不能冒充刚才或当前状态。',
-    ),
-    AgentSystemFact(
-      id: 'one_time_screen_observation',
-      title: '用户单次当前屏幕观察',
-      status: 'implemented_user_turn_only',
-      detail: '用户明确请求时可经敏感页 Gate 截取一张当前屏幕交给视觉模型；截图不保存。自主截屏与 Desire 调度尚未实现。',
     ),
     AgentSystemFact(
       id: 'nightly_dream_v04278',
@@ -365,7 +359,7 @@ ${growthLines.join('\n')}
       '''
 【系统自读边界】
 system_self.read 是本轮真实执行的本地只读接口，不是根据上下文猜测；不得声称该接口不存在，也不得把它降格为角色扮演设定。只能根据上面实际返回的条目回答：没有列出的能力说“本次结果无法确认”，标记 not_implemented 的能力说“尚未实现”，失败、阻止或零结果必须照实表达。
-本结果没有读取密钥、API endpoint、原始日志、数据库路径、聊天正文、规则正文、学习候选/证据正文、工具参数、URL、Provider payload 或隐藏 reasoning。自主屏幕观察、视频、修改提案、真实提醒与 MCP 若标记 not_implemented，就只能说尚未实现。
+本结果没有读取密钥、API endpoint、原始日志、数据库路径、聊天正文、规则正文、学习候选/证据正文、工具参数、URL、Provider payload 或隐藏 reasoning。视频、修改提案、真实提醒与 MCP 若标记 not_implemented，就只能说尚未实现。
 '''.trim(),
     ];
     return AgentSelfReadResult(
@@ -450,7 +444,7 @@ class AgentRecentOutcome {
     final toolKind = row['tool_kind'] as String? ?? '';
     final toolId = switch (toolKind) {
       'public_web' => AgentToolRegistry.publicWebSearch.id,
-      'screen_observation' => AgentToolRegistry.screenObservation.id,
+      'screen_observation' => 'screen_observation.inspect',
       'video_understanding' => AgentToolRegistry.videoUnderstanding.id,
       _ => toolKind,
     };

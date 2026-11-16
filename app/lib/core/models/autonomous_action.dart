@@ -1,6 +1,6 @@
 enum AutonomousToolKind {
   publicWeb,
-  screenObservation,
+  screenObservation, // Legacy value for historical records.
   videoUnderstanding,
 }
 

@@ -1,3 +1,5 @@
+enum ImageVisionRoute { first, qwen }
+
 class MessageAttachment {
   const MessageAttachment({
     required this.id,

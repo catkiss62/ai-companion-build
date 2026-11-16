@@ -584,7 +584,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
           onTap: android.openUsageSettings,
         ),
         _PermissionTile(
-          title: 'Accessibility 轻视觉',
+          title: '无障碍应用感知',
           enabled: s?.accessibility ?? false,
           onTap: android.openAccessibilitySettings,
         ),
@@ -682,13 +682,13 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   '${s?.notificationListenerConnected == true ? '已连接' : '未连接'}',
                 ),
                 Text(
-                  '轻视觉：系统${s?.accessibility == true ? '已授权' : '未授权'} / '
+                  '应用感知：系统${s?.accessibility == true ? '已授权' : '未授权'} / '
                   '服务${s?.accessibilityConnected == true ? '已连接' : '未连接'} / '
                   '${_accessibilityHealthLabel(s?.accessibilityHealthState ?? 'STALE_UI')}',
                 ),
                 if (s != null)
                   Text(
-                    '轻视觉事件：${s.accessibilityEventCount} 次'
+                    '应用感知事件：${s.accessibilityEventCount} 次'
                     '${s.accessibilityLastEventAt == null ? '' : ' · 最近 ${s.accessibilityLastEventAt!.toLocal()}'}'
                     '${s.accessibilityLastEventType.isEmpty ? '' : ' · ${s.accessibilityLastEventType}'}',
                   ),
@@ -699,7 +699,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   ),
                 if ((s?.accessibilityLastReason ?? '').isNotEmpty)
                   Text(
-                    '轻视觉最近生命周期：${s!.accessibilityLastReason}'
+                    '感知服务最近生命周期：${s!.accessibilityLastReason}'
                     '${s.accessibilityLastDisconnectedAt == null ? '' : ' · ${s.accessibilityLastDisconnectedAt!.toLocal()}'}',
                   ),
                 Text(

@@ -1,3 +1,5 @@
+import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -255,6 +257,59 @@ void main() {
         } finally { vision.close(); }
       });
     }
+    test('saved image choice is independent of settings and remains scoped across retries', () async {
+      final now = DateTime(2026, 11, 16);
+      for (final route in ImageVisionRoute.values) {
+        final id = route.name;
+        await db.insertMessageWithAttachments(
+          ChatMessage(id: id, role: 'user', content: '看这两张图', createdAt: now),
+          [
+            for (var i = 0; i < 2; i++)
+              MessageAttachment(
+                id: '$id-$i', messageId: id, kind: 'image',
+                originalPath: 'original', thumbnailPath: 'thumbnail',
+                mimeType: 'image/png', byteSize: 32, width: 8, height: 8,
+                source: 'gallery', createdAt: now,
+              ),
+          ],
+          imageVisionRoute: route,
+        );
+      }
+      expect(await db.imageVisionRouteForMessage('older-message'), isNull);
+      final hosts = <String>[];
+      var failQwen = false;
+      final base = RoutedVisionClient(secure: secure, db: db,
+        clientFactory: () => MockClient((request) async {
+          hosts.add(request.url.host);
+          if (request.url.host == 'qwen.invalid' && failQwen) {
+            return http.Response('{}', 503);
+          }
+          return observed('fixture');
+        }));
+      addTearDown(base.close);
+
+      Future<String> recognize(String id) async {
+        final client = base.forAttachment(
+          route: await db.imageVisionRouteForMessage(id),
+          current: () async => true,
+        );
+        try {
+          final result = await client.observeBytes(apiKey: '', endpoint: 'http://unused.invalid',
+            model: '', imageBytes: Uint8List.fromList([1]));
+          return result.provider;
+        } finally { client.close(); }
+      }
+
+      await db.setSetting(RoutedVisionClient.qwenEnabledKey, '1');
+      expect(await recognize('first'), 'deepseek');
+      await db.setSetting(RoutedVisionClient.qwenEnabledKey, '0');
+      expect(await recognize('qwen'), 'qwen_vision');
+      failQwen = true;
+      expect(await recognize('qwen'), 'deepseek');
+      expect(await recognize('first'), 'deepseek');
+      expect(hosts, ['first.invalid', 'qwen.invalid', 'qwen.invalid', 'first.invalid', 'first.invalid']);
+      expect(await db.getSetting(RoutedVisionClient.qwenEnabledKey), '0');
+    });
     test('QQ image bypasses Qwen independently of the App switch', () async {
       final hosts = <String>[];
       final vision = RoutedVisionClient(secure: secure, db: db, qq: true, firstModel: () async => DeepSeekModelProfile.flash,

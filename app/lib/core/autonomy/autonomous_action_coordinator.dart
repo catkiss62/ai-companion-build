@@ -37,7 +37,7 @@ class AutonomousActionCoordinator {
   }) async {
     final instant = now ?? DateTime.now();
     final registered = AgentToolRegistry.definitionForAutonomous(tool);
-    if (!registered.executable || !registered.autonomousAvailable) {
+    if (registered == null || !registered.executable || !registered.autonomousAvailable) {
       throw StateError('autonomous_tool_not_registered');
     }
     final identity = await db.transferStateIdentity();

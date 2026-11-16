@@ -8,8 +8,6 @@ import '../models/autonomous_action.dart';
 class AutonomousActionPolicy {
   const AutonomousActionPolicy._();
 
-  static const screenObservationHourlyLimit = 6;
-
   static AutonomousGateDecision evaluate({
     required AutonomousActionRequest request,
     required AutonomousActionContext context,
@@ -38,35 +36,12 @@ class AutonomousActionPolicy {
         reason: AutonomousGateReason.duplicate,
       );
     }
-    if (!context.providerAvailable) {
+    if (!context.providerAvailable || request.tool == AutonomousToolKind.screenObservation) {
       return AutonomousGateDecision(
         allowed: false,
         reason: AutonomousGateReason.providerUnavailable,
         budgetRemaining: context.budgetRemaining,
       );
-    }
-
-    // Screen-off pauses only live screen observation. Quiet public-web work
-    // and later candidate media analysis remain eligible while locked.
-    if (request.tool == AutonomousToolKind.screenObservation) {
-      if (context.deviceLocked) {
-        return const AutonomousGateDecision(
-          allowed: false,
-          reason: AutonomousGateReason.screenLocked,
-        );
-      }
-      if (!context.screenInteractive) {
-        return const AutonomousGateDecision(
-          allowed: false,
-          reason: AutonomousGateReason.screenNotInteractive,
-        );
-      }
-      if (context.sensitiveSurface) {
-        return const AutonomousGateDecision(
-          allowed: false,
-          reason: AutonomousGateReason.sensitiveSurface,
-        );
-      }
     }
 
     final remaining = context.budgetRemaining;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static contracts for v0.41.14 operation truth and one-time screen view."""
+"""Operation truth and regression checks for retired live screen capture."""
 
 from pathlib import Path
 
@@ -53,28 +53,12 @@ assert any(label in self_reader for label in (
     "buildLabel = 'v0.41.14+153'", "buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'", "buildLabel = 'v0.41.20+159'"
 ))
 
-screen_block = registry.split("static const screenObservation =", 1)[1].split(
-    ");", 1
-)[0]
-for token in (
-    "executable: true",
-    "userTurnAvailable: true",
-    "autonomousAvailable: false",
-    "不保存截图",
-):
-    assert token in screen_block, token
 for future_tool in ("videoUnderstanding", "reminderSchedule", "mcpInvoke"):
     block = registry.split(f"static const {future_tool} =", 1)[1].split(");", 1)[0]
     assert "executable: false" in block, future_tool
 
-for token in (
-    "explicitScreen",
-    "AgentToolRegistry.screenObservation.id",
-    "function selection is never treated as consent",
-    ".where((tool) => tool.id != AgentToolRegistry.screenObservation.id)",
-    "<String>['facts', 'outcomes', 'growth', 'runtime', 'all']",
-):
-    assert token in planner, token
+assert "screen_observation.inspect" not in registry + planner + runner
+assert "<String>['facts', 'outcomes', 'growth', 'runtime', 'all']" in planner
 
 for token in (
     "AgentSelfReadScope.growth",
@@ -105,59 +89,23 @@ assert "绝不能扩写成“看了一下午、研究了半天、花了几小时
 
 for token in (
     "captureCurrentScreenOnce",
-    "captureCurrentScreenOnce()",
-    "readVisionApiKey",
-    "observeBytes",
-    "UNTRUSTED VISUAL DATA",
-    "截图字节没有保存到附件、相册、记忆、诊断或备份",
-    "agentToolOutcomeEventExists",
-    "reserveOneTimeAgentToolOutcome",
-    "ConflictAlgorithm.ignore",
-    "SELECT changes()",
-    "_noteScreenVision",
-    "_reserveOneTimeScreenOutcome",
-    "one_time_already_consumed",
-    "one_time_reservation_failed",
-):
-    assert token in runner or token in android_bridge or token in vision or token in database, token
-assert "'screen_observation'" in provider_health
-assert "ProviderHealth.safeContext('screen_observation')" in provider_health_test
-
-for token in (
-    "Build.VERSION.SDK_INT < Build.VERSION_CODES.R",
-    "keyguard.isDeviceLocked",
-    "containsPasswordField",
-    "allowScreenObservationPackage",
-    "Build.VERSION.SDK_INT >= 34 && errorCode == 6",
+    "captureInFlight",
     "decodeScreenshot",
-    "captureInFlight.compareAndSet(false, true)",
     "takeScreenshot(",
-    "bytes.size > 16 * 1024 * 1024",
+    "android:canTakeScreenshot",
+    'smallButton("看屏幕")',
+    "reserveOneTimeAgentToolOutcome",
+    "allowScreenObservationPackage",
 ):
-    assert token in accessibility, token
-for token in (
-    '"bank"',
-    '"wallet"',
-    '"authenticator"',
-    '"permissioncontroller"',
-    '"documentsui"',
-    '"settings"',
-    "blockedScreenLabels",
-    "getApplicationLabel",
-):
-    assert token in privacy, token
-assert '"captureCurrentScreenOnce"' in system_bridge
-assert 'smallButton("看屏幕")' in overlay
-assert 'collapseChatOverlay("one_time_screen_observation")' in overlay
-assert 'android:canTakeScreenshot="true"' in accessibility_config
-for token in (
-    "'implementationStatus': 'user_turn_only'",
-    "'userTurnAvailable': true",
-    "'oneTimeProviderAvailable': true",
-    "'schedulerAvailable': false",
-    "'providerAvailable': false",
-):
-    assert token in database, token
+    assert token not in (accessibility + android_bridge + system_bridge + overlay +
+                         accessibility_config + privacy + runner + database), token
+
+assert "android:canRetrieveWindowContent" in accessibility_config
+assert "fun allowPackage(" in privacy
+assert "petVisualWindowManager()" in accessibility
+assert "observeBytes" in vision
+assert "'screen_observation'" in provider_health  # Historical diagnostic rows remain readable.
+assert "ProviderHealth.safeContext('screen_observation')" in provider_health_test
 
 for test_file in (
     "test/operational_claim_grounding_guard_test.dart",
@@ -194,4 +142,4 @@ for token in (
 ):
     assert token in workflow, token
 
-print("v0.41.14 Agent truth and one-time screen validation passed")
+print("Agent truth and screen capture retirement validation passed")

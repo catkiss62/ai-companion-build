@@ -1,3 +1,7 @@
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_semantic_recall.dart';
+import 'package:ai_companion_localfirst/core/memory/local_semantic_index.dart';
+import 'dart:typed_data';
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -36,14 +40,68 @@ void main() {
   Future<int> add(String id, DateTime at, String text, {String group = 'a'}) async => (await store.append(
     fence: await store.capture(), scope: scope, kind: 'group', target: group, platformId: id, sender: 'peer', text: text,
     observedAt: at.millisecondsSinceEpoch, receivedAt: at.millisecondsSinceEpoch))!;
-  Future<Map<String, Object?>> note(List<int> ids, String text) async {
+  Future<Map<String, Object?>> note(List<int> ids, String text, {
+    String? conversation, int createdAt = 1000,
+  }) async {
     final sql = await db.database;
     final rows = await sql.query('qq_archive', where: 'seq IN (${List.filled(ids.length, '?').join(',')})', whereArgs: ids, orderBy: 'seq');
     final stamps = <Map<String, Object?>>[];
     await QqArchiveReader(sql).projectRows(rows, maxChars: 27500, stamp: stamps);
-    await store.saveNote(await store.capture(), cid, rows, stamps, await AutomaticMemoryPermit.capture(sql, 'auto_memory'), text, '待分享', 1000);
+    await store.saveNote(await store.capture(), conversation ?? cid, rows, stamps, await AutomaticMemoryPermit.capture(sql, 'auto_memory'), text, '待分享', createdAt);
     return (await sql.query('qq_notes', where: 'through_seq=?', whereArgs: [ids.last])).single;
   }
+
+  test('group semantic recall uses older local evidence, respecting reset and invalidation', () async {
+    final date = DateTime(2026, 11, 16);
+    final other = QqStore.conversationId(scope, 'group', 'b');
+    final old = await note([await add('old', date, '群里上次聊过火车')], '往事甲：坐夜班火车', createdAt: 1000);
+    await note([await add('foreign', date, '外群谈火车', group: 'b')], '外群往事：坐夜班火车',
+      conversation: other, createdAt: 1100);
+    for (var i = 0; i < 3; i++) {
+      final seq = await add('regular$i', date.add(Duration(minutes: i + 1)), '话题$i');
+      await note([seq], '新摘要$i', createdAt: 2000 + i);
+    }
+    final through = await add('focus', date.add(const Duration(minutes: 10)), '通宵列车');
+    final temporary = await Directory.systemTemp.createTemp('qq-recall-test');
+    addTearDown(() => temporary.delete(recursive: true));
+    final recall = QqSemanticRecall(indexFactory: (conversation) {
+      expect(conversation, cid);
+      return LocalSemanticIndex(
+        enabled: true,
+        cacheFile: () async => File('${temporary.path}/vectors.json'),
+        encoder: (texts) async => [
+          for (final text in texts)
+            Float32List(512)..[text.contains('火车') || text.contains('列车') ? 0 : 1] = 1,
+        ],
+      );
+    });
+    final sql = await db.database;
+    final reader = QqArchiveReader(sql);
+    final stamps = <Map<String, Object?>>[];
+    String text = '';
+    for (var i = 0; i < 20; i++) {
+      stamps.clear();
+      text = await reader.groupContext(cid, through: through, limit: 1,
+        stamp: stamps, semanticRecall: recall, recallQuery: '通宵列车');
+      if (text.contains('往事甲')) break;
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+    expect(text, contains('本群较早的相关摘要'));
+    expect(text, contains('往事甲'));
+    expect(text, contains('新摘要2'));
+    expect(text, contains('通宵列车'));
+    expect(text, isNot(contains('外群往事')));
+    final reset = date.add(const Duration(minutes: 1)).millisecondsSinceEpoch;
+    final newContext = await reader.groupContext(cid, through: through, limit: 1,
+      resetAt: reset, semanticRecall: recall, recallQuery: '通宵列车');
+    expect(newContext, isNot(contains('往事甲')));
+    await sql.update('qq_notes', {'valid': 0}, where: 'id=?', whereArgs: [old['id']]);
+    expect(await reader.matches(stamps), false);
+    expect(await reader.groupContext(cid, through: through, limit: 1,
+      semanticRecall: recall, recallQuery: '通宵列车'), isNot(contains('往事甲')));
+    // Let the bounded index finish its latest background cache write.
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  });
 
   test('calendar boundary keeps previous month recent; old history remains retrievable', () async {
     await add('september', DateTime(2026, 9, 30, 23), '九月的珊瑚');

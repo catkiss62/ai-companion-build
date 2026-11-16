@@ -44,6 +44,10 @@ void main() {
             final nsfw = tester.getRect(find.text('NSFW'));
             final english = tester.getRect(find.text('EN'));
             expect(english.right, lessThan(nsfw.left));
+            final titleRect = tester.getRect(find.text('沉浸房间'));
+            expect(titleRect.right, lessThan(english.left));
+            expect(titleRect.center.dy, closeTo(nsfw.center.dy, 2));
+            expect(english.center.dy, closeTo(nsfw.center.dy, 2));
             expect(nsfw.right, lessThanOrEqualTo(width));
             expect(tester.takeException(), isNull);
           } finally {

@@ -37,8 +37,7 @@ class OnDemandAgentEntry {
   }
   Set<String> toolIds({bool cedarConfigured = false, bool cedarBlindPlay = false}) => {
     for (final tool in AgentToolRegistry.userTurnExecutable)
-      if (tool.id != AgentToolRegistry.screenObservation.id &&
-          (cedarConfigured || !tool.id.startsWith('cedar_toy.')) &&
+      if ((cedarConfigured || !tool.id.startsWith('cedar_toy.')) &&
           (!cedarBlindPlay || !tool.id.startsWith('public_web.')))
         tool.id,
   };

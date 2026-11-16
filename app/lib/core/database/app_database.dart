@@ -5315,11 +5315,16 @@ class AppDatabase {
     });
   }
 
-  Future<void> _captureUserTurnControlContext(DatabaseExecutor txn, ChatMessage message) async {
+  Future<void> _captureUserTurnControlContext(
+    DatabaseExecutor txn,
+    ChatMessage message, {
+    ImageVisionRoute? imageVisionRoute,
+  }) async {
     if (!message.isUser) return;
     await txn.insert('settings', {'key': '${TurnExecutionStore.turnContextPrefix}${message.id}',
       'value': jsonEncode({'schema': 1, 'turn_id': message.id,
-        'user_control_revision': await BrainWorkFence.value(txn, 'cedar_toy_user_control_revision_v1')})},
+        'user_control_revision': await BrainWorkFence.value(txn, 'cedar_toy_user_control_revision_v1'),
+        if (imageVisionRoute != null) 'image_vision_route': imageVisionRoute.name})},
       conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
@@ -5481,6 +5486,7 @@ class AppDatabase {
     ChatMessage message,
     List<MessageAttachment> attachments, {
     bool deepThinking = false,
+    ImageVisionRoute? imageVisionRoute,
   }) async {
     if (attachments.isEmpty) {
       throw ArgumentError.value(attachments, 'attachments', 'must not be empty');
@@ -5511,7 +5517,7 @@ class AppDatabase {
         {...(await _userMessageWithFormContext(txn, message)), 'deep_thinking': deepThinking ? 1 : 0},
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
-      await _captureUserTurnControlContext(txn, message);
+      await _captureUserTurnControlContext(txn, message, imageVisionRoute: imageVisionRoute);
       await _insertLanguageVariants(txn, message);
       for (final attachment in attachments) {
         await txn.insert(
@@ -5522,6 +5528,24 @@ class AppDatabase {
         await _retainMessageMediaBlob(txn, attachment);
       }
     });
+  }
+
+
+  Future<ImageVisionRoute?> imageVisionRouteForMessage(String messageId) async {
+    final raw = await getSetting('${TurnExecutionStore.turnContextPrefix}$messageId');
+    if (raw == null) return null;
+    try {
+      final context = jsonDecode(raw);
+      if (context is! Map || context['schema'] != 1 ||
+          context['turn_id'] != messageId) return null;
+      return switch (context['image_vision_route']) {
+        'first' => ImageVisionRoute.first,
+        'qwen' => ImageVisionRoute.qwen,
+        _ => null,
+      };
+    } on FormatException {
+      return null;
+    }
   }
 
   Future<String?> unfinishedVisionMessageId() async {
@@ -8852,6 +8876,12 @@ class AppDatabase {
       }
       return true;
     });
+  }
+
+  Future<bool> hasMessage(String id) async {
+    final rows = await (await database).query('messages',
+      columns: const ['id'], where: 'id = ?', whereArgs: [id], limit: 1);
+    return rows.isNotEmpty;
   }
 
   Future<ChatMessage?> messageById(String id) async {
@@ -15305,69 +15335,6 @@ class AppDatabase {
     });
   }
 
-  Future<bool> agentToolOutcomeEventExists(String eventId) async {
-    final normalized = eventId.trim();
-    if (normalized.isEmpty) return false;
-    final db = await database;
-    final rows = await db.query(
-      'agent_tool_outcomes',
-      columns: const ['id'],
-      where: 'id = ?',
-      whereArgs: [normalized],
-      limit: 1,
-    );
-    return rows.isNotEmpty;
-  }
-
-  /// Atomically claims a one-shot user-turn event before any pixels are read.
-  /// A concurrent recovery using the same durable event id receives false and
-  /// therefore cannot take a second screenshot.
-  Future<bool> reserveOneTimeAgentToolOutcome({
-    required String eventId,
-    required String toolId,
-    required String reasonTag,
-    required DateTime startedAt,
-    required String sourceDeviceId,
-  }) async {
-    String bounded(String value, int limit) {
-      final normalized = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ').trim();
-      return normalized.length <= limit
-          ? normalized
-          : normalized.substring(0, limit).trimRight();
-    }
-
-    final normalizedEventId = bounded(eventId, 180);
-    if (normalizedEventId.isEmpty) {
-      throw ArgumentError.value(eventId, 'eventId', 'stable event id required');
-    }
-    final db = await database;
-    return db.transaction((txn) async {
-      await txn.insert(
-        'agent_tool_outcomes',
-        {
-          'id': normalizedEventId,
-          'tool_id': bounded(toolId, 80),
-          'origin': 'user_turn',
-          'status': 'blocked',
-          'reason_tag': bounded(reasonTag, 40),
-          'outcome_kind': 'one_time_reserved',
-          'result_count': 0,
-          'error_code': 'blocked',
-          'started_at': startedAt.millisecondsSinceEpoch,
-          'finished_at': startedAt.millisecondsSinceEpoch,
-          'source_device_id': bounded(sourceDeviceId, 120),
-          'source_device_label': '',
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      final changed = Sqflite.firstIntValue(
-            await txn.rawQuery('SELECT changes()'),
-          ) ??
-          0;
-      return changed == 1;
-    });
-  }
-
   Future<List<Map<String, Object?>>> recentAutonomousActionOutcomes({
     int limit = 8,
     DateTime? since,
@@ -15485,22 +15452,6 @@ class AppDatabase {
       orderBy: 'requested_at DESC',
       limit: 1,
     );
-    final hourStart = instant.subtract(const Duration(hours: 1));
-    final screenRows = await db.rawQuery(
-      '''
-      SELECT COUNT(*) AS count
-      FROM autonomous_action_runs
-      WHERE tool_kind = ?
-        AND requested_at >= ?
-        AND gate_reason = ?
-      ''',
-      [
-        AutonomousToolKind.screenObservation.key,
-        hourStart.millisecondsSinceEpoch,
-        AutonomousGateReason.allowed.key,
-      ],
-    );
-    final screenUsed = Sqflite.firstIntValue(screenRows) ?? 0;
     final dayStart = instant.subtract(const Duration(hours: 24));
     final publicWebRows = await db.rawQuery(
       '''
@@ -15544,7 +15495,7 @@ class AppDatabase {
       };
     }
     return {
-      'phase': 'public_web_scheduled_user_screen_once',
+      'phase': 'public_web_scheduled',
       'byStatus': byStatus,
       'byTool': byTool,
       'last': last,
@@ -15555,20 +15506,6 @@ class AppDatabase {
           'limit': 4,
           'used': publicWebUsed,
           'remaining': (4 - publicWebUsed).clamp(0, 4),
-        },
-        'screenObservation': {
-          'configured': false,
-          'implementationStatus': 'user_turn_only',
-          'userTurnAvailable': true,
-          'oneTimeProviderAvailable': true,
-          'schedulerAvailable': false,
-          // These two fields describe autonomous Desire execution only. The
-          // separately gated user-turn provider above is real and executable.
-          'providerAvailable': false,
-          'futureWindowMinutes': 60,
-          'futureLimit': 6,
-          'used': screenUsed,
-          'remaining': null,
         },
         'videoUnderstanding': {
           'configured': false,

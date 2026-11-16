@@ -17,7 +17,6 @@ void main() {
         'system_self.read',
         'phone.search',
         'phone.read',
-        'screen_observation.inspect',
       ]),
     );
     expect(tools.every((tool) => tool.risk == AgentToolRisk.readOnly), isTrue);
@@ -59,21 +58,19 @@ void main() {
     expect(AgentToolRegistry.albumImageSend.id, 'album.image_send');
   });
 
-  test('system self and user-triggered screen are bounded read-only', () {
+  test('system self stays read-only after retiring screen capture', () {
     final self = AgentToolRegistry.systemSelfRead;
     expect(self.executable, isTrue);
     expect(self.userTurnAvailable, isTrue);
     expect(self.autonomousAvailable, isFalse);
     expect(self.risk, AgentToolRisk.readOnly);
-    expect(AgentToolRegistry.screenObservation.executable, isTrue);
-    expect(AgentToolRegistry.screenObservation.userTurnAvailable, isTrue);
-    expect(AgentToolRegistry.screenObservation.autonomousAvailable, isFalse);
+    expect(AgentToolRegistry.byId('screen_observation.inspect'), isNull);
     expect(AgentToolRegistry.videoUnderstanding.executable, isFalse);
   });
 
   test('autonomous web has a scheduler-only registered capability', () {
     final publicWeb =
-        AgentToolRegistry.definitionForAutonomous(AutonomousToolKind.publicWeb);
+        AgentToolRegistry.definitionForAutonomous(AutonomousToolKind.publicWeb)!;
     expect(publicWeb, same(AgentToolRegistry.publicWebDiscovery));
     expect(publicWeb.executable, isTrue);
     expect(publicWeb.userTurnAvailable, isFalse);
@@ -81,9 +78,6 @@ void main() {
     final screen = AgentToolRegistry.definitionForAutonomous(
       AutonomousToolKind.screenObservation,
     );
-    expect(screen.id, 'screen_observation.inspect');
-    expect(screen.executable, isTrue);
-    expect(screen.userTurnAvailable, isTrue);
-    expect(screen.autonomousAvailable, isFalse);
+    expect(screen, isNull);
   });
 }

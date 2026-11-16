@@ -196,15 +196,6 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
-  static const screenObservation = AgentToolDefinition(
-    id: 'screen_observation.inspect',
-    title: '查看当前屏幕',
-    description: '仅在用户本轮明确请求时，经敏感页 Gate 截取一次当前屏幕并临时识图；不保存截图。',
-    risk: AgentToolRisk.readOnly,
-    executable: true,
-    userTurnAvailable: true,
-    autonomousAvailable: false,
-  );
   static const cedarToyListGames = AgentToolDefinition(
     id: 'cedar_toy.list_games',
     title: '读取 Cedar Toy 游戏列表',
@@ -330,7 +321,6 @@ class AgentToolRegistry {
     stickerSend,
     webImageSend,
     albumImageSend,
-    screenObservation,
     cedarToyListGames,
     cedarToyGetGuide,
     cedarToyPlay,
@@ -365,11 +355,11 @@ class AgentToolRegistry {
       .where((tool) => tool.executable && tool.userTurnAvailable)
       .toList(growable: false);
 
-  static AgentToolDefinition definitionForAutonomous(
+  static AgentToolDefinition? definitionForAutonomous(
     AutonomousToolKind kind,
   ) => switch (kind) {
         AutonomousToolKind.publicWeb => publicWebDiscovery,
-        AutonomousToolKind.screenObservation => screenObservation,
+        AutonomousToolKind.screenObservation => null,
         AutonomousToolKind.videoUnderstanding => videoUnderstanding,
       };
 }

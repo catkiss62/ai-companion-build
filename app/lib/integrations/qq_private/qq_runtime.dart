@@ -23,6 +23,7 @@ import '../../core/illustration/illustration_client.dart';
 import '../../core/illustration/illustration_cue.dart';
 import '../../core/storage/secure_config.dart';
 import 'qq_archive_reader.dart';
+import 'qq_semantic_recall.dart';
 import 'qq_display_names.dart';
 import 'qq_group_judge.dart';
 import 'qq_group_participation.dart';
@@ -91,6 +92,7 @@ class QqRuntime {
   final _timers=<String,Timer>{},_summaryTimers=<String,Timer>{},_maintenanceTimers=<String,Timer>{};
   final _legacyIds=<String>{};
   final _visionReview = QqVisionReview();
+  final _semanticRecall = QqSemanticRecall();
   final _enqueued=<String>{};final _imageUrls=<int,List<String>>{};
   Future<void> _acceptTail=Future.value(),_workTail=Future.value();
   final _clients=<DeepSeekClient>{};final _inflight=<Future<void>>{};
@@ -493,7 +495,12 @@ class QqRuntime {
       String prompt;String data;
       if(b.group) {
         qqStamp=[];
-        data=await reader.groupContext(cid,through:b.through,stamp:qqStamp,resetAt:reset,includeDeliveredAfterThrough:true);
+        data = await reader.groupContext(cid,
+          through: b.through, stamp: qqStamp, resetAt: reset,
+          includeDeliveredAfterThrough: true,
+          semanticRecall: wakingGroup || reusedDraft != null ? null : _semanticRecall,
+          recallQuery: QqMentionTargets.withoutLeadingMentions(replyRow['content'] as String),
+        );
         final expression=await QqGroupLearning(store).projection(cid);styleStamp=expression.stamp;
         final boundOwnerSeqs = [for (final row in b.rows) if (isBoundOwner(row)) row['seq'] as int];
         final ownerAddress = boundOwnerReplySeq == null

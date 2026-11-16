@@ -38,7 +38,7 @@ void main() {
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(
       result.promptData,
-      contains('id=screen_observation.inspect status=executable'),
+      isNot(contains('id=screen_observation.inspect status=executable')),
     );
     expect(result.promptData, contains('id=mcp.invoke status=not_implemented'));
     expect(result.promptData, contains('id=sticker.send status=executable'));

@@ -87,7 +87,7 @@ def main() -> None:
 
     require("recentAgentToolOutcomeRecords" in database, "tool history projection missing")
     projection = database[database.index("Future<List<AgentToolOutcomeRecord>> recentAgentToolOutcomeRecords"):]
-    projection = projection[:projection.index("Future<bool> agentToolOutcomeEventExists")]
+    projection = projection[:projection.index("Future<List<Map<String, Object?>>> recentAutonomousActionOutcomes")]
     for forbidden in (
         "reason_tag", "outcome_kind", "error_code", "prompt_data",
         "submitted_arguments", "query_text", "source_url",

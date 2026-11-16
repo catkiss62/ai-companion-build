@@ -24,7 +24,7 @@ class AgentProgressTracker {
   static Future<String?> readState(AppDatabase db, AgentToolCall call) async {
     final id=call.toolId;
     // Evidence-bearing history and device reads need fresh provenance/clock.
-    if(id.contains('history.') || id=='device_context.read' || id=='screen_observation.inspect') return null;
+    if(id.contains('history.') || id=='device_context.read') return null;
     if(id=='system_self.read') {
       if(call.arguments['scope']=='runtime') return _digest(jsonEncode(await AgentRuntimeDiagnostic.read(db)));
       return null;

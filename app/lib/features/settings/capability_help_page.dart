@@ -133,8 +133,7 @@ class CapabilityHelpPage extends StatelessWidget {
             title: '权限与隐私边界',
             children: [
               _HelpParagraph(
-                '读取手机状态只提供当前 App、屏幕/锁屏状态和粗粒度忙碌度。'
-                '查看当前屏幕必须由你明确请求，并经过敏感页面拦截；临时截图不会保存到相册。',
+                '读取手机状态只提供当前 App、屏幕/锁屏状态和粗粒度忙碌度。发送图片后可以在聊天里识图。',
               ),
               _HelpParagraph(
                 'Token、绑定码、私密房间正文、用户图片、备份和诊断不会作为公开项目内容。'

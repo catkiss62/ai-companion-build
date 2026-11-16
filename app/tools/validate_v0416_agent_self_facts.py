@@ -100,15 +100,7 @@ for placeholder in (
 ):
     block = registry.split(f"static const {placeholder} =", 1)[1].split(");", 1)[0]
     assert "executable: false" in block, placeholder
-screen_block = registry.split("static const screenObservation =", 1)[1].split(
-    ");", 1
-)[0]
-if agent_truth_or_newer:
-    assert "executable: true" in screen_block
-    assert "userTurnAvailable: true" in screen_block
-    assert "autonomousAvailable: false" in screen_block
-else:
-    assert "executable: false" in screen_block
+assert "screen_observation.inspect" not in registry
 
 for token in (
     "explicitRecentOutcomes",

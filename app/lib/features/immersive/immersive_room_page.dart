@@ -1098,8 +1098,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
           onDestinationSelected: (value) => unawaited(_selectMainTab(value)),
         ),
         appBar: ImmersiveRoomAppBar(
-          compact: ImmersiveRoomAppBar.useCompact(MediaQuery.sizeOf(context).width,
-              MediaQuery.textScalerOf(context).scale(14)),
           controls: [_languageSelector(), if (room != null) _nsfwButton(room)],
           actions: [
             if (room != null)

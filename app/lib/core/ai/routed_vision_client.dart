@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../database/app_database.dart';
+import '../models/message_attachment.dart';
 import '../storage/secure_config.dart';
 import 'first_channel_model.dart';
 import 'generation_cancellation.dart';
@@ -20,6 +21,21 @@ class RoutedVisionClient extends QwenVisionClient {
       current: current));
   RoutedVisionClient._(this.routing) : super(client: routing, requiresApiKey: false);
   final VisionRoutingTransport routing;
+
+  /// A chat request owns its route and validity check for its whole lifetime.
+  RoutedVisionClient forAttachment({
+    required ImageVisionRoute? route,
+    required Future<bool> Function() current,
+  }) => RoutedVisionClient._(VisionRoutingTransport(
+    secure: routing.secure,
+    db: routing.db,
+    qq: routing.qq,
+    firstModel: routing.firstModel,
+    clientFactory: routing.clientFactory,
+    current: current,
+    route: route,
+  ));
+
   set sourceGuard(Future<bool> Function()? guard) => routing.current = guard;
   static const qwenEnabledKey = 'app_qwen_vision_enabled_v1';
   static Future<bool> configured(SecureConfig secure, {AppDatabase? db, bool qq = false}) async {
@@ -31,11 +47,12 @@ class RoutedVisionClient extends QwenVisionClient {
 
 class VisionRoutingTransport extends http.BaseClient {
   VisionRoutingTransport({required this.secure, this.db, required this.qq,
-    this.firstModel, http.Client Function()? clientFactory, this.current})
+    this.firstModel, http.Client Function()? clientFactory, this.current, this.route})
     : clientFactory = clientFactory ?? http.Client.new;
   final SecureConfig secure;
   final AppDatabase? db;
   final bool qq;
+  final ImageVisionRoute? route;
   final Future<DeepSeekModelProfile> Function()? firstModel;
   final http.Client Function() clientFactory;
   Future<bool> Function()? current;
@@ -68,7 +85,12 @@ class VisionRoutingTransport extends http.BaseClient {
     await checkSource();
     if (request is! http.Request) throw const FormatException('vision_request_shape');
     final body = Map<String, Object?>.from(jsonDecode(request.body) as Map);
-    final useQwen = !qq && await (db ?? AppDatabase.instance).getSetting(RoutedVisionClient.qwenEnabledKey) != '0';
+    final useQwen = !qq && switch (route) {
+      ImageVisionRoute.first => false,
+      ImageVisionRoute.qwen => true,
+      null => await (db ?? AppDatabase.instance)
+              .getSetting(RoutedVisionClient.qwenEnabledKey) != '0',
+    };
     if (useQwen) {
       try { return await _legacy(body, first: false, sourceCurrent: sourceCurrent); }
       on GenerationSuspendedByRuntimeGateException { rethrow; }

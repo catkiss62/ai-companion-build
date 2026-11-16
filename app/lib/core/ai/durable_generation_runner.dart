@@ -589,11 +589,7 @@ class DurableGenerationRunner {
       }
 
       var localPlan = AgentToolPlanner.routeForTurn(user.content, nsfwRoute.toolRoute);
-      // Explicit screen inspection remains local; other deep turns start with DS.
-      if (job.deepThinking &&
-          !(localPlan?.calls.any((call) => call.toolId == 'screen_observation.inspect') ?? false)) {
-        localPlan = null;
-      }
+      if (job.deepThinking) localPlan = null;
       if (blindPlayRequested &&
           (localPlan?.calls.any((call) => const <String>{
                     'public_web.search',

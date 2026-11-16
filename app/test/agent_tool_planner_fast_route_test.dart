@@ -265,12 +265,11 @@ void main() {
     expect(device!.calls.single.toolId, AgentToolRegistry.deviceContextRead.id);
   });
 
-  test('one-time screen pixels are distinct from coarse device context', () {
+  test('retired screen capture does not remove coarse device context', () {
     final screen = AgentToolPlanner.routeLocally(
       '请看一下我此刻的当前屏幕，只说真实画面。',
     );
-    expect(screen, isNotNull);
-    expect(screen!.calls.single.toolId, AgentToolRegistry.screenObservation.id);
+    expect(screen, isNull);
 
     final device = AgentToolPlanner.routeLocally('看看我现在打开的是哪个 App');
     expect(device!.calls.single.toolId, AgentToolRegistry.deviceContextRead.id);

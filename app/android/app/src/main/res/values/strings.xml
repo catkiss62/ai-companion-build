@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">AI Companion</string>
-    <string name="accessibility_description">让 AI 伴侣读取当前应用的有限可见界面事件；只有你在悬浮聊天中明确点击“看屏幕”或提出同等请求时，才截取一张当前屏幕交给视觉模型。敏感应用、系统安全页和密码内容会被阻止，截图不会保存。</string>
+    <string name="accessibility_description">让 AI 伴侣读取当前应用的有限界面事件，用于识别应用切换和桌宠窗口状态。</string>
 </resources>

@@ -95,7 +95,7 @@ for token in (
     "pickMultiImage(requestFullMetadata: false)",
     "这些图片作为一条消息发送，识别完成后一起回复",
     "附言（可选）",
-    "_MissingAttachment",
+    "MissingChatAttachment",
     "删除图片消息？",
 ):
     assert token in page, token

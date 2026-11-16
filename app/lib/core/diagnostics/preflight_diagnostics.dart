@@ -1264,12 +1264,6 @@ class PreflightDiagnosticsService {
             ? '当前存在已领取的自主工具任务；报告已保留脱敏执行状态。'
             : 'Desire → Intent → Tool Gate → Action → Outcome 持久化与脱敏诊断已就绪。',
       ));
-      checks.add(const PreflightCheck(
-        id: 'screen_observation',
-        title: '当前屏幕视觉观察（用户单次）',
-        level: 'info',
-        summary: '用户可在悬浮聊天明确点“看屏幕”触发一张受敏感页 Gate 保护的临时截图；截图不保存。自主 Desire 截图调度仍未实现，0 次不是低概率未命中。',
-      ));
       final publicWebRuntime =
           _asMap(publicWebCandidates['runtime']);
       final publicWebOutcome =
@@ -1647,14 +1641,14 @@ class PreflightDiagnosticsService {
       };
       checks.add(PreflightCheck(
         id: 'accessibility',
-        title: 'Accessibility 轻视觉',
+        title: '无障碍应用感知',
         level: accessibilityHealthState == 'CONNECTED_EVENTS_OK'
             ? 'pass'
             : accessibilityHealthState == 'CONNECTED_NO_EVENTS'
                 ? 'info'
                 : 'warn',
         summary: switch (accessibilityHealthState) {
-          'SYSTEM_DISABLED' => '系统当前未授权；轻视觉不会运行。',
+          'SYSTEM_DISABLED' => '系统当前未授权；应用感知不会运行。',
           'COMPONENT_MISMATCH' =>
             '系统存在本 App 的无障碍条目，但组件名不匹配；请保存本报告。',
           'ENABLED_NOT_CONNECTED' =>

@@ -6,43 +6,20 @@ import org.junit.Test
 
 class PrivacyFilterTest {
     @Test
-    fun `one-time screen gate allows companion and ordinary apps`() {
-        assertTrue(
-            PrivacyFilter.allowScreenObservationPackage(
-                "com.aicompanion.localfirst",
-                "com.aicompanion.localfirst",
-            ),
-        )
-        assertTrue(
-            PrivacyFilter.allowScreenObservationPackage(
-                "com.example.gallery",
-                "com.aicompanion.localfirst",
-            ),
-        )
+    fun `ordinary apps remain eligible for application event filtering`() {
+        assertTrue(PrivacyFilter.allowPackage("com.example.gallery"))
+        assertFalse(PrivacyFilter.allowPackage("com.aicompanion.localfirst"))
+        assertFalse(PrivacyFilter.allowPackage(null))
     }
 
     @Test
-    fun `one-time screen gate blocks sensitive and system surfaces`() {
+    fun `sensitive application events stay filtered`() {
         for (packageName in listOf(
             "com.example.banking",
             "com.example.wallet",
             "com.example.authenticator",
-            "com.android.permissioncontroller",
-            "com.android.documentsui",
-            "com.android.settings",
-            "com.android.systemui",
-            "com.tencent.mm",
-            "org.telegram.messenger",
-            "com.google.android.gm",
-            "com.openai.chatgpt",
         )) {
-            assertFalse(
-                packageName,
-                PrivacyFilter.allowScreenObservationPackage(
-                    packageName,
-                    "com.aicompanion.localfirst",
-                ),
-            )
+            assertFalse(packageName, PrivacyFilter.allowPackage(packageName))
         }
     }
 }

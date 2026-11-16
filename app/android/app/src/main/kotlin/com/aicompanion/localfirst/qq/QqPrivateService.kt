@@ -12,6 +12,7 @@ import com.aicompanion.localfirst.MainActivity
 import com.aicompanion.localfirst.NativeTtsBridge
 import com.aicompanion.localfirst.R
 import io.flutter.FlutterInjector
+import com.aicompanion.localfirst.memory.MemoryEmbeddingBridge
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
@@ -70,6 +71,7 @@ class QqPrivateService : Service() {
             loader.ensureInitializationComplete(applicationContext, null)
             val created = FlutterEngine(applicationContext)
             engine = created
+            MemoryEmbeddingBridge(applicationContext, created)
             voiceBridge = NativeTtsBridge(applicationContext, created, exportOnly = true)
             channel = MethodChannel(created.dartExecutor.binaryMessenger, RUNTIME).also { ch ->
                 ch.setMethodCallHandler { call, result ->

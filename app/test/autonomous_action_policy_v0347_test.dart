@@ -69,13 +69,13 @@ void main() {
   });
 
   group('screen-off behavior', () {
-    test('locked screen blocks only live screen observation', () {
+    test('legacy screen capture is unavailable even with a provider', () {
       final result = AutonomousActionPolicy.evaluate(
         request: request(AutonomousToolKind.screenObservation),
-        context: context(deviceLocked: true, screenInteractive: false),
+        context: context(),
       );
       expect(result.allowed, isFalse);
-      expect(result.reason, AutonomousGateReason.screenLocked);
+      expect(result.reason, AutonomousGateReason.providerUnavailable);
     });
 
     test('locked screen does not block quiet public web work', () {
@@ -87,14 +87,6 @@ void main() {
       expect(result.reason, AutonomousGateReason.allowed);
     });
 
-    test('sensitive surface blocks screen observation', () {
-      final result = AutonomousActionPolicy.evaluate(
-        request: request(AutonomousToolKind.screenObservation),
-        context: context(sensitiveSurface: true),
-      );
-      expect(result.allowed, isFalse);
-      expect(result.reason, AutonomousGateReason.sensitiveSurface);
-    });
   });
 
   group('provider, dedupe and budget protection', () {
@@ -118,7 +110,7 @@ void main() {
 
     test('rolling budget exhaustion is a hard loop guard', () {
       final result = AutonomousActionPolicy.evaluate(
-        request: request(AutonomousToolKind.screenObservation),
+        request: request(AutonomousToolKind.publicWeb),
         context: context(budgetLimit: 6, budgetUsed: 6),
       );
       expect(result.allowed, isFalse);
@@ -128,7 +120,7 @@ void main() {
 
     test('remaining budget is reported for diagnostics', () {
       final result = AutonomousActionPolicy.evaluate(
-        request: request(AutonomousToolKind.screenObservation),
+        request: request(AutonomousToolKind.publicWeb),
         context: context(budgetLimit: 6, budgetUsed: 2),
       );
       expect(result.allowed, isTrue);

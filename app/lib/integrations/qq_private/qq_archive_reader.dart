@@ -8,6 +8,7 @@ import 'qq_history_catalog.dart';
 import 'qq_display_names.dart';
 import 'qq_message_text.dart';
 import 'qq_failure.dart';
+import 'qq_semantic_recall.dart';
 
 /// Shared read projection. Group callers MUST supply a single conversation;
 /// private callers may relate permitted sources, preserving their provenance.
@@ -236,16 +237,63 @@ class QqArchiveReader {
 
   /// The input cutoff never admits later human messages. Already delivered
   /// assistant replies can be newer than input that arrived during generation.
-  Future<String> groupContext(String cid,{required int through,List<Map<String,Object?>>? stamp,int limit=24,bool includeNotes=true,int maxChars=24000,int resetAt=0,bool includeDeliveredAfterThrough=false}) async {
-    final rows=await _contextRows(cid,through,resetAt,limit,includeDeliveredAfterThrough);
-    final notes=includeNotes?await sql.query('qq_notes',where:'conversation_id=? AND valid=1 AND through_seq<=?',
-      whereArgs:[cid,through],orderBy:'created_at DESC',limit:3):<Map<String,Object?>>[];
-    final summaries=<String>[];var noteChars=0;
-    for(final n in notes) {
-      if(!await noteCurrent(n)) continue;
-      final piece=jsonEncode({'source':'本群历史摘要','edited_by_owner':(n['edited_at'] as int? ?? 0)>0,'from':n['range_start'],'to':n['range_end'],'text':bound(n['content'] as String,900),'evidence':n['sources']});
-      if(noteChars+piece.length>maxChars~/4) break;
-      summaries.add(piece);noteChars+=piece.length+1;stamp?.add({'table':'qq_notes','id':n['id'],'token':noteToken(n)});
+  Future<String> groupContext(String cid, {
+    required int through,
+    List<Map<String, Object?>>? stamp,
+    int limit = 24,
+    bool includeNotes = true,
+    int maxChars = 24000,
+    int resetAt = 0,
+    bool includeDeliveredAfterThrough = false,
+    QqSemanticRecall? semanticRecall,
+    String recallQuery = '',
+  }) async {
+    final rows = await _contextRows(cid, through, resetAt, limit, includeDeliveredAfterThrough);
+    final summaries = <String>[];
+    var noteChars = 0;
+    if (includeNotes) {
+      final notes = await sql.query('qq_notes',
+        where: 'conversation_id=? AND valid=1 AND through_seq<=? AND range_start>=?',
+        whereArgs: [cid, through, resetAt], orderBy: 'created_at DESC, id', limit: 3);
+      var recalled = <Map<String, Object?>>[];
+      if (semanticRecall != null && recallQuery.trim().runes.length >= 2) {
+        final oldestRecent = rows.isEmpty ? through : rows.last['seq'] as int;
+        final older = await sql.query('qq_notes',
+          where: 'conversation_id=? AND valid=1 AND through_seq<? AND through_seq<=? AND range_start>=?',
+          whereArgs: [cid, oldestRecent, through, resetAt],
+          orderBy: 'through_seq DESC, id', limit: 120);
+        // Index a stable window, even if an old note is also among the recent
+        // three. Exclude duplicates when assembling this turn's context.
+        recalled = await semanticRecall.rank(cid, recallQuery, older);
+      }
+      final recentIds = notes.map((note) => note['id']).toSet();
+      final seenText = <String>{};
+      var addedRecall = false;
+      for (final note in [
+        ...notes.take(2),
+        ...recalled.where((note) => !recentIds.contains(note['id'])),
+        ...notes.skip(2),
+      ]) {
+        final isRecall = !recentIds.contains(note['id']);
+        if (isRecall && addedRecall) continue;
+        if (!await noteCurrent(note)) continue;
+        final content = bound((note['content'] as String).trim(), 900);
+        if (content.isEmpty || !seenText.add(content)) continue;
+        final piece = jsonEncode({
+          'source': isRecall ? '本群较早的相关摘要' : '本群历史摘要',
+          'edited_by_owner': (note['edited_at'] as int? ?? 0) > 0,
+          'from': note['range_start'],
+          'to': note['range_end'],
+          'text': content,
+          'evidence': note['sources'],
+        });
+        if (noteChars + piece.length > maxChars ~/ 4) continue;
+        summaries.add(piece);
+        noteChars += piece.length + 1;
+        stamp?.add({'table': 'qq_notes', 'id': note['id'], 'token': noteToken(note)});
+        if (isRecall) addedRecall = true;
+        if (summaries.length == 3) break;
+      }
     }
     final page=await projectRows(rows,maxChars:maxChars-noteChars,stamp:stamp);
     return [...summaries,page.text].where((s)=>s.isNotEmpty).join('\n');
