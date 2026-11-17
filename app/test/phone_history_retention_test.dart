@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:ai_companion_localfirst/features/phone/simulated_phone_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -50,7 +51,9 @@ void main() {
     await db.setSetting('simulated_phone_diary_json', '[]');
     await db.setSettingsAtomically(PhoneHistoryStore.values(item('diary', 2, day: '2026-11-02')));
     final backup = await db.exportAll();
-    final restored = await AppDatabase.createForTesting(databaseFactoryFfi);
+    final directory = await Directory.systemTemp.createTemp('phone-history-restore-');
+    final restored = await AppDatabase.createForTesting(databaseFactoryFfi,
+        path: '${directory.path}/restored.db');
     try {
       await restored.importAll(backup);
       final sql = await restored.database;
@@ -58,7 +61,10 @@ void main() {
       expect((await PhoneHistoryStore.page(sql, day: '2026-11-01')).single['id'], 'diary:1');
       expect(await PhoneHistoryStore.contains(sql, 'diary', 'diary:2'), true);
       expect(await restored.getSetting('illustration_diary_media:diary:1'), 'existing-media-reference');
-    } finally { await restored.closeForTesting(); }
+    } finally {
+      await restored.closeForTesting();
+      await directory.delete(recursive: true);
+    }
   });
 
   test('phone apps follow the requested order and expose calendar instead of cart', () {
