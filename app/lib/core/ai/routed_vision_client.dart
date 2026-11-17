@@ -19,7 +19,7 @@ class RoutedVisionClient extends QwenVisionClient {
       secure: secure ?? SecureConfig.instance, db: db ?? (qq ? null : AppDatabase.instance),
       qq: qq, firstModel: firstModel, clientFactory: clientFactory,
       current: current));
-  RoutedVisionClient._(this.routing) : super(client: routing, requiresApiKey: false);
+  RoutedVisionClient._(this.routing) : super(client: routing, requiresApiKey: false, qqObservation: routing.qq);
   final VisionRoutingTransport routing;
 
   /// A chat request owns its route and validity check for its whole lifetime.

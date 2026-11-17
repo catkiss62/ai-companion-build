@@ -1,4 +1,5 @@
 import '../../core/ai/routed_vision_client.dart';
+import '../../core/ai/qq_vision_observation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16,8 +17,8 @@ import '../../core/database/app_database.dart';
 
 class QqVision {
   QqVision(this.secure,{this.usageDb,http.Client? downloader,QwenVisionClient Function()? visionFactory,QwenVisionClient Function()? fallbackFactory})
-    : _routed=fallbackFactory==null && visionFactory==null, downloader=downloader??http.Client(),visionFactory=visionFactory??QwenVisionClient.new,
-      fallbackFactory=fallbackFactory??(()=>QwenVisionClient(client:QqNonThinkingVisionTransport()));
+    : _routed=fallbackFactory==null && visionFactory==null, downloader=downloader??http.Client(),visionFactory=visionFactory??(()=>QwenVisionClient(qqObservation:true)),
+      fallbackFactory=fallbackFactory??(()=>QwenVisionClient(client:QqNonThinkingVisionTransport(),qqObservation:true));
   final bool _routed;
   final AppDatabase? usageDb;
   final SecureConfig secure;
@@ -44,7 +45,7 @@ class QqVision {
       final thirdConfig=_routed?await secure.readThirdChannel():null;
       final route=_routed?'qq-first:${firstModel.apiName}:third:${thirdConfig!.enabled}:${thirdConfig.baseUrl}':firstChannel?'first:${firstModel.apiName}':'vision';
       final purpose=question.isEmpty?'':':question-v1:$question';
-      final fingerprint=sha256.convert(utf8.encode('${QqVisionFrames.cacheVersion}:$route:$contentHash$purpose')).toString();
+      final fingerprint=sha256.convert(utf8.encode('qq-observation-v2:${QqVisionFrames.cacheVersion}:$route:$contentHash$purpose')).toString();
       final prior=await cached?.call(fingerprint);
       if(prior!=null && prior.isNotEmpty && await valid()) return (text:prior,fingerprint:fingerprint);
       if(!await valid()) throw StateError('context_invalidated');
@@ -80,7 +81,7 @@ class QqVision {
         result=await attempt(true);
       }
       if(!await valid()) throw StateError('context_invalidated');
-      return (text:'${prepared.label}${result.summary}',fingerprint:fingerprint);
+      return (text:QqVisionObservationData.withFrames(result.summary,prepared.label),fingerprint:fingerprint);
     } catch(error) {
       if(!await valid()) rethrow;
       throw QqFailure.visionFailure(error,stage);

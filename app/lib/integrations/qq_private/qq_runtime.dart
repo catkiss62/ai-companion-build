@@ -597,6 +597,10 @@ class QqRuntime {
           : const IllustrationConnection();
       final canIllustrate=illustrationConnection.configured &&
           (drawingRequested || await QqDrawingPolicy.autonomousIllustrationOpportunity(store,b,drawingAt));
+      await store.illustrationAudit(b,'eligibility',drawingAt,{
+        'group':b.group,'enabled':o.illustrationEnabled,'busy':_drawingBusy,
+        'cancelled':cancelledDrawing,'configured':illustrationConnection.configured,
+        'eligible':canIllustrate,'requested':drawingRequested});
       Future<bool> illustrationCurrent() async {
         if (!await current()) return false;
         final fresh=await secure.readIllustration();
@@ -657,6 +661,10 @@ class QqRuntime {
       var voiceChoice=!prioritizeIllustration && !wakingGroup && o.voiceEnabled?QqVoiceChoice.parse(raw):null;
       final echoChoice=!prioritizeIllustration && voiceChoice==null && echo!=null && (reusedDraft==null || reusedDraft!['echo_key']==echo.usageKey)?QqEchoChoice.parse(raw):null;
       final sketchChoice=voiceChoice==null && echoChoice==null && canSketch?QqSketchChoice.parse(raw):null;
+      await store.illustrationAudit(b,'choice',now().millisecondsSinceEpoch,{
+        'skipped':skippedIllustration,'selected':illustrationChoice!=null,
+        'voice':voiceChoice!=null,'echo':echoChoice!=null,'sketch':sketchChoice!=null,
+        'accepted':illustrationChoice!=null && voiceChoice==null && echoChoice==null && sketchChoice==null});
       if(voiceChoice!=null || echoChoice!=null || sketchChoice!=null)illustrationChoice=null;
       final hasDrawing=sketchChoice!=null || illustrationChoice!=null;
       var selected=!wakingGroup && voiceChoice==null && echoChoice==null && !hasDrawing
@@ -716,6 +724,7 @@ class QqRuntime {
             preferMature: preferMature, previousIllustration: previousIllustration,
           );
           illustrationPrepared=true;
+          await store.illustrationAudit(b,'generated',now().millisecondsSinceEpoch,{});
           caption='${QqArchiveReader.illustrationCaptionPrefix}${illustration.description}';
         } catch(error) {
           if(!await current())rethrow;
@@ -799,7 +808,10 @@ class QqRuntime {
       await QqReplyDelivery(api).send(group:b.group,target:b.target,messageId:replyRow['platform_id'] as String,
         text:text,messages:parts,fileInfo:fileInfo,current:current,beforeSend:()=>store.mark(b,'sending'),
         planned:(count)=>tasks.plan(b,count),
-        confirmedPart:(sequence,content,image,language)=>tasks.confirmed(b,sequence,content,image,language),
+        confirmedPart:(sequence,content,image,language) async {
+          if(image && illustration!=null)await store.illustrationAudit(b,'sent',now().millisecondsSinceEpoch,{});
+          await tasks.confirmed(b,sequence,content,image,language);
+        },
         received:(sequence,receipt)=>store.received(b,sequence,platformId:receipt.id,platformIndex:receipt.index),
         confirmed:() async {sentAny=true;await store.mark(b,'sent_archive_pending');},
         retryImage:illustration!=null?retryIllustration:null,

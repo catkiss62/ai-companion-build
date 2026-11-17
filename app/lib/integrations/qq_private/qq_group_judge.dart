@@ -115,7 +115,8 @@ class QqGroupJudge {
     return const {'direct','continuing','join','watch','uncertain'}.contains(r['participation'])?r['participation'] as String:'uncertain';
   }
   static const participationGuidance='先判断本批外层发言在对谁说，再考虑普通插话频率。'
-    '新消息在对她说、问她、给她建议、递图、评价她，属于direct；接她的话继续聊属于continuing，包括接住她偶尔插的话。'
+    '新消息在对她说、问她、给她建议、评价她，或有外层对象/对话承接证据表明在给她递图，属于direct；接她的话继续聊属于continuing，包括接住她偶尔插的话。'
+    '仅仅发送图片、表情包或图中文字出现你/她，不代表在对小鲸鱼说；先核对外层对象及上下文。群友互发图仍可自然join，也可watch。'
     '不需要@，也不需要问号；例如刚聊完图片后对她说“这张留着，以后你也可以用”，是在对她说话，不是普通插话。'
     'direct/continuing优先于近期参与统计；不能因刚说过几句、发言较多或图片里有文字而降为watch。'
     'continuing需要本批确实在接她的话：核对说话对象、引用原话与先后时间，不能只因一直聊同一题材或她刚插过一句就认定。'

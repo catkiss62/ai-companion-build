@@ -1,6 +1,8 @@
 package com.aicompanion.localfirst.qq
 
 import android.app.*
+import org.json.JSONArray
+import org.json.JSONObject
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -194,8 +196,18 @@ class QqPrivateService : Service() {
         private fun prefs(context: Context) = context.getSharedPreferences("qq_private_service_v1", Context.MODE_PRIVATE)
         fun enabled(context: Context) = prefs(context).getBoolean("enabled", false)
         fun autoReconnect(context: Context) = prefs(context).getBoolean("autoReconnect", false)
+        @Synchronized private fun recordPreference(context: Context, value: Boolean, reason: String) {
+            val p = prefs(context)
+            val previous = autoReconnect(context)
+            val rows = runCatching { JSONArray(p.getString("autoReconnectHistory", "[]")) }.getOrDefault(JSONArray())
+            val next = JSONArray().put(JSONObject().put("at", System.currentTimeMillis())
+                .put("before", previous).put("after", value).put("reason", reason))
+            for (i in 0 until minOf(rows.length(), 19)) next.put(rows.get(i))
+            p.edit().putBoolean("autoReconnect", value).putString("autoReconnectReason", reason)
+                .putString("autoReconnectHistory", next.toString()).apply()
+        }
         fun setAutoReconnect(context: Context, value: Boolean) {
-            prefs(context).edit().putBoolean("autoReconnect", value).putString("autoReconnectReason", "user_setting").apply()
+            recordPreference(context, value, "user_setting")
             if (!value) live?.let { service ->
                 val wasRecovering = service.retryPending
                 service.recoveryGeneration++
@@ -215,7 +227,7 @@ class QqPrivateService : Service() {
         fun wakeWork(cid: String) { if (cid.matches(Regex("[a-f0-9]{64}"))) live?.channel?.invokeMethod("maintenance", cid) }
         fun snapshot(context: Context): Map<String, Any> {
             val p = prefs(context)
-            return mapOf("enabled" to enabled(context), "autoReconnect" to autoReconnect(context), "autoReconnectReason" to p.getString("autoReconnectReason", "unknown").orEmpty(), "running" to (live != null),
+            return mapOf("enabled" to enabled(context), "autoReconnect" to autoReconnect(context), "autoReconnectReason" to p.getString("autoReconnectReason", "unknown").orEmpty(), "autoReconnectHistory" to p.getString("autoReconnectHistory", "[]").orEmpty(), "running" to (live != null),
                 "connection" to (if (enabled(context) && live == null) "not_running" else p.getString("connection", "stopped").orEmpty()),
                 "task" to p.getString("task", "idle").orEmpty())
         }
@@ -232,13 +244,14 @@ class QqPrivateService : Service() {
             val intent = Intent(context, QqPrivateService::class.java)
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
         }
-        fun stop(context: Context, preservePreference: Boolean = false, done: () -> Unit) {
+        fun stop(context: Context, preservePreference: Boolean = false, reason: String = "explicit_stop", done: () -> Unit) {
             live?.let { it.recoveryGeneration++ }
+            // Internal restart cannot rewrite the user's durable preference.
+            if (!preservePreference) recordPreference(context, false,
+                if (reason in setOf("explicit_stop", "snapshot_restore", "unbind")) reason else "explicit_stop")
             // Explicit close and snapshot restore revoke automatic connection consent too.
             prefs(context).edit().apply {
                 putBoolean("enabled", false)
-                if (!preservePreference) putBoolean("autoReconnect", false)
-                putString("autoReconnectReason", if (preservePreference) "internal_restart" else "explicit_stop_or_restore")
                 putString("connection", "stopped")
             }.apply()
             val active = live
@@ -274,8 +287,12 @@ class QqPrivateBridge(context: Context, engine: FlutterEngine) {
                     "wakeWork" -> { QqPrivateService.wakeWork(call.argument<String>("cid").orEmpty()); result.success(null) }
                     "snapshot" -> result.success(QqPrivateService.snapshot(app))
                     "start" -> { QqPrivateService.start(app); result.success(null) }
-                    "setAutoReconnect" -> { QqPrivateService.setAutoReconnect(app, call.argument<Boolean>("enabled") == true); result.success(null) }
-                    "stop" -> QqPrivateService.stop(app, preservePreference = call.argument<Boolean>("preservePreference") == true) { result.success(null) }
+                    "setAutoReconnect" -> {
+                        val value = call.argument<Boolean>("enabled")
+                        if (value == null) result.error("invalid_preference", "缺少连接偏好，原设置保持不变。", null)
+                        else { QqPrivateService.setAutoReconnect(app, value); result.success(null) }
+                    }
+                    "stop" -> QqPrivateService.stop(app, preservePreference = call.argument<Boolean>("preservePreference") == true, reason = call.argument<String>("reason") ?: "explicit_stop") { result.success(null) }
                     else -> result.notImplemented()
                 }
             } catch (_: Throwable) { result.error("qq_service_failed", "QQ 后台服务启动失败，请回到设置重试。", null) }

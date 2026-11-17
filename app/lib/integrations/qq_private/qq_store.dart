@@ -1,3 +1,4 @@
+import '../../core/ai/qq_vision_observation.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
@@ -10,6 +11,7 @@ import 'qq_work_queue.dart';
 import 'qq_failure.dart';
 import 'qq_failure_history.dart';
 import 'qq_voice_usage.dart';
+import 'qq_illustration_audit.dart';
 import 'qq_reply_tasks.dart';
 
 class QqBatch {
@@ -210,8 +212,17 @@ class QqStore {
     }
     await txn.update('qq_conversations',{'last_reply_at':now},where:'id = ?',whereArgs:[b.cid]);
   });
+  Future<void> illustrationAudit(QqBatch batch,String stage,int at,Map<String,bool> values) async {
+    try {
+      await write(batch.fence,(txn) async {
+        final raw=await BrainWorkFence.value(txn,QqIllustrationAudit.key)??'[]';
+        await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',
+          [QqIllustrationAudit.key,QqIllustrationAudit.record(raw,batch.id,stage,at,values)]);
+      });
+    } catch (_) { /* Optional telemetry must never change sending behavior. */ }
+  }
   Future<void> observation(BrainWorkFence fence,String id,String state,String text,String fingerprint)=>write(fence,(txn) async {
-    await txn.rawUpdate('UPDATE qq_images SET state=?,description=?,fingerprint=?,version=version+1 WHERE id=?',[state,QqArchiveReader.bound(text,2200),fingerprint,id]);
+    await txn.rawUpdate('UPDATE qq_images SET state=?,description=?,fingerprint=?,version=version+1 WHERE id=?',[state,(QqVisionObservationData.decode(text)!=null && text.length<=QqVisionObservationData.maxStored ? text : QqArchiveReader.bound(text,2200)),fingerprint,id]);
   });
   Future<String?> cachedImage(String cid,String fingerprint) async {
     final rows=await (await db.database).rawQuery('SELECT i.description FROM qq_images i JOIN qq_archive a ON a.seq=i.archive_seq '

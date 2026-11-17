@@ -2,6 +2,7 @@ import 'third_channel_diagnostics.dart';
 import '../ai/third_channel_event.dart';
 import '../../integrations/qq_private/qq_failure_history.dart';
 import '../../integrations/qq_private/qq_voice_usage.dart';
+import '../../integrations/qq_private/qq_illustration_audit.dart';
 import '../../integrations/qq_private/qq_addressing.dart';
 import '../agent/agent_task_loop.dart';
 import '../self/dream_store.dart';
@@ -635,6 +636,21 @@ class PreflightDiagnosticsService {
       (report['qqOperations'] as Map<String,Object?>)['recentVoiceChoices'] = [
         for(final row in QqVoiceUsage.decode(await db.getSetting(QqVoiceUsage.key) ?? '[]'))
           {for(final k in ['at','voice','language'])k:row[k]}];
+      (report['qqOperations'] as Map<String,Object?>)['illustrationChoices'] =
+        QqIllustrationAudit.diagnostics(await db.getSetting(QqIllustrationAudit.key) ?? '[]');
+      try {
+        final connection = await const MethodChannel('ai_companion/qq_private_control')
+            .invokeMapMethod<String,dynamic>('snapshot').timeout(const Duration(seconds:3));
+        final raw = jsonDecode(connection?['autoReconnectHistory'] as String? ?? '[]');
+        report['qqConnectionPreference'] = {
+          for(final key in ['enabled','autoReconnect','running'])
+            if(connection?[key] is bool) key:connection![key],
+          'changes': raw is List ? [for(final row in raw.whereType<Map>().take(20))
+            if(row['at'] is int && row['before'] is bool && row['after'] is bool &&
+                const {'user_setting','explicit_stop','snapshot_restore','unbind'}.contains(row['reason']))
+              {for(final key in ['at','before','after','reason'])key:row[key]}] : [],
+        };
+      } catch (_) { report['qqConnectionPreference'] = {'status':'unavailable'}; }
       report['creativeAgent'] = await CreativeStore(db).diagnostics();
       report['finalReplyRouting'] = {
         'configuredProvider': (await SecureConfig.instance.readChatProvider()).storageValue,

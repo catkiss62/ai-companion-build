@@ -80,12 +80,34 @@ class QqPrivateServiceTest {
         p.edit().putBoolean("enabled", true).commit()
         failed.invoke(terminal.get(), "permission_error")
         assertFalse(QqPrivateService.enabled(app))
+        assertTrue(QqPrivateService.autoReconnect(app))
         assertTrue(p.getBoolean("blocked", false))
         assertEquals("permission_error", p.getString("connection", ""))
         terminal.destroy()
         assertEquals(15000L, QqRecoveryPolicy.retryDelay(1))
         assertEquals(30000L, QqRecoveryPolicy.retryDelay(2))
         assertEquals(300000L, QqRecoveryPolicy.retryDelay(20))
+    }
+    @Test fun internalRestartKeepsPreferenceAndDoesNotOverwriteItsChangeReason() {
+        val app:Application=RuntimeEnvironment.getApplication()
+        app.getSharedPreferences("qq_private_service_v1",0).edit().clear().commit()
+        QqPrivateService.setAutoReconnect(app,true)
+        QqPrivateService.stop(app,preservePreference=true) {}
+        assertTrue(QqPrivateService.autoReconnect(app))
+        assertEquals("user_setting",QqPrivateService.snapshot(app)["autoReconnectReason"])
+        val rows=org.json.JSONArray(QqPrivateService.snapshot(app)["autoReconnectHistory"] as String)
+        assertEquals(1,rows.length())
+    }
+    @Test fun restoreAndUnbindHaveDistinctBoundedPreferenceRecords() {
+        val app:Application=RuntimeEnvironment.getApplication()
+        app.getSharedPreferences("qq_private_service_v1",0).edit().clear().commit()
+        repeat(25) { QqPrivateService.setAutoReconnect(app,true) }
+        QqPrivateService.stop(app,reason="snapshot_restore") {}
+        val rows=org.json.JSONArray(QqPrivateService.snapshot(app)["autoReconnectHistory"] as String)
+        assertEquals(20,rows.length());assertEquals("snapshot_restore",rows.getJSONObject(0).getString("reason"))
+        assertTrue(rows.getJSONObject(0).getBoolean("before"));assertFalse(rows.getJSONObject(0).getBoolean("after"))
+        QqPrivateService.stop(app,reason="unbind") {}
+        assertEquals("unbind",QqPrivateService.snapshot(app)["autoReconnectReason"])
     }
     private fun recoveredHost(): QqPrivateService {
         val app:Application=RuntimeEnvironment.getApplication()

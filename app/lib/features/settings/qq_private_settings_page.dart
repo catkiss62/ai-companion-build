@@ -26,6 +26,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
   String _notice = '';
   String _replyChannel = 'first';
   Timer? _timer;
+  int _stateRequest = 0;
 
   @override
   void initState() {
@@ -47,23 +48,28 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
   }
 
   Future<void> _refresh() async {
+    final request = ++_stateRequest;
     try {
-      final state = await _channel.invokeMapMethod<Object?, Object?>('snapshot') ?? const {};
+      final state = await _channel.invokeMapMethod<Object?, Object?>('snapshot');
+      if (state == null || state['autoReconnect'] is! bool) {
+        throw const FormatException('QQ connection preference unavailable');
+      }
       final config = await QqPrivateConfig.read();
-      if (mounted) setState(() { _state = state; _config = config;
+      if (mounted && request == _stateRequest) setState(() { _state = state; _config = config;
         if (config.replyChannel.isNotEmpty) _replyChannel = config.replyChannel; });
-    } catch (_) { if (mounted) setState(() => _notice = '暂时无法读取后台连接状态。'); }
+    } catch (_) { if (mounted && request == _stateRequest) setState(() => _notice = '暂时无法读取后台连接状态，保留上次显示。'); }
   }
 
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
+    ++_stateRequest; // Invalidate polling that started before this user action.
     setState(() { _busy = true; _notice = ''; });
     try { await action(); await _refresh();
     } catch (_) { if (mounted) setState(() => _notice = '操作失败，请检查配置或稍后重试。');
     } finally { if (mounted) setState(() => _busy = false); }
   }
 
-  Future<void> _stop({bool preservePreference=false}) async {await AppDatabase.instance.setSetting('qq_master_enabled_v2','0');await _channel.invokeMethod<void>('stop', {'preservePreference':preservePreference});}
+  Future<void> _stop({bool preservePreference=false,String reason='explicit_stop'}) async {await AppDatabase.instance.setSetting('qq_master_enabled_v2','0');await _channel.invokeMethod<void>('stop', {'preservePreference':preservePreference,'reason':reason});}
 
   Future<void> _start() => _run(() async { await _saveAndStart(); });
 
@@ -72,8 +78,8 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     if (!RegExp(r'^\d{3,32}$').hasMatch(id) || secret.isEmpty || secret.length > 4096) {
       setState(() => _notice = '请填写机器人 AppID 和 AppSecret。'); return false;
     }
-    final liveState=await _channel.invokeMapMethod<String,dynamic>('snapshot');
-    final keepConnection=autoReconnect??liveState?['autoReconnect']==true;
+    // Ordinary save/start leaves the native preference untouched, even if a
+    // snapshot is unavailable. Only an explicit checkbox action writes it.
     await _stop(preservePreference:true);
     var config = await QqPrivateConfig.read();
     if (config.appId != id || config.secret != secret || config.namespace.isEmpty) {
@@ -86,7 +92,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
     }
     await config.withReplyChannel(_replyChannel).save();
     await (await QqOptions.read()).save();
-    await _channel.invokeMethod<void>('setAutoReconnect',{'enabled':keepConnection});
+    if(autoReconnect!=null) await _channel.invokeMethod<void>('setAutoReconnect',{'enabled':autoReconnect});
     await _channel.invokeMethod<void>('start');
     return true;
   }
@@ -104,7 +110,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
         TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('重新绑定'))]));
     if (accepted != true || !mounted) return;
     await _run(() async {
-      await _stop();
+      await _stop(reason:'unbind');
       final current = await QqPrivateConfig.read();
       await QqPrivateConfig(appId: current.appId, secret: current.secret,
         namespace: QqPrivateConfig.randomId(), replyChannel: _replyChannel).save();
@@ -202,7 +208,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
           CheckboxListTile(contentPadding:EdgeInsets.zero,
             title:const Text('自动保持 QQ 连接'),
             subtitle:const Text('勾选后启动连接，并监测后台异常、自动重试。关闭连接或恢复存档会取消勾选；权限和凭据错误需先修正。'),
-            value:_state['autoReconnect']==true,onChanged:_busy?null:(value)=>unawaited(_setAutoReconnect(value==true))),
+            value:_state['autoReconnect']==true,onChanged:_busy || _state['autoReconnect'] is! bool?null:(value)=>unawaited(_setAutoReconnect(value==true))),
           const SizedBox(height: 12),
           Text('连接：${_labels[_state['connection']] ?? '未连接'}'),
           Text('处理：${_labels[_state['task']] ?? '等待消息'}'),

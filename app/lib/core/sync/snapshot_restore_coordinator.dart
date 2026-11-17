@@ -182,7 +182,7 @@ class SnapshotRestoreCoordinator {
         await db.setSetting(pendingKey, id);
         // Restored QQ history is never permission to resume local sending.
         await db.setSetting('qq_master_enabled_v2','0');
-        try {await const MethodChannel('ai_companion/qq_private_control').invokeMethod<void>('stop');} on MissingPluginException { /* Native-less tests. */ } on PlatformException { /* DB master flag and restore epoch independently fence QQ. */ }
+        try {await const MethodChannel('ai_companion/qq_private_control').invokeMethod<void>('stop', {'reason':'snapshot_restore'});} on MissingPluginException { /* Native-less tests. */ } on PlatformException { /* DB master flag and restore epoch independently fence QQ. */ }
         await plan.activate();
         await commitDatabase({
           commitKey: id, pendingKey: id,

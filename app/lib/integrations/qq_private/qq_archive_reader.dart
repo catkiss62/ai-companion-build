@@ -1,3 +1,4 @@
+import '../../core/ai/qq_vision_observation.dart';
 import 'dart:convert';
 import '../../core/qq/qq_mention_targets.dart';
 import 'package:crypto/crypto.dart';
@@ -488,7 +489,7 @@ class QqArchiveReader {
           where:'archive_seq=?',whereArgs:[item['seq']],orderBy:'ordinal',limit:2-observations.length);
         evidence.add({'table':'qq_archive','id':item['id'],'version':item['version']});
         for(final image in images) {
-          observations.add(image['state']=='viewed'?QqMessageMaterial.bound(image['description'] as String,160):image['state']=='failed'?QqFailure.visionMessage(image['description'] as String):'[未查看]');
+          observations.add(image['state']=='viewed'?QqVisionObservationData.participation(image['description'] as String):image['state']=='failed'?QqFailure.visionMessage(image['description'] as String):'[未查看]');
           evidence.add({'table':'qq_images','id':image['id'],'version':image['version']});
         }
       }
