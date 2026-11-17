@@ -30,3 +30,13 @@
 上述为定位起点，不代表覆盖全部调用者。历史教训及证据见 [回归索引](REGRESSIONS.md)；执行方式见 [验证导航](VERIFICATION.md)。
 
 人工/真机重点：冷/热启动、切语种、停止播放、进程被杀后恢复、最后两轮播放速度诊断。
+
+## +446 活泼参考音频
+
+仅替换 `jiuhu_idle50` 的参考音频/文本/六组离线特征，日常、温柔、可爱及声学权重保持不变。制作记录和CI状态见唯一总账「小酒狐活泼参考替换」。原参考来自固定v0.7.6草稿资源，新补丁以认证加密文件保存，构建前由同一私有APK解锁；不把录音和权重提交到公开源码。
+
+入口：[应用补丁](../../tools/apply_jiuhu_lively_overlay.py)、[补丁测试](../../tools/test_jiuhu_lively_overlay.py)、[四候选端到端推理验证](../../tools/verify_jiuhu_voice_bundle.py)。后者移植自Genie-TTS-Android提交96a6296的verify_voice_bundle.py，只限制CPU线程数，使用原包目标文本/模型/自回归/VITS路径验证。
+
+保持原manifest.version，文件SHA变化触发原生AssetIntegrityPolicy就地替换六组特征；重建echo guard，三个其他音色资源与模型不重复复制。APK升级重启进程后从assets读取新manifest；原生同尺寸旧marker回归保证新ge不会被旧缓存吞掉。不要只换WAV，不要复用旧音素/ssl/ge，不要改播放调速来掩盖参考差异。
+
+回退：保留固定Genie v0.7.6草稿资源，移除构建中的补丁应用与补丁验证步骤，再提高App版本号构建覆盖安装；无需卸载或清理用户存档。旧+445仍可作为源码/听感对照。

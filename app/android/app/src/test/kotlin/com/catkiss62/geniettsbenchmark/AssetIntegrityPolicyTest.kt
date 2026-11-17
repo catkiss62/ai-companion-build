@@ -19,6 +19,20 @@ class AssetIntegrityPolicyTest {
     }
 
     @Test
+    fun changedReferenceRejectsOldMarkerEvenWithSameTensorSize() {
+        val directory = Files.createTempDirectory("genie-reference-upgrade").toFile()
+        val output = directory.resolve("ge.tensor").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
+        val marker = directory.resolve("ge.tensor.sha256").apply { writeText(AssetIntegrityPolicy.sha256(output)) }
+        val incoming = directory.resolve("new.tensor").apply { writeBytes(byteArrayOf(4, 3, 2, 1)) }
+        val expected = AssetIntegrity(incoming.length(), AssetIntegrityPolicy.sha256(incoming))
+        assertFalse(AssetIntegrityPolicy.canReuse(output, marker, expected))
+        AssetIntegrityPolicy.replaceIncoming(incoming, output)
+        assertTrue(AssetIntegrityPolicy.canReuse(output, marker, expected))
+        assertTrue(marker.readText() == expected.sha256)
+        directory.deleteRecursively()
+    }
+
+    @Test
     fun truncatedAndSameLengthWrongFilesAreRejected() {
         val directory = Files.createTempDirectory("genie-integrity").toFile()
         val good = directory.resolve("good.bin").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
