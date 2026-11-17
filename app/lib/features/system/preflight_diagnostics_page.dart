@@ -105,7 +105,7 @@ class _PreflightDiagnosticsPageState extends State<PreflightDiagnosticsPage> {
         Text('真机测试前自检', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 6),
         Text(
-          '这里只检查 Android/TTS/Nearby/Active Brain 等运行条件。报告不会包含聊天正文、长期记忆、共同经历、参考资料、通知/Accessibility 原文或 API Key。',
+          '这里只检查 Android/TTS/Nearby/Active Brain 等运行条件。报告不导出完整聊天和记忆库或 API Key；完整预检按既有授权包含 JEV 判断问题、输入上下文及判定记录，可能含对话片段，分享前请检查内容。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

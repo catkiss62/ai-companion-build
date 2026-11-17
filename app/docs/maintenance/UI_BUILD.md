@@ -1,6 +1,6 @@
 # 界面、帮助、诊断与构建
 
-核对基线：2026-11-17 / +439。状态为源码入口核对，不等同真机通过。[目录](INDEX.md) · [更新规则](CHANGE_GUIDE.md)
+核对基线：2026-11-17 / +440。状态为源码入口核对，不等同真机通过。[目录](INDEX.md) · [更新规则](CHANGE_GUIDE.md)
 
 ## 入口与职责
 
@@ -16,7 +16,7 @@
 
 ## 状态与边界
 
-帮助 UI、Agent 自查、工具注册表与后台能力需分别核对，不能由其中一个自动代表全部能力。帮助与自查修订属于后续第四步。版本/源码/CI/APK/真机是不同证据层级；本轮纯文档不产生新 APK。
+帮助 UI、Agent 自查、工具注册表与后台能力需分别核对，不能由其中一个自动代表全部能力。第四步已同步通道/图片/作品/QQ/记忆/房间/语音/备份说明，修正自主创作、Cedar和表情包状态。implemented只表示程序实现，不代表当前设备已启用或调用成功。诊断页面与帮助均说明完整预检中的JEV上下文例外。版本/源码/CI/APK/真机是不同证据层级；本轮纯文档不产生新 APK。
 
 ## 小改动如何落点
 
@@ -24,6 +24,7 @@ UI 小修覆盖窄屏、输入法、长文案及返回栈。新增能力在同�
 
 ## 回归入口
 
+- [capability_help_page_test.dart](../../test/capability_help_page_test.dart)
 - [agent_self_reader_v0416_test.dart](../../test/agent_self_reader_v0416_test.dart)
 - [unhandled_error_recorder_test.dart](../../test/unhandled_error_recorder_test.dart)
 

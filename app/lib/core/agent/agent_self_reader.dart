@@ -107,15 +107,24 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.195+439';
+  static const buildLabel = 'v0.42.196+440';
 
   static const systemFacts = <AgentSystemFact>[
+    AgentSystemFact(
+      id: 'reply_channels', title: '模型通道与房间边界', status: 'implemented_bounded',
+      detail: '第一通道承担内部处理并可回复；第二通道用于正文，已开启且配置的第三通道优先尝试。失败按对应场景处理，不能从能力清单推断当前连接成功。模型对谈固定参与模型，重试不跨模型代答。'),
+    AgentSystemFact(
+      id: 'image_batches_qq', title: '图片与QQ接入', status: 'implemented_bounded',
+      detail: 'App每批图片可选DS或千问识图，多图一次回复；千问需视觉凭据，失败可回退DS。QQ本人绑定、群聊、主动消息、语音和生图各受对应配置约束。QQ引用图片和动图仅在可获取材料与预算内读取，部分帧不代表通用视频理解。'),
+    AgentSystemFact(
+      id: 'development_boundary', title: '未开放的扩展与自修改', status: 'not_implemented',
+      detail: 'App插件化、Agent修改自身代码和通用视频理解尚未开放；制作HTML小作品、QQ动图选帧及Cedar专用MCP不等于这些能力。'),
     AgentSystemFact(id:'qq_history',title:'QQ历史档案读取',status:'implemented_bounded',
       detail:'可用qq_history.search/read按中文群名定位已收到的QQ私聊/群聊档案并分页追读。连接关闭或读档暂停发送后仍可查询历史；未收到的QQ历史不在其中。群成员与本人分开，群名/昵称不认主。当前能力及真实查询结果优先于旧的接口未接通描述；只读取，不发送、不改记忆或欲望。'),
     AgentSystemFact(id:'room_history',title:'房间历史回看',status:'implemented_bounded',
       detail:'模型对谈（含暂离未结束）和已结束沉浸房间可用room_history.search/read查摘要、按需详细整理和分页原文。只有相关问题才读取，未读部分不可补猜。模型对谈观点保留发言者，沉浸剧情保留虚构边界，读取不写公共记忆或成长。'),
     AgentSystemFact(id: 'creative_workspace', title: '小作品与作品集', status: 'implemented',
-      detail: '本轮开启深度思考且用户明确委托时，可后台制作、实际预览和修复本地 HTML 小作品；聊天作品卡与作品集可打开游玩。互动可通过受限桥接真实选择与揭晓；源码、版本和游玩进度随存档保存。深度思考只是新委托入口，关闭开关不会停止已登记的工作；已有任务可直接继续，使用独立工作模型和思考力度。普通聊天不新建委托，自主创作尚未接入。'),
+      detail: '本轮开启深度思考且用户明确委托时，可后台制作、实际预览和修复本地 HTML 小作品；聊天作品卡与作品集可打开游玩。互动可通过受限桥接真实选择与揭晓；源码、版本和游玩进度随存档保存。深度思考只是新委托入口，关闭开关不会停止已登记的工作；已有任务可直接继续，使用独立工作模型和思考力度。普通聊天不新建委托。自主创作已接入后台，有独立开关，符合空闲与主设备条件时可从真实经历构思并制作；不依赖聊天深度思考开关，不将未授权委托转为自主任务。私有成品完成与分享分开，不保证每天产出。'),
     AgentSystemFact(
       id: 'local_continuity',
       title: '本地连续性',
@@ -173,20 +182,20 @@ class AgentSelfReader {
     AgentSystemFact(
       id: 'cedar_toy_mcp_v04167',
       title: 'Cedar Toy 游戏厅',
-      status: 'implemented_user_turn_only',
-      detail: '用户明确邀请时可经 MCP 动态读取真实游戏列表、指南并游玩；列表、指南与结果都进入现有 Agent 工具循环，没有真实 Outcome 不会声称经历。账号与 Token 只在设置页安全保存。',
+      status: 'implemented_bounded',
+      detail: '用户明确邀请时可经 MCP 动态读取真实游戏列表、指南并游玩；列表、指南与结果都进入现有 Agent 工具循环，没有真实 Outcome 不会声称经历。也支持受自主游玩开关、主设备状态及活动控制约束的后台游玩与续玩，分享有独立开关；需配置有效凭据并开启游戏厅。账号与 Token 只在设置页安全保存。',
     ),
     AgentSystemFact(
       id: 'sticker_agent_v04146',
       title: '表情包 Agent 与自我认知',
-      status: 'implemented_user_turn_only',
+      status: 'implemented_bounded',
       detail: '普通回复和主动消息均可从已启用的内部图库自主选择文字、图文或纯表情包；用户只发表情包不会强制斗图。她可自主让一张表情包承担整条回复，但具体问题和任务须保留文字，图片准备失败则保留本轮生成的文字。附件内容摘要会进入后续聊天历史，不写入查手机相册。',
     ),
     AgentSystemFact(
       id: 'memory_grounding_v04134',
       title: '记忆实体与时态绑定',
       status: 'implemented_bounded',
-      detail: '长期记忆保留行动者、对象、归属和时态；旧进行中进度按最后证据时间呈现，不能冒充刚才或当前状态。',
+      detail: '长期记忆保留行动者、对象、归属和时态；旧进行中进度按最后证据时间呈现，不能冒充刚才或当前状态。检索结合关键词、日期和本地语义；索引准备或语义不可用不等于记忆被删除，细节可按需追读已保存原文。',
     ),
     AgentSystemFact(
       id: 'nightly_dream_v04278',
@@ -343,7 +352,7 @@ class AgentSelfReader {
     final sections = <String>[
       if (factLines.isNotEmpty) '''
 【SYSTEM FACTS / 当前系统事实】
-这些是 App 代码提供的当前能力元数据。可以据此说明“用户和项目为你做了哪些能力”，但不得声称这些功能是你自己编写的，也不得把未实现工具说成可用。
+这些是 App 代码提供的当前能力元数据，不是当前设备开关、权限或服务可用性的逐项检测；implemented 不代表此刻已开启或执行成功。可以据此说明“用户和项目为你做了哪些能力”，但不得声称这些功能是你自己编写的，也不得把未实现工具说成可用。
 ${factLines.join('\n')}
 '''.trim(),
       if (outcomeLines.isNotEmpty || scope == AgentSelfReadScope.outcomes) '''

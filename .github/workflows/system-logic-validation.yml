@@ -114,6 +114,7 @@ jobs:
           test/qq_archive_agent_v042139_test.dart
           test/qq_media_share_v042137_test.dart
           test/agent_self_reader_v0416_test.dart
+          test/capability_help_page_test.dart
           test/stability_repair_v042134_test.dart
           test/natural_chat_refresh_v042134_test.dart
           test/immersive_room_header_v042134_test.dart

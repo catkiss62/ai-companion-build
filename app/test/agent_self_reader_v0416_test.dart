@@ -50,6 +50,29 @@ void main() {
     expect(result.outcomeCount, 0);
   });
 
+  test('facts describe conditional autonomy without granting device access', () {
+    final result = AgentSelfReader.composePromptData(
+      scope: AgentSelfReadScope.facts,
+      activeBrain: false,
+      currentDeviceId: 'device',
+      currentDeviceLabel: 'Phone',
+    ).promptData;
+    expect(result, contains('自主创作已接入后台'));
+    expect(result, contains('不依赖聊天深度思考开关'));
+    expect(result, contains('私有成品完成与分享分开'));
+    expect(result, isNot(contains('自主创作尚未接入')));
+    for (final id in ['cedar_toy_mcp_v04167', 'sticker_agent_v04146']) {
+      expect(result, contains('id=$id status=implemented_bounded'));
+      expect(result, isNot(contains('id=$id status=implemented_user_turn_only')));
+    }
+    expect(result, contains('需配置有效凭据并开启游戏厅'));
+    expect(result, contains('不是当前设备开关、权限或服务可用性的逐项检测'));
+    expect(result, contains('id=development_boundary status=not_implemented'));
+    expect(result, contains('id=video_understanding.inspect status=not_implemented'));
+    expect(result, contains('id=mcp.invoke status=not_implemented'));
+    expect(result, contains('不等于记忆被删除'));
+  });
+
   test('outcomes merge newest first, cap eight and redact raw device ids', () {
     Map<String, Object?> userRow(int index) => <String, Object?>{
           'tool_id': 'memory.search',
