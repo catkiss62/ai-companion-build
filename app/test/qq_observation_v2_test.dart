@@ -28,7 +28,7 @@ void main() {
   test('QQ retains long visible text separately and participation preserves its key contradiction',()async {
     final result=await observe({'summary':'新闻截图','image_types':['news','meme'],
       'visible_text':'${'原文内容' * 650}并非今日发生','key_text':'并非今日发生','text_complete':true},qq:true,
-      inspect:(request){expect(request['max_tokens'],4096);expect(jsonEncode(request['messages']),contains('约100字'));});
+      inspect:(request){expect(request['max_tokens'],8192);expect(jsonEncode(request['messages']),contains('约100字'));});
     final stored=QqVisionObservationData.withFrames(result.summary,'单张图片');
     expect(QqVisionObservationData.decode(stored)!['visible_text'],endsWith('并非今日发生'));
     expect(stored.length,greaterThan(2200));

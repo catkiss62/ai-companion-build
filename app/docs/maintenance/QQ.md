@@ -35,7 +35,7 @@
 
 保存并启动不重写自动保持偏好；UI查询以请求序号拒绝旧快照，空返回不能解释成false。显式关闭、解绑、恢复存档仍取消勾选。原生保留20次变更（时间/前后值/固定原因码），诊断导出qqConnectionPreference；普通故障不改用户偏好。不要用运行状态替代勾选状态。
 
-QQ专用结构化观察入口：[qq_vision_observation.dart](../../lib/core/ai/qq_vision_observation.dart)。同次识图返回画面、类型、关键文字、OCR和完整性；画面约100字是软目标，单字段/总6000字符是明确标记的存储保护，QQ接话材料提取画面和关键文字。旧结果仍可读，新缓存版本独立；较长观察沿现有图片游标追读。App默认解析/1800字符上限不变。
+QQ专用结构化观察入口：[qq_vision_observation.dart](../../lib/core/ai/qq_vision_observation.dart)。同次识图返回画面、类型、关键文字、OCR和完整性，QQ输出token上限8192以容纳多字段，App仍4096；画面约100字是软目标，单字段/总6000字符是明确标记的存储保护，QQ接话材料提取画面和关键文字。旧结果仍可读，新缓存版本独立；较长观察沿现有图片游标追读。App默认解析/1800字符上限不变。
 
 [qq_illustration_audit.dart](../../lib/integrations/qq_private/qq_illustration_audit.dart)保留20次资格/选择/生成/图片实际回执阶段，诊断导出不含正文、凭据或群号；与既有错误记录结合，判断未选择或被语音/复读/SVG优先替代。未修改生图概率/冷却/媒体优先级，未新增模型请求。
 

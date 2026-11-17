@@ -199,7 +199,7 @@ class QwenVisionClient {
             'response_format': {'type': 'json_object'},
             // Observation text, visible text and album/match fields share
             // one JSON response; leave room for it to close completely.
-            'max_tokens': creativeReview ? 900 : 4096,
+            'max_tokens': creativeReview ? 900 : qqObservation && !assessForAlbum ? 8192 : 4096,
             'temperature': 0.1,
             'stream': false,
           }),
