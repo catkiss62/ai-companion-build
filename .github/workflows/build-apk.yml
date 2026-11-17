@@ -674,7 +674,7 @@ jobs:
           changed_files="$(mktemp)"
           if ! gh api --paginate \
             "/repos/${GITHUB_REPOSITORY}/compare/${BEFORE_SHA}...${AFTER_SHA}" \
-            --jq '.files[].filename' > "${changed_files}"; then
+            --jq '.files[] | .filename, (.previous_filename // empty)' > "${changed_files}"; then
             request_full_build 'compare_api_failed'
             exit 0
           fi

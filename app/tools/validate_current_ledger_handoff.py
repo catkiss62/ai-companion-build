@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlsplit, unquote
 from validate_historical_ledgers import main as validate_history
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,11 +26,70 @@ def one(pattern: str, text: str, label: str) -> str:
 
 
 def dart_code(text: str) -> str:
-    # Preserve strings while removing comments; declarations inside comments must
-    # never satisfy current identity. This is a lexer for these constant reads,
-    # not a general Dart parser.
-    token = r'''("""[\s\S]*?"""|\x27\x27\x27[\s\S]*?\x27\x27\x27|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|//[^\n]*|/\*[\s\S]*?\*/'''
-    return re.sub(token, lambda m: m.group(1) if m.group(1) and not m.group(1).startswith(('\"\"\"', "'''")) else ' ' + '\n' * m.group(0).count('\n'), text)
+    """Remove nested comments and multiline strings for constant inspection.
+
+    Keep single-line strings for buildLabel. Preserve newlines and token spacing;
+    this is deliberately not a Dart expression evaluator.
+    """
+    out = []
+    i = 0
+    size = len(text)
+
+    def blank(start: int, end: int) -> str:
+        return ''.join('\n' if c == '\n' else ' ' for c in text[start:end])
+
+    while i < size:
+        start = i
+        if text.startswith('//', i):
+            end = text.find('\n', i)
+            i = size if end < 0 else end
+            out.append(blank(start, i))
+        elif text.startswith('/*', i):
+            depth = 1
+            i += 2
+            while i < size and depth:
+                if text.startswith('/*', i):
+                    depth += 1
+                    i += 2
+                elif text.startswith('*/', i):
+                    depth -= 1
+                    i += 2
+                else:
+                    i += 1
+            require(depth == 0, 'unterminated Dart block comment')
+            out.append(blank(start, i))
+        elif text[i] in "\"'" or (text[i] == 'r' and i + 1 < size and text[i + 1] in "\"'"):
+            raw = text[i] == 'r'
+            if raw:
+                i += 1
+            quote = text[i]
+            triple = text.startswith(quote * 3, i)
+            delimiter = quote * (3 if triple else 1)
+            i += len(delimiter)
+            closed = False
+            while i < size:
+                if not raw and text[i] == '\\':
+                    i += 2
+                elif text.startswith(delimiter, i):
+                    i += len(delimiter)
+                    closed = True
+                    break
+                else:
+                    i += 1
+            require(closed, 'unterminated Dart string')
+            out.append(blank(start, i) if triple else text[start:i])
+        else:
+            out.append(text[i])
+            i += 1
+    return ''.join(out)
+
+
+def unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, f'duplicate identity JSON key: {key}')
+        result[key] = value
+    return result
 
 
 def validate_current(root: Path = ROOT) -> None:
@@ -40,7 +100,7 @@ def validate_current(root: Path = ROOT) -> None:
     require(snapshot.count(START) == snapshot.count(END) == 1, 'current identity markers must occur once in snapshot')
     identity = snapshot.split(START, 1)[1].split(END, 1)[0].strip()
     require(identity.startswith('```json\n') and identity.endswith('\n```'), 'identity must be a JSON block')
-    identity = json.loads(identity[8:-4])
+    identity = json.loads(identity[8:-4], object_pairs_hook=unique_json_object)
     require(set(identity) == {'app_version', 'schema'}, 'unexpected current identity fields')
     version = one(r'^version:\s*(\d+\.\d+\.\d+\+\d+)\s*$', (root/'app/pubspec.yaml').read_text(), 'pubspec version')
     schema = one(r'^\s*static\s+const\s+int\s+schemaVersion\s*=\s*(\d+)\s*;', dart_code((root/'app/lib/core/database/app_database.dart').read_text()), 'schemaVersion')
@@ -52,9 +112,16 @@ def validate_current(root: Path = ROOT) -> None:
         text = (root/name).read_text(encoding='utf-8')
         # Historical sections may retain old links; only the current introduction
         # must point to v4 before any historical ledger link.
+        text = re.split(r'^#{1,6}\s+历史', text, maxsplit=1, flags=re.MULTILINE)[0]
         links = re.findall(r'\]\(([^)]+)\)', text)
         ledger_links = [p for p in links if '总账' in p]
-        require(bool(ledger_links) and 'AI_Companion_总账_v4.md' in ledger_links[0], f'{name}: first ledger link must be current v4')
+        require(bool(ledger_links), f'{name}: first ledger link must be current v4')
+        target = urlsplit(ledger_links[0])
+        require(not target.scheme and not target.netloc and not target.query,
+                f'{name}: first ledger link must be local current v4')
+        resolved = (root/name).parent / unquote(target.path)
+        require(resolved.resolve() == (root/CURRENT).resolve(),
+                f'{name}: first ledger link must resolve to canonical current v4')
     docs = [root/n for n in entries] + sorted((root/'app/docs/maintenance').glob('*.md'))
     for path in docs:
         for target in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):

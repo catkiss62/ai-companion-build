@@ -85,6 +85,59 @@ class IdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, 'missing/outside'):
             self.check()
 
+    def test_external_current_link_rejected(self):
+        self.put('README.md', '[当前总账](https://example.invalid/AI_Companion_总账_v4.md)')
+        with self.assertRaises(AssertionError):
+            self.check()
+
+    def test_same_name_wrong_directory_rejected(self):
+        self.put('other/AI_Companion_总账_v4.md', 'wrong ledger')
+        self.put('README.md', '[当前总账](other/AI_Companion_总账_v4.md)')
+        with self.assertRaises(AssertionError):
+            self.check()
+
+    def test_only_historical_link_rejected(self):
+        self.put('README.md', '# Intro\n## 历史记录\n' + (self.root/'README.md').read_text())
+        with self.assertRaises(AssertionError):
+            self.check()
+
+    def test_nested_comments_preserve_real_schema(self):
+        self.put(self.db, '/* outer\n /* inner */\n static const int schemaVersion = 62;\n */\nstatic const int schemaVersion = 67;\n')
+        self.check()
+
+    def test_nested_comments_cannot_supply_schema(self):
+        self.put(self.db, '/* outer /* inner */\nstatic const int schemaVersion = 67;\n*/')
+        with self.assertRaises(AssertionError):
+            self.check()
+
+    def test_duplicate_json_keys_rejected(self):
+        self.put(CURRENT, (self.root/CURRENT).read_text().replace('"schema":67', '"schema":62,"schema":67'))
+        with self.assertRaises(AssertionError):
+            self.check()
+
+    def test_valid_link_anchor(self):
+        self.put('README.md', '[当前总账](app/docs/ledger/AI_Companion_总账_v4.md#当前接班快照)')
+        self.check()
+
+    def test_wrong_schema_after_nested_comment(self):
+        self.put(self.db, '/* outer /* inner */\nstatic const int schemaVersion = 67;\n*/\nstatic const int schemaVersion = 68;')
+        with self.assertRaisesRegex(AssertionError, 'current schema'):
+            self.check()
+
+    def test_comment_markers_inside_string(self):
+        self.put(self.db, 'final example = "/* this is not a comment */ //";\nstatic const int schemaVersion = 67;')
+        self.check()
+
+    def test_unterminated_comment_rejected(self):
+        self.put(self.db, 'static const int schemaVersion = 67;\n/* unclosed')
+        with self.assertRaisesRegex(AssertionError, 'unterminated'):
+            self.check()
+
+    def test_identical_duplicate_json_keys_rejected(self):
+        self.put(CURRENT, (self.root/CURRENT).read_text().replace('"schema":67', '"schema":67,"schema":67'))
+        with self.assertRaisesRegex(AssertionError, 'duplicate'):
+            self.check()
+
     def test_repository_current(self):
         with contextlib.redirect_stdout(io.StringIO()):
             validate_current(ROOT)
@@ -95,9 +148,9 @@ class WorkflowScopeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp)
             gh = p/'gh'
-            gh.write_text('#!/bin/sh\n' + ('exit 1\n' if api_fail else 'cat "$SCOPE_FILES"\n'))
+            gh.write_text('#!/usr/bin/env python3\nimport os,subprocess,sys\n' + ('sys.exit(1)\n' if api_fail else 'args=sys.argv[1:]\nquery=args[args.index("--jq")+1]\nsys.exit(subprocess.run(["jq","-r",query,os.environ["SCOPE_FILES"]]).returncode)\n'))
             gh.chmod(0o755)
-            (p/'files').write_text('\n'.join(files)+'\n' if files else '')
+            (p/'files').write_text(json.dumps({'files': [f if isinstance(f, dict) else {'filename': f, 'status': 'modified'} for f in files]}))
             (p/'event').write_text(json.dumps({'head_commit': {'message': 'maintenance'}}))
             env = dict(os.environ, PATH=str(p)+os.pathsep+os.environ['PATH'], SCOPE_FILES=str(p/'files'), GITHUB_EVENT_PATH=str(p/'event'), GITHUB_OUTPUT=str(p/'output'), GITHUB_STEP_SUMMARY=str(p/'summary'), EVENT_NAME='push', EVENT_ACTION='', BEFORE_SHA='a'*40, AFTER_SHA='b'*40, GITHUB_REPOSITORY='test/repo')
             result = subprocess.run(['bash','-c',step('Decide whether this event needs')], env=env, capture_output=True, text=True)
@@ -114,6 +167,18 @@ class WorkflowScopeTests(unittest.TestCase):
         for path in ['app/tools/validate_current_ledger_handoff.py','.github/workflows/documentation-validation.yml']:
             with self.subTest(path=path):
                 self.assertIn('run-full-build=true', self.scope([path]))
+
+    def test_source_renamed_into_docs_requires_build(self):
+        self.assertIn('run-full-build=true', self.scope([{'filename': 'app/docs/old.dart', 'previous_filename': 'app/lib/old.dart', 'status': 'renamed'}]))
+
+    def test_docs_renamed_into_source_requires_build(self):
+        self.assertIn('run-full-build=true', self.scope([{'filename': 'app/lib/new.dart', 'previous_filename': 'app/docs/new.md', 'status': 'renamed'}]))
+
+    def test_doc_rename_stays_lightweight(self):
+        self.assertIn('reason=documentation_only', self.scope([{'filename': 'app/docs/new.md', 'previous_filename': 'app/docs/old.md', 'status': 'renamed'}]))
+
+    def test_deleted_source_requires_build(self):
+        self.assertIn('run-full-build=true', self.scope([{'filename': 'app/lib/old.dart', 'status': 'removed'}]))
 
     def test_api_failure_requires_build(self):
         self.assertIn('reason=compare_api_failed', self.scope([], api_fail=True))

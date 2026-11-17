@@ -29,15 +29,15 @@ flutter test test/creative_workspace_test.dart test/creative_delivery_test.dart
 
 写清基线提交、命令、退出状态、通过数量、环境缺口、失败原因以及未覆盖范围。只运行 `--check-only` 不得写“167 门通过”。本地缺素材/编译器应记录为未完成，不等同代码通过，也不等同代码故障。修正测试夹具或验证配置后保留先前失败证据。
 
-CI 通过、生成 APK、签名核验和用户真机反馈分别记录。纯文档提交运行 Documentation and handoff validation，检查当前身份、历史归档及负例；AI_START_HERE.md、根 AGENTS.md 已纳入 APK 工作流的文档范围。源码/工具/工作流混合修改仍走完整路径，不能将校验脚本放入免检名单。
+CI 通过、生成 APK、签名核验和用户真机反馈分别记录。纯文档提交运行 Documentation and handoff validation，检查当前身份、历史归档及负例；AI_START_HERE.md、根 AGENTS.md 已纳入 APK 工作流的文档范围。源码/工具/工作流混合修改仍走完整路径；重命名同时检查新旧路径，移进文档目录不等于纯文档。不能将校验脚本放入免检名单。
 
 ## 当前身份与历史证据
 
-`validate_current_ledger_handoff.py` 对照 v4 顶部 CURRENT_SOURCE_IDENTITY 块、pubspec、实际 schemaVersion 和 AgentSelfReader.buildLabel；忽略历史注释，并检查当前入口和维护卡本地链接。升级版本/schema 时同步工作源码身份块；已交付 APK 仍单独记录，不要求在开发期间假称新包已交付。
+`validate_current_ledger_handoff.py` 对照 v4 顶部 CURRENT_SOURCE_IDENTITY 块、pubspec、实际 schemaVersion 和 AgentSelfReader.buildLabel；支持嵌套块注释并区分字符串，拒绝身份JSON重复键；当前入口必须解析到仓库内唯一v4文件，历史段落不能补充缺失的当前入口。另检查维护卡本地链接。升级版本/schema 时同步工作源码身份块；已交付 APK 仍单独记录，不要求在开发期间假称新包已交付。
 
 `validate_historical_ledgers.py` 只检查旧 v2 索引证据及两份冻结归档的字节/SHA，不再检查当前版本或 schema。前者调用后者，既有167门清单仍经原入口执行两层检查。
 
-负例与实际工作流 shell 测试：
+负例与实际工作流 shell 测试（需要Python3.12、bash和jq；jq处理模拟GitHub API原始文件记录，避免预先展开路径掩盖错误）：
 
 ```sh
 python3 -m unittest discover -s tools -p test_documentation_handoff.py -v
