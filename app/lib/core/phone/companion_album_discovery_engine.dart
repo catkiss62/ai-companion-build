@@ -26,7 +26,7 @@ class CompanionAlbumDiscoveryEngine {
   CompanionAlbumDiscoveryEngine({
     required this.db,
     SecureConfig? config,
-    Future<bool> Function()? current,
+    this.current,
     QwenVisionClient? vision,
     CompanionAlbumStorage? albumStorage,
     MessageAttachmentStorage? attachmentStorage,
@@ -38,6 +38,7 @@ class CompanionAlbumDiscoveryEngine {
         _client = client ?? http.Client();
 
   final AppDatabase db;
+  final Future<bool> Function()? current;
   final SecureConfig config;
   final QwenVisionClient vision;
   final CompanionAlbumStorage albumStorage;
@@ -320,7 +321,14 @@ class CompanionAlbumDiscoveryEngine {
           try {
             if(await preparedDraft.originalFile.length()<=CollectedStickerStorage.maxBytes) {
               await collected.collect(await preparedDraft.originalFile.readAsBytes(),
-                caption:observation.stickerCaption,source:'web',sourceId:candidateId,automatic:true);
+                caption:observation.stickerCaption,source:'web',sourceId:candidateId,automatic:true,
+                current:() async {
+                  if(current!=null && !await current!())return false;
+                  final rows=await (await db.database).query('companion_album_candidates',
+                    columns:['original_content_sha256'],where:"id=? AND lifecycle_state='saved'",
+                    whereArgs:[candidateId],limit:1);
+                  return rows.isNotEmpty && rows.single['original_content_sha256']==originalSha;
+                });
             }
           } catch (_) {
             // Album saving already succeeded; collection failure must not turn

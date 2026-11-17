@@ -80,6 +80,14 @@ void main(){
     await expectLater(storage.collect(gif,caption:'无语',source:'qq',sourceId:'b',current:()async=>false),throwsStateError);
     expect((await packs.loadPickerCatalog()).items.length,1);
   });
+  test('source invalidated while staging never publishes a new index row',()async{
+    await storage.collect(png,caption:'现有收藏',source:'user',sourceId:'a');
+    var checks=0;
+    await expectLater(storage.collect(gif,caption:'失效候选',source:'web',sourceId:'b',
+      automatic:true,current:()async=>++checks==1),throwsStateError);
+    expect(checks,2);
+    expect((await packs.loadPickerCatalog()).items.single.record.caption,'现有收藏');
+  });
   test('bad image, oversize and empty meaning never publish a pack',()async{
     for(final bytes in [Uint8List.fromList([1,2,3]),Uint8List(CollectedStickerStorage.maxBytes+1)]) {
       await expectLater(storage.collect(bytes,caption:'开心',source:'user',sourceId:'a'),throwsFormatException);

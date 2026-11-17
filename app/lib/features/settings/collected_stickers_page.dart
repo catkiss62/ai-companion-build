@@ -76,7 +76,7 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
     if(caption==null)return;
     await _run(() async {await packs.saveCaptionEdits({entry.record.usageKey:caption});status='语义已保存';await _load();});
   }
-  Future<void> _album() async {
+  Future<void> _album() => _run(() async {
     final items=(await db.companionAlbumItems(limit:200))
       .where((i)=>i.lifecycle=='saved' && i.hasOriginal).toList();
     if(!mounted)return;
@@ -89,11 +89,9 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
     final caption=await _captionDialog(String.fromCharCodes(picked.summary.runes.take(240)));
     if(caption==null)return;
     // Preserve the original item/hash; only the human-provided caption changes.
-    await _run(() async {
-      final added=await storage.collectAlbum(picked,caption:caption);
-      status=added?'已加入收集的表情':'这张图已收藏，没有重复保存';await _load();
-    });
-  }
+    final added=await storage.collectAlbum(picked,caption:caption);
+    status=added?'已加入收集的表情':'这张图已收藏，没有重复保存';await _load();
+  });
   Future<void> _remove(StickerRecord record) async {
     final yes=await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
       title:const Text('删除这张收藏？'),content:const Text('已有聊天和相册中的图片仍保留。以后她仍可能再次收藏；可关闭自动收集。'),
