@@ -211,6 +211,7 @@ void main() {
     expect(await db.getSetting('last_memory_error'), '');
     final prefixBefore = ((jsonDecode(requests.single) as Map)['messages'] as List).first;
     expect(prefixBefore['content'], contains('threads'));
+    expect(prefixBefore['content'], contains('不提炼为称呼偏好、关系约定或检索别名'));
     expect(prefixBefore['content'], isNot(contains('PAGE_DETAIL_SECRET')));
     requests.clear();
     final outside = ChatMessage(id: 'outside', role: 'user',

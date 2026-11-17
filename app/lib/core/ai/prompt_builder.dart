@@ -1,3 +1,4 @@
+import '../rules/user_address_policy.dart';
 import '../database/qq_context_evidence.dart';
 import 'dart:convert';
 import '../creative/creative_store.dart';
@@ -546,6 +547,8 @@ $roleplayContinuity''',
       if (userFacts.items.isNotEmpty)
         {'role': 'system', 'content': userFacts.prompt},
       {'role': 'system', 'content': _operationalTruthContract()},
+      if (!worldBookContext.hasRoleplay)
+        const {'role': 'system', 'content': UserAddressPolicy.dialogue},
       if (worldBookContext.hasRoleplay)
         const {'role': 'system', 'content': roleplayExecutionAnchor},
       if (moeExpressionSection.isNotEmpty)

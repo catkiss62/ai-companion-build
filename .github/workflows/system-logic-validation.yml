@@ -30,6 +30,9 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
+      - name: Check default and temporary forms of address
+        working-directory: app
+        run: flutter test --timeout 60s --reporter expanded test/user_address_policy_test.dart
       - name: QQ exported pitch, cancellation and reference selection regression
         working-directory: app
         run: flutter test --timeout 60s --reporter expanded test/qq_voice_pitch_v042166_test.dart test/qq_voice_v042146_test.dart test/tts_playback_tuning_test.dart

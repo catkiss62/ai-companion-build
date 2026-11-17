@@ -1121,6 +1121,7 @@ void main(){
     final system = (body['messages'] as List).first['content'] as String;
     expect(system, contains('【本批已绑定本人发言序号】${jsonEncode([rows.first['seq']])}'));
     expect(system, contains('所有群成员使用中性称呼'));
+    expect(system, isNot(contains('以「主人」为基础')));
     expect(api.sent, hasLength(1));
   });
   test('group address rejection consumes batch and never exposes the draft',()async{
@@ -1165,6 +1166,9 @@ void main(){
     expect(api.sent,isNotEmpty);
     final body=requests.singleWhere((r)=>jsonDecode(r.body)['stream']==true);
     expect(body.body,contains('风铃'));expect(body.body,contains('GROUP_MEMBER_HISTORY'));
+    final messages = jsonDecode(body.body)['messages'] as List;
+    expect(messages.first['content'], contains('以「主人」为基础'));
+    expect(messages.first['content'], contains('用户顺着玩，都不代表约定了长期称呼'));
   });
   test('App and owner QQ can read latest group raw before long-memory extraction',()async{
     await accept('fresh','大家约好周六去看紫色珊瑚');

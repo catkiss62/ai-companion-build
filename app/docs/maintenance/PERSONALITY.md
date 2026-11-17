@@ -21,8 +21,11 @@
 
 调阈值前跟踪本轮开始→判定→提交→播放→退出；停止不能留下已取消轮的变化。不要全局替换人设中的“我”，其可能指用户。
 
+私下对话有需要时以「主人」为基础，可省略称呼，也可按当下情境加前缀或起外号。短期称呼不因反复出现而升级成偏好。默认称呼与记忆整理提示见 [user_address_policy.dart](../../lib/core/rules/user_address_policy.dart)，验证覆盖普通聊天、主动消息、沉浸对白及绑定本人 QQ 私聊。
+
 ## 回归入口
 
+- [user_address_policy_test.dart](../../test/user_address_policy_test.dart)
 - [playful_integrity_v04265_test.dart](../../test/playful_integrity_v04265_test.dart)
 - [form_context_continuity_test.dart](../../test/form_context_continuity_test.dart)
 - [somatic_policy_test.dart](../../test/somatic_policy_test.dart)
