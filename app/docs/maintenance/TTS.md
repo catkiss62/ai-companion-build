@@ -33,6 +33,8 @@
 
 ## +446 活泼参考音频
 
+> **维护告示：旧资源包中的jiuhu_idle50仅为历史基线，不是当前活泼参考。除用户明确要求回退外，不得移除+446替换步骤，不得只更新WAV而沿用旧文本或六组特征。旧包仍提供模型及其他音色，不能直接删除。**
+
 仅替换 `jiuhu_idle50` 的参考音频/文本/六组离线特征，日常、温柔、可爱及声学权重保持不变。制作记录和CI状态见唯一总账「小酒狐活泼参考替换」。原参考来自固定v0.7.6草稿资源，新补丁以认证加密文件保存，构建前由同一私有APK解锁；不把录音和权重提交到公开源码。
 
 入口：[应用补丁](../../tools/apply_jiuhu_lively_overlay.py)、[补丁测试](../../tools/test_jiuhu_lively_overlay.py)、[四候选端到端推理验证](../../tools/verify_jiuhu_voice_bundle.py)。后者移植自Genie-TTS-Android提交96a6296的verify_voice_bundle.py，只限制CPU线程数，使用原包目标文本/模型/自回归/VITS路径验证。

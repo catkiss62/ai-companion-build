@@ -2,6 +2,8 @@
 
 ## 当前接班快照
 
+- **活泼参考维护告示：旧Genie资源包中的jiuhu_idle50仅为历史基线，当前使用+446新参考及六组配套特征。除用户明确要求回退外，不得移除构建替换步骤；不得只换WAV或复用旧特征。入口：维护目录TTS.md。**
+
 <!-- CURRENT_SOURCE_IDENTITY -->
 ```json
 {"app_version": "0.42.202+446", "schema": 67}
@@ -598,3 +600,8 @@
 - 基线 `2c2dfce4`，原交付 `v0.42.176+420`。首候选 `d84260eb` 的独立 [#276](https://github.com/catkiss62/ai-companion-build/actions/runs/42757813431) 拦下 Agent 自检版本号仍为 +420。最终提交同步 +421 标识后复跑。
 - CI 通过：运行源码 `5695d3ed73d9362d8a4723453a6734d7ae9d3d5b`，tree `a2451f0765f184b6dd0dcadb05a39ec87fdfc251`。同提交的独立 [#277](https://github.com/catkiss62/ai-companion-build/actions/runs/42759122323) 及完整 [#1541](https://github.com/catkiss62/ai-companion-build/actions/runs/42759122447) 通过。自然日期、时间边界、来源隔离、别名限量与共同梗回归、全量 Flutter、存档恢复和原生校验通过。
 - APK 已核验：Actions artifact `13737379154`，原签名 305eb3d8…c25148，草稿 `439962859` 的原 APK `730232649` 为 740710230 字节，SHA-256 `6749d17e064cfb1c8e5703c000445d551af06ae53c60ccdd2d8c9f5d1dcf7d81`，与成功监控记录一致。真机体验按反馈追踪。
+
+## 2026-11-18 · 活泼参考维护告示与QQ音色检查
+
+- 开始范围：用户授权补充维护告示，不构建APK；QQ偏向可爱仅检查方案，暂不修改行为。
+- 完成：总账快照、TTS维护卡、构建替换入口均已加告示，仅文档/注释变化，不改版本或运行逻辑。QQ检查：qq_voice.dart共享私聊/群聊_format将自然聊天/吐槽/普通开心归daily，cute仅明确撒娇卖萌；缺失或无效voice也回落daily。建议仅放宽cute为轻松场景首选，保留严肃daily/安抚gentle/兴奋lively，不强改正文、不提高发语音频率；此方案未实现，后续行为变更须随APK生效。

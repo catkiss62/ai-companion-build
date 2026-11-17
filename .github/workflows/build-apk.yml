@@ -863,6 +863,9 @@ jobs:
             'lib/arm64-v8a/libgenie_frontend.so' \
             'lib/arm64-v8a/libc++_shared.so' \
             -d .genie-payload/unpacked
+          # MAINTENANCE: base jiuhu_idle50 is historical, NOT the current lively reference.
+          # +446 overlay and all six prompt tensors are required. Do not remove
+          # this step or reuse old features unless the user explicitly requests rollback.
           # Replace only lively prompts; the encrypted payload is unlocked by
           # the already pinned private base APK, never by a source-tree secret.
           python3 app/tools/test_jiuhu_lively_overlay.py
