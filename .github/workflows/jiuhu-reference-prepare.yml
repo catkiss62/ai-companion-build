@@ -1,0 +1,38 @@
+name: Prepare private lively reference metadata
+on:
+  push:
+    branches: [agent/jiuhu-lively-prepare]
+    paths: ['.github/workflows/jiuhu-reference-prepare.yml', 'tools/jiuhu-transfer-public.pem']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read pinned private runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method GET -H 'Accept: application/octet-stream' /repos/catkiss62/ai-companion-build/releases/assets/556381873 > /tmp/base.apk
+          echo 'af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43  /tmp/base.apk' | sha256sum -c -
+          python3 - <<'PY'
+          import hashlib,zipfile,json,subprocess,pathlib
+          raw=pathlib.Path('/tmp/base.apk').read_bytes()
+          key=hashlib.sha256(raw+b'\\0jiuhu-lively-overlay-v1').digest()
+          pathlib.Path('/tmp/key').write_bytes(key)
+          subprocess.run(['openssl','pkeyutl','-encrypt','-pubin','-inkey','tools/jiuhu-transfer-public.pem','-in','/tmp/key','-out','wrapped-key.bin','-pkeyopt','rsa_padding_mode:oaep','-pkeyopt','rsa_oaep_md:sha256'],check=True)
+          with zipfile.ZipFile('/tmp/base.apk') as z:
+              names=[n for n in z.namelist() if n.startswith('assets/benchmark_jiuhu/') and (n.endswith('manifest.json') or '/references/' in n or '/tensors/' in n)]
+              with zipfile.ZipFile('/tmp/reference.zip','w',zipfile.ZIP_DEFLATED) as out:
+                  for n in names:out.writestr(n.removeprefix('assets/benchmark_jiuhu/'),z.read(n))
+          subprocess.run(['openssl','enc','-aes-256-cbc','-pbkdf2','-in','/tmp/reference.zip','-out','reference.enc','-pass','file:/tmp/key'],check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Private-reference-transfer
+          path: |
+            wrapped-key.bin
+            reference.enc
+          retention-days: 3
