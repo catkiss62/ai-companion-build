@@ -237,7 +237,7 @@ void main() {
     );
   });
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester, {bool editing = false}) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -247,7 +247,7 @@ void main() {
                 context: context,
                 barrierDismissible: false,
                 pageBuilder: (context, _, _) =>
-                    StickerPickerSheet(storage: storage),
+                    StickerPickerSheet(storage: storage, editing: editing),
               ),
               child: const Text('打开'),
             ),
@@ -275,6 +275,17 @@ void main() {
     await tester.tap(find.text('确认'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('settings editor exits without entering sticker send mode', (tester) async {
+    await tester.runAsync(fixture);
+    await open(tester, editing: true);
+    expect(find.text('保存'), findsOneWidget);
+    await tester.tap(find.text('退出'));
+    await tester.pumpAndSettle();
+    expect(find.text('打开'), findsOneWidget);
+    expect(find.byType(StickerPickerSheet), findsNothing);
+    expect(await tester.runAsync(storage.captionOverrides), isEmpty);
+  });
 
   testWidgets('edit grid exposes missing semantics and stages a supplied description', (tester) async {
     await tester.runAsync(() async {

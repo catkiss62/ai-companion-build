@@ -45,6 +45,22 @@ void main(){
     expect((await restarted.loadPickerCatalog()).items.single.record.caption,'困得想摸鱼');
     expect((await storage.sources()).length,1);
   });
+  test('interrupted index update reconciles extra ownership without losing a valid image',()async{
+    await storage.collect(png,caption:'开心',source:'user',sourceId:'a');
+    await storage.collect(gif,caption:'无语',source:'user',sourceId:'b');
+    final pack=(await packs.scanPacks()).single;
+    final sql=await openDatabase('${pack.rootPath}/index.db',singleInstance:false);
+    try {await sql.delete('memes',where:'path LIKE ?',whereArgs:['%.gif']);} finally {await sql.close();}
+    final recovered=(await packs.scanPacks()).single;
+    final records=await packs.readRecords(recovered);
+    expect(records.single.caption,'开心');
+    expect(await (await packs.fileFor(recovered,records.single)).readAsBytes(),png);
+    final ownership=jsonDecode(await File('${pack.rootPath}/shared_originals_v1.json').readAsString());
+    expect((ownership['originals'] as Map).length,1);
+    await packs.setPackEnabled(pack.id,false);
+    await storage.collect(gif,caption:'再次收藏',source:'user',sourceId:'b');
+    expect(await packs.enabledPackIds(),isNot(contains(pack.id)));
+  });
   test('manual semantic edit persists into shared selection, deleting collection preserves chat ownership',()async{
     await storage.collect(png,caption:'开心',source:'user',sourceId:'manual');
     final pack=(await packs.scanPacks()).single, record=(await packs.loadPickerCatalog()).items.single.record;

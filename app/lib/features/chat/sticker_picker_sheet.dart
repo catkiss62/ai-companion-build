@@ -64,6 +64,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
   }
 
   void _cancelEdit() {
+    if (widget.editing) { Navigator.pop(context); return; }
     setState(() {
       _drafts.clear();
       _editing = false;
@@ -89,6 +90,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
         _drafts.clear();
         _editing = false;
       });
+      if (widget.editing) Navigator.pop(context);
     } catch (error) {
       if (mounted) {
         await showDialog<void>(
