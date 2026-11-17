@@ -14,7 +14,9 @@
 
 - **后续任务入口：本账「2026-11-17 · 后续任务整理与梦境设计原则」。三批拟定顺序为现有游戏纠正/可定位的摸头小修→表情收藏→文字小游戏；分享记忆不改、不新建独立游戏记忆、不新增本地模型。梦境仅未来设计储备，未实施。第一批源码实施/验证状态见下方同日「第一批游戏纠正与摸头检查」。**
 
-- 当前已交付 `v0.42.200+444`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `3799200c9449b2ce5016f50c4ec9fb9533ff9aa9`。QQ保持偏好可靠读取/有限原因记录、图片对象语义及分层观察、生图阶段诊断完成；App识图1800字符上限不变，主动生图概率不变。[独立CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44077881142)及[完整签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44077881097)通过：167项源码门禁、3512项Flutter测试、原生回归、签名与资源校验通过。[下载签名APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44077881097/artifacts/14327813686)。真机待验：持续运行时QQ勾选、带字图/混合梗图的上下文接话；若再发生取消或长期未生图，导出新脱敏诊断。不能宣称现场取消根因已确认，未提高生图概率。下一步入口为下方本批实施记录与真机反馈。
+- 当前已交付 `v0.42.201+445`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `75c91be337d068d980c5a2bab4c0efc3ecbd8c8e`。第一批现有游戏会话的规则纠正保存/读取/撤回已实现，分享记忆不改；小豆丁摸头未确认根因，暂缓修改。文档CI、[独立CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512570)、[完整签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512651)通过：167项源码门禁、3520项Flutter测试、原生测试及签名/资源校验通过。[下载签名APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512651/artifacts/14341981106)。真机待验：更新后重新明确纠正一次，再观察游戏执行、切换与重启；不从旧聊天回填纠正，也不以分享正文检验此批记忆输入。后续第二批表情收藏仍未实现，按下方任务整理入口继续。
+
+- 上一版已交付 `v0.42.200+444`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `3799200c9449b2ce5016f50c4ec9fb9533ff9aa9`。QQ保持偏好可靠读取/有限原因记录、图片对象语义及分层观察、生图阶段诊断完成；App识图1800字符上限不变，主动生图概率不变。[独立CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44077881142)及[完整签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44077881097)通过：167项源码门禁、3512项Flutter测试、原生回归、签名与资源校验通过。[下载签名APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44077881097/artifacts/14327813686)。真机待验：持续运行时QQ勾选、带字图/混合梗图的上下文接话；若再发生取消或长期未生图，导出新脱敏诊断。不能宣称现场取消根因已确认，未提高生图概率。下一步入口为下方本批实施记录与真机反馈。
 
 - 上一版已交付 `v0.42.199+443`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `a33fc60f8cf4cdb39ccb57a633fd8e2a13d4d92a`。第四步悬浮多图、查手机日历与完整历史保留完成；[独立CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44051822111)和[完整签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44051822118)通过，167项源码门禁、3503项Flutter测试及原生回归通过。+443悬浮多图已获用户多次正常反馈，日历与历史仍待明确真机反馈；用户已确认+442 App多图正常。[下载签名APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44051822118/artifacts/14315643505)。下一步QQ识图承接与主动生图专项仅分析登记，未改概率或决策，见下方第四步记录。
 
@@ -41,14 +43,18 @@
 - 先前待验保留：+431千帆账户、QQ主动查证及普通帖子接话；+430 QQ补发、作品配图和主动近况。下一步按本页「2026-11-16」记录及真机反馈定点继续，不遍历历史总账。
 
 
-## 2026-11-17 · 第一批游戏纠正与摸头检查（进行中）
+## 2026-11-17 · 第一批游戏纠正与摸头检查（已实现/CI通过，真机待验）
 
 - 源码实现：+445/schema67。现有游戏会话新增有界纠正字段（6条/500字符，来源消息ID/时间）；短期建议仍最多3条。单一明确游戏优先、模糊多游戏不写入活动游戏，未知/无会话不误投。重复文本更新，修订保留顺序供核对；提供显式撤回，未做任意语义自动合并。复用原存档与source fence/三方合并，不新建独立记忆库。
 - 游戏用户对话/执行规划显式读取纠正；默认promptContext不读取，分享记忆及房间表达保持原输入。当前余额与规则冲突需核对实时工具，纠正不赋予操作权限。词法判断为轻量识别，不保证所有纠正口语命中；会话原有8条保留上限未改变。
 - 摸头复查：DeepseekAvatarModel最终矩阵、变形边界已有逆映射；DeepseekHeadPat含普通/彩蛋/小形态参数。全身归一化框与缩小头部比例、舞台宽度滑动门槛仍是待证疑点，没有证实现场根因，本批不改Live2D参数/触摸逻辑，登记暂缓。
 - 实施后复查补充：多游戏歧义文本即使同时要求换游戏，也不得把其中纠正写入当前游戏；保留旧的换游戏建议行为，但纠正归属仍需明确。新增该组合回归。
 - 本地检查：167项源码门禁中163项通过；4项仍为既有环境缺项（桌宠帧/manifest、effects资源、kotlinc），留给CI完整环境验证。首次门禁发现版本白名单及Agent自查身份未同步，已补齐+445后复跑；没有放宽历史检查。工作区无FlutterSDK，新增测试尚待CI。
-- 已补8项Dart回归（识别边界、持久/刷新、归属、重复/有界、撤回、输入范围、旧档、恢复竞争），同步维护卡/App帮助。待本地门禁、CI及构建结果；尚不标记CI或真机通过。
+- 已补8项Dart回归（识别边界、持久/刷新、归属、重复/有界、撤回、输入范围、旧档、恢复竞争），同步维护卡/App帮助与Agent自查。实施时等待CI，最终结果如下；真机尚未验证。
+- 最终验证：构建源码 `75c91be337d068d980c5a2bab4c0efc3ecbd8c8e`；[文档CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512572)、[独立CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512570)、[完整构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512651)全部success。完整构建job `134124380001`：167/167源码门禁、3520项Flutter测试、Kotlin/原生检查、签名与资源完整性通过。本地4项环境缺项已由完整CI验证，不留作未通过项。
+- 交付：artifact `14341981106`，`AI-Companion-v0.42.201-445-Game-Corrections-APK`，ZIP 750065402字节；APK SHA256 `d2c5f3c94115b26f6e524c7fcaf764d98f8adcdab633802f1bdfa237730434a1`。[下载](https://github.com/catkiss62/ai-companion-build/actions/runs/44106512651/artifacts/14341981106)。早一提交 `4895bc5c3ea54e831b9f3cc45f6593a92a458141` 的构建被歧义换游戏复查补丁取代，交付以75c91be为准。
+- 真机验证：更新后需重新说一次明确纠正（不回读历史聊天补档），观察继续游戏是否区分游戏币/兑换额度、换游戏是否串规则、重启后是否保留；可说“撤回游戏规则纠正”清空当前游戏笔记。分享链路未改，不承诺此次修复分享中所有错误。摸头仍未实现本批修复，待可复现证据再定点处理；下一批表情收藏、第三批文字小游戏和梦境设计均未实施。
+
 
 
 - 用户授权开始第一项；基线+444/schema67，远端294ba8b9f2fe309b523fcc9eff9421bf04359e6b。本批仅现有游戏记录明确纠正与可定位的DeepSeek小豆丁摸头；分享记忆、独立游戏记忆系统、本地模型、梦境、表情收藏、小游戏均不改。
