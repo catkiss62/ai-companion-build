@@ -6,9 +6,12 @@ app = Path(__file__).resolve().parents[1]
 read = lambda p: (app / p).read_text()
 storage = read('lib/core/storage/portable_companion_storage.dart')
 export = storage.split('Future<PortableExport> exportTo(', 1)[1].split('static Map<String, dynamic> validateState', 1)[0]
-assert "'resource_files': 'external'" in export
-assert "'version': 2" in export
-assert '.list(' not in export and '.copy(' not in export
+assert "'resource_files': 'external_with_collection'" in export
+assert "'version': 3" in export
+assert 'CollectedStickerStorage.packId' in export
+assert "state['version']==3" in storage
+assert "sourceDirectory:Directory(p.join(incoming.path,CollectedStickerStorage.packId))" in storage
+assert "domain=='live2d' && values.isNotEmpty" in storage
 assert 'restoreModels: includesResourceFiles(state)' in storage
 assert 'if (includesResourceFiles(state))' in storage
 assert 'if (_reloadAfterFinish.remove(snapshot.token))' in storage

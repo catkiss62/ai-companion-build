@@ -1,3 +1,5 @@
+import 'qq_sticker_collection.dart';
+import '../../core/stickers/collected_sticker_storage.dart';
 import '../../core/rules/user_address_policy.dart';
 import '../../core/ai/background_cost_policy.dart';
 import 'qq_reply_recovery.dart';
@@ -360,6 +362,8 @@ class QqRuntime {
           ? null : _visionReview.resolve(replyRow, visionAt, reset);
       var followupObserved = false;
       var viewed=0;
+      QqCollectCandidate? collection;
+      final collectEnabled=await CollectedStickerStorage(db:store.db).enabled();
       phase='vision';
       for(final row in b.rows) {
         final seq=row['seq'] as int;final urls=_imageUrls.remove(seq)??[];
@@ -377,12 +381,20 @@ class QqRuntime {
           if (directed && forFollowup) followupObserved = true;
           try {
             final origins=QqMessageMaterial.fromRow(row).imageOrigins;
+            QqCollectCandidate? observedCollection;
             final result=await vision.observe(urls[ordinal],firstModel:model,fallback:false,current:current,firstChannel:true,
               question: directed ? question : '',
               cached:(fp)=>store.cachedImage(cid,fp),
-              originalObserver:b.group && o.echoEnabled && ordinal<origins.length && origins[ordinal]=='outer'?
-                (bytes,mime,hash) async {echoes.remember(b,row,image,bytes,mime,hash,now().millisecondsSinceEpoch);}:null);
+              originalObserver:(collectEnabled || (b.group && o.echoEnabled)) && ordinal<origins.length && origins[ordinal]=='outer'?
+                (bytes,mime,hash) async {
+                  if(b.group && o.echoEnabled) echoes.remember(b,row,image,bytes,mime,hash,now().millisecondsSinceEpoch);
+                  if(collectEnabled && bytes.length<=CollectedStickerStorage.maxBytes) {
+                    observedCollection=QqCollectCandidate(bytes:bytes,imageId:image['id'] as String,hash:hash,description:'');
+                  }
+                }:null);
             await store.observation(fence,image['id'] as String,'viewed',result.text,result.fingerprint);
+            final candidate=observedCollection;
+            if(candidate!=null) collection=QqCollectCandidate(bytes:candidate.bytes,imageId:candidate.imageId,hash:candidate.hash,description:result.text);
           } catch(error) {
             if(!await current()) rethrow;
             await store.recordFailure(fence,'vision',error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
@@ -629,6 +641,7 @@ class QqRuntime {
           prompt+='\n${QqVoiceChoice.groupReminder}';
         }
       }
+      if(collection!=null)prompt+='\n${collection.prompt}';
       if(echo!=null)prompt+='\n${echo.prompt}';
       if(!await current()) throw StateError('context_invalidated');
       await store.mark(b,'generating');status('generating');
@@ -639,6 +652,12 @@ class QqRuntime {
       var raw=reusedDraft?['raw'] is String?reusedDraft!['raw'] as String:await generator.generate(channel:channel,firstModel:model,firstEffort:await FirstChannelModel.readEffort(store.db),
         secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),
         messages:[{'role':'system','content':prompt},{'role':'user','content':data}],usageLane:b.group?'qq_group_reply':'qq_private_reply');
+      final collectCaption=QqCollectCandidate.caption(raw);
+      raw=QqCollectCandidate.visible(raw);
+      if(collectCaption!=null && collection!=null && reusedDraft==null && await current()) {
+        try {if(await collection.save(store,b,current,collectCaption)) status('sticker_collected');}
+        catch(error) {await store.recordFailure(fence,'sticker_collection',error,operation:b.id,conversation:b.cid);}
+      }
       if(!b.group) {
         final relation=QqReplyTasks.parseRelation(raw);raw=relation.text;
         if(prior!=null && const {'resolved','cancelled','changed'}.contains(relation.relation)) {

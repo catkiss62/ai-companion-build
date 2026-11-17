@@ -276,6 +276,27 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('edit grid exposes missing semantics and stages a supplied description', (tester) async {
+    await tester.runAsync(() async {
+      final pack = await fixture();
+      final index = await openDatabase('${pack.rootPath}/index.db', singleInstance: false);
+      try { await index.update('memes', {'caption': ''}); } finally { await index.close(); }
+    });
+    await open(tester);
+    await tester.tap(find.text('修改表情包'));
+    await tester.pumpAndSettle();
+    expect(find.text('未填写语义'), findsOneWidget);
+    await tester.tap(find.byType(Image).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('sticker-caption-input')), '开心到起飞');
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    expect(find.text('开心到起飞'), findsOneWidget);
+    expect(find.text('未填写语义'), findsNothing);
+    expect(await tester.runAsync(storage.captionOverrides), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'confirm only stages; outside tap stays; exit and route disposal discard',
     (tester) async {
@@ -317,7 +338,7 @@ void main() {
       await tester.enterText(find.byType(TextField), '待重置');
       await tester.tap(find.text('重置'));
       await tester.pumpAndSettle();
-      expect(find.text('猫咪偷听'), findsOneWidget);
+      expect(find.descendant(of: find.byType(Dialog), matching: find.text('猫咪偷听')), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -352,7 +373,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(Image).first);
       await tester.pumpAndSettle();
-      expect(find.text('保留草稿'), findsOneWidget);
+      expect(find.descendant(of: find.byType(Dialog), matching: find.text('保留草稿')), findsOneWidget);
       tester.view.viewInsets = const FakeViewPadding(bottom: 280);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('确认'));

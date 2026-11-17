@@ -1,3 +1,4 @@
+import '../stickers/sticker_pack_storage.dart';
 import '../database/cedar_media_schema.dart';
 import '../models/room_background_config.dart';
 import 'dart:convert';
@@ -178,7 +179,7 @@ class SnapshotService {
   }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(db: db),
        albumStorage = albumStorage ?? CompanionAlbumStorage(db: db),
        blobStorage = blobStorage ?? MediaBlobStorage(db: db),
-       portableStorage = portableStorage ?? PortableCompanionStorage(),
+       portableStorage = portableStorage ?? PortableCompanionStorage(stickers:StickerPackStorage(db:db)),
        _archiveLimits = archiveLimits;
 
   final AppDatabase db;

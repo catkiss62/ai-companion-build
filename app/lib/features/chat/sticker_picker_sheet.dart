@@ -31,9 +31,10 @@ class _StickerPickerItem {
 }
 
 class StickerPickerSheet extends StatefulWidget {
-  const StickerPickerSheet({required this.storage, super.key});
+  const StickerPickerSheet({required this.storage, this.editing = false, super.key});
 
   final StickerPackStorage storage;
+  final bool editing;
 
   @override
   State<StickerPickerSheet> createState() => _StickerPickerSheetState();
@@ -133,6 +134,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
   @override
   void initState() {
     super.initState();
+    _editing = widget.editing;
     _load();
   }
 
@@ -442,7 +444,8 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                               ).colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Padding(
+                            child: Column(children:[
+                              Expanded(child: Padding(
                               padding: const EdgeInsets.all(5),
                               child: Image.file(
                                 item.file,
@@ -450,7 +453,11 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                                 errorBuilder: (_, _, _) =>
                                     const Icon(Icons.broken_image_outlined),
                               ),
-                            ),
+                            )),
+                              if(_editing) Text(_caption(item).trim().isEmpty?'未填写语义':_caption(item),
+                                maxLines:2,overflow:TextOverflow.ellipsis,
+                                style:Theme.of(context).textTheme.labelSmall),
+                            ]),
                           ),
                         );
                       },
@@ -518,7 +525,7 @@ class _StickerCaptionDialogState extends State<_StickerCaptionDialog> {
               minLines: 2,
               maxLines: 4,
               maxLength: 240,
-              decoration: InputDecoration(labelText: '表情描述', errorText: error),
+              decoration: InputDecoration(labelText: '表情语义（描述）', errorText: error),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

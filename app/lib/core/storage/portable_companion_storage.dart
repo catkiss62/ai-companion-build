@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../widgets/caicai_live2d_stage.dart';
 import '../stickers/sticker_pack_storage.dart';
+import '../stickers/collected_sticker_storage.dart';
 import 'secure_config.dart';
 import 'snapshot_directory_swap.dart';
 
@@ -240,22 +241,45 @@ class PortableCompanionStorage {
     final config = secure == null
         ? {for (final key in SecureConfig.portableKeys) key: null}
         : await secure!.exportPortableSettings();
+    final hashes=<String,String>{};
+    var bytes=0;
+    final collected=Directory(p.join((await stickerRoot).path,CollectedStickerStorage.packId));
+    if(await File(p.join(collected.path,'manifest.json')).exists()) {
+      // Validate through the normal reader, then materialize only this personal
+      // pack. External imported packs remain excluded from ordinary backups.
+      final all=await stickers.scanPacks();
+      final found=all.where((pack)=>pack.id==CollectedStickerStorage.packId).toList();
+      if(found.length!=1)throw const FormatException('收集表情库损坏，未导出不完整存档');
+      final pack=found.single;
+      final records=await stickers.readRecords(pack,applyEdits:false);
+      final files=<String,File>{
+        'manifest.json':File(p.join(pack.rootPath,'manifest.json')),
+        'index.db':File(p.join(pack.rootPath,'index.db')),
+        for(final record in records)record.path:await stickers.fileFor(pack,record),
+      };
+      for(final entry in files.entries) {
+        final relative='${CollectedStickerStorage.packId}/${entry.key}';
+        final target=File(p.join(directory.path,'stickers',relative));
+        await target.parent.create(recursive:true);await entry.value.copy(target.path);
+        paths['stickers']!.add(relative);
+        hashes['stickers/$relative']=(await sha256.bind(target.openRead()).first).toString();
+        bytes+=await target.length();
+      }
+    }
     return PortableExport(
       {
-        'version': 2,
-        'resource_files': 'external',
+        'version': 3,
+        'resource_files': 'external_with_collection',
         'secure_config': config,
         'native_preferences': snapshot.preferences,
         'file_paths': paths,
-      },
-      const {},
-      0,
+      },hashes,bytes,
     );
   }
 
   static Map<String, dynamic> validateState(Object? raw) {
     if (raw is! Map ||
-        !const [1, 2].contains(raw['version']) ||
+        !const [1, 2, 3].contains(raw['version']) ||
         raw['native_preferences'] is! Map ||
         raw['file_paths'] is! Map) {
       throw const FormatException('状态包缺少可迁移配置');
@@ -272,6 +296,15 @@ class PortableCompanionStorage {
       if (raw['version'] == 2 &&
           (raw['resource_files'] != 'external' || values.isNotEmpty)) {
         throw const FormatException('仅设置存档不能包含外部模型或表情包文件');
+      }
+      if(raw['version']==3 && (raw['resource_files']!='external_with_collection' ||
+          (domain=='live2d' && values.isNotEmpty) ||
+          (domain=='stickers' && values.any((item)=>item is! String ||
+            !item.startsWith('${CollectedStickerStorage.packId}/') ||
+            !(item=='${CollectedStickerStorage.packId}/manifest.json' ||
+              item=='${CollectedStickerStorage.packId}/index.db' ||
+              RegExp(r'^companion-collected-v1/memes/[a-f0-9]{64}\.(png|jpg|gif|webp)$').hasMatch(item)))))) {
+        throw const FormatException('收集表情存档不能包含外部图库或模型');
       }
       if (values.any((item) => item is! String) ||
           values.toSet().length != values.length) {
@@ -367,6 +400,20 @@ class PortableCompanionStorage {
           validatePath: safePath,
           token: token,
         );
+      }
+      if(state['version']==3) {
+        final incoming=Directory(p.join(root.path,'stickers'));
+        await stickers.validateSnapshotDirectory(incoming);
+        final prefix='${CollectedStickerStorage.packId}/';
+        final paths=List<String>.from(state['file_paths']['stickers']);
+        final target=Directory(p.join((await stickerRoot).path,CollectedStickerStorage.packId));
+        if(paths.isNotEmpty || await target.exists()) {
+          packs=await PreparedDirectorySwap.prepare(
+            sourceDirectory:Directory(p.join(incoming.path,CollectedStickerStorage.packId)),
+            targetDirectory:target,
+            expectedPaths:paths.map((path)=>path.substring(prefix.length)),
+            validatePath:safePath,token:token);
+        }
       }
       return PreparedPortableState(
         native,

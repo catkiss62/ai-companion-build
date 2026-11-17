@@ -1,3 +1,5 @@
+import '../chat/sticker_picker_sheet.dart';
+import 'collected_stickers_page.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -134,6 +136,19 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
               children: [
+                ListTile(leading:const Icon(Icons.edit_note),title:const Text('修改现有表情语义'),
+                  subtitle:const Text('显示每张表情的含义，未填写的可以补充'),
+                  onTap:()=>showModalBottomSheet<void>(context:context,isScrollControlled:true,
+                    builder:(_)=>StickerPickerSheet(storage:_storage,editing:true))),
+                ListTile(leading: const Icon(Icons.collections_bookmark_outlined),
+                  title: const Text('收集的表情'),
+                  subtitle: const Text('单张上传、语义编辑、相册添加与自动收集'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => const CollectedStickersPage()));
+                    if (mounted) await _load();
+                  }),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),

@@ -14,7 +14,9 @@ failure = read('lib/integrations/qq_private/qq_failure.dart')
 assert 'class QqSketchFailure extends QqOperationFailure' in failure
 assert 'error is HttpException' in failure
 voice = read('lib/integrations/qq_private/qq_voice.dart')
-assert '普通开心或轻微俏皮也适合' in voice and '不要仅因角色活泼' in voice
+assert '轻松吐槽、普通开心或俏皮表达优先考虑cute' in voice
+assert '不必为了音色强行撒娇' in voice
+assert '按情境自然选择，不用固定概率' in voice
 store = read('lib/integrations/qq_private/qq_store.dart')
 assert 'QqVoiceUsage.record(raw,seq:' in store
 assert "phase:error is QqSketchFailure?error.stage:phase" in store

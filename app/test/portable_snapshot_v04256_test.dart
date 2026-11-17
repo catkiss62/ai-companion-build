@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/stickers/collected_sticker_storage.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_activity_media.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
 import 'package:ai_companion_localfirst/core/database/cedar_media_schema.dart';
@@ -167,6 +168,7 @@ void main() {
     });
     secure = SecureConfig.forTesting(const FlutterSecureStorage());
     portable = PortableCompanionStorage(
+      stickers: StickerPackStorage(db:db),
       native: native,
       secure: secure,
       stickerDirectory: Directory(
@@ -628,6 +630,58 @@ void main() {
     expect(await secure.readApiKey(), 'LOCAL_SECRET_KEEP');
   });
 
+  test('collected images and edited meanings survive full backup restore without replacing other packs', () async {
+    await fixture();
+    final store=CollectedStickerStorage(db:db), packs=StickerPackStorage(db:db);
+    final image=base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==');
+    await store.collect(image,caption:'困得不想上班',source:'user',sourceId:'test');
+    final pack=(await packs.scanPacks()).firstWhere((p)=>p.id==CollectedStickerStorage.packId);
+    final record=(await packs.readRecords(pack)).single;
+    await packs.saveCaptionEdits({record.usageKey:'想摸鱼'});
+    final bundle=await service.exportBackupBundle();
+    final archive=await decode(bundle.filePath);
+    expect(archive.files.any((f)=>f.name.contains('companion-collected-v1/index.db')),true);
+    expect(archive.files.any((f)=>f.name.contains('fixture-pack/')),false);
+    await packs.deletePack(CollectedStickerStorage.packId);
+    await service.restoreBackupBundle(bundle.filePath);
+    final restored=(await packs.scanPacks()).firstWhere((p)=>p.id==CollectedStickerStorage.packId);
+    final restoredRecord=(await packs.readRecords(restored)).single;
+    expect(restoredRecord.caption,'想摸鱼');
+    expect(await (await packs.fileFor(restored,restoredRecord)).readAsBytes(),image);
+    expect((await store.sources())[record.path]?['source'],'user');
+    expect((await packs.scanPacks()).any((p)=>p.id=='fixture-pack'),true);
+    expect(await store.collect(image,caption:'重复',source:'qq',sourceId:'test2'),false);
+  });
+
+  test('collection restore failure rolls back current images and meanings', () async {
+    await fixture();
+    final store=CollectedStickerStorage(db:db), packs=StickerPackStorage(db:db);
+    final image=base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==');
+    await store.collect(image,caption:'开心',source:'user',sourceId:'test');
+    final bundle=await service.exportBackupBundle();
+    final gif=base64Decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    await store.collect(gif,caption:'后来收藏的',source:'qq',sourceId:'later');
+    native.failApply=true;
+    await expectLater(service.restoreBackupBundle(bundle.filePath), throwsStateError);
+    final pack=(await packs.scanPacks()).firstWhere((p)=>p.id==CollectedStickerStorage.packId);
+    final records=await packs.readRecords(pack);
+    expect(records.map((r)=>r.caption),containsAll(['开心','后来收藏的']));
+    expect(await (await packs.fileFor(pack,records.singleWhere((r)=>r.path.endsWith('.gif')))).readAsBytes(),gif);
+    expect(native.busy,false);
+  });
+
+  test('empty collection snapshot clears collection only and permits collecting again', () async {
+    await fixture();
+    final bundle=await service.exportBackupBundle();
+    final store=CollectedStickerStorage(db:db), packs=StickerPackStorage(db:db);
+    final image=base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==');
+    await store.collect(image,caption:'开心',source:'user',sourceId:'test');
+    await service.restoreBackupBundle(bundle.filePath);
+    expect((await packs.scanPacks()).map((p)=>p.id),['fixture-pack']);
+    expect(await store.collect(image,caption:'重新收藏',source:'user',sourceId:'test'),true);
+    expect((await packs.scanPacks()).length,2);
+  });
+
   test('new backup restores settings while retaining externally imported resource files', () async {
     await fixture();
     final bundle = await service.exportBackupBundle();
@@ -635,8 +689,8 @@ void main() {
     expect(archive.files.where((file) => file.name.startsWith('portable/')), isEmpty);
     expect(object(archive, 'manifest.json')['portable_bytes'], 0);
     final state = object(archive, 'state.json');
-    expect(state['portable_state']['version'], 2);
-    expect(state['portable_state']['resource_files'], 'external');
+    expect(state['portable_state']['version'], 3);
+    expect(state['portable_state']['resource_files'], 'external_with_collection');
     final model = File(p.join(native.models.path, '女仆', 'model.moc3'));
     await model.writeAsString('KEEP_CURRENT_MODEL');
     native.prefs['caicai_stage'] = {'legPivot': .96};

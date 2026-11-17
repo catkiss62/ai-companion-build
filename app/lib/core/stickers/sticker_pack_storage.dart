@@ -603,6 +603,16 @@ class StickerPackStorage {
     records ??= await readRecords(pack, applyEdits: false);
     if (mapping.isNotEmpty) {
       final expected = records.map((r) => r.path).toSet();
+      // A killed collector can leave extra ownership before its SQLite commit.
+      // Under the shared lock, reconcile only this pack to committed rows.
+      if (pack.id == 'companion-collected-v1' && mapping.length > expected.length &&
+          mapping.keys.toSet().containsAll(expected)) {
+        mapping.removeWhere((key, _) => !expected.contains(key));
+        final file=File(p.join(root.path,StickerSharedFiles.manifestName));
+        final staged=File('${file.path}.saving');
+        await staged.writeAsString(jsonEncode({'version':1,'originals':mapping}),flush:true);
+        await staged.rename(file.path);
+      }
       if (mapping.length != expected.length || !mapping.keys.toSet().containsAll(expected)) {
         throw const FormatException('共享表情清单不完整');
       }

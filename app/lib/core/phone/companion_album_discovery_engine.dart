@@ -1,3 +1,4 @@
+import '../stickers/collected_sticker_storage.dart';
 import '../ai/routed_vision_client.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -313,6 +314,21 @@ class CompanionAlbumDiscoveryEngine {
         }
         return completed;
       }, db: db);
+      if (completed && shouldSave && observation.collectSticker && !observation.albumAdultContent) {
+        final collected=CollectedStickerStorage(db:db);
+        if(await collected.enabled()) {
+          try {
+            if(await preparedDraft.originalFile.length()<=CollectedStickerStorage.maxBytes) {
+              await collected.collect(await preparedDraft.originalFile.readAsBytes(),
+                caption:observation.stickerCaption,source:'web',sourceId:candidateId,automatic:true);
+            }
+          } catch (_) {
+            // Album saving already succeeded; collection failure must not turn
+            // a valid album write into a retry or claim a collection succeeded.
+            await db.setSetting('sticker_collection_last_failure','web_collection_failed');
+          }
+        }
+      }
       final outcome =
           await db.companionAlbumCandidateOutcomeCategory(candidateId);
       await db.recordProviderHealthEvent(ProviderHealthEvent(
