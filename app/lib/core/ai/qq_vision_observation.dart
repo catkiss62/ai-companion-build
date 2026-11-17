@@ -19,6 +19,11 @@ abstract final class QqVisionObservationData {
   static String encode(Map<String, dynamic> parsed, {String frames = ''}) {
     String field(String key) => parsed[key] is String ? parsed[key] as String : '';
     final scene = field('summary'), keyText = field('key_text'), visible = field('visible_text');
+    // Older model contracts mix scene and OCR in summary. Preserve that text
+    // instead of pretending it is a short scene in the new schema.
+    if (!const ['image_types','key_text','visible_text','uncertainty','text_complete'].any(parsed.containsKey)) {
+      return clip(scene, 1800);
+    }
     final value = <String, dynamic>{
       'summary': clip(scene, 500),
       'image_types': parsed['image_types'] is List

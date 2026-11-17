@@ -51,7 +51,10 @@ void main() {
     expect(QqVisionObservationData.participation('旧表情包描述'),'旧表情包描述');
     final result=await observe({'summary':'一个表情包'},qq:true);
     expect(QqVisionObservationData.participation(result.summary),contains('一个表情包'));
-    expect(QqVisionObservationData.decode(result.summary)!['text_complete'],false);
+    expect(result.summary,'一个表情包');
+    expect(QqVisionObservationData.decode(result.summary),isNull);
+    final longLegacy=await observe({'summary':'旧文字' * 400},qq:true);
+    expect(longLegacy.summary,'旧文字' * 400);
   });
   test('image classes are hints and do not accept arbitrary model fields',() {
     final value=QqVisionObservationData.encode({'summary':'梗图','image_types':['meme','news','direct'],
