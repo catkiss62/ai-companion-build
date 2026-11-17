@@ -21,6 +21,7 @@ import '../storage/message_attachment_storage.dart';
 import '../storage/shared_media_lock.dart';
 import '../models/emotion_episode.dart';
 import 'simulated_cart_generator.dart';
+import 'phone_history_store.dart';
 import 'simulated_diary_generator.dart';
 import 'simulated_note_generator.dart';
 import 'simulated_phone_policy.dart';
@@ -169,6 +170,9 @@ class SimulatedPhoneRepository {
   BrainWorkFence? _refreshFence;
   Map<String, String> _enabledGuard = const {};
 
+  // Retired UI/producer. Keep generator and historical data for possible reuse.
+  static const cartGenerationEnabled = false;
+
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
   static const _diaryKey = IllustrationJob.diaryEntriesKey;
@@ -204,6 +208,7 @@ class SimulatedPhoneRepository {
     DateTime? now,
     bool refresh = true,
   }) async {
+    await PhoneHistoryStore.migrate(await db.database);
     if (refresh) await refreshIfDue(now: now);
     await maintainAlbum(now: now);
     final tarot = await _readList(_tarotKey);
@@ -419,6 +424,7 @@ class SimulatedPhoneRepository {
   Future<void> refreshIfDue({DateTime? now}) async {
     final current = (now ?? DateTime.now()).toLocal();
     if (!await db.brainWorkAllowed()) return;
+    await PhoneHistoryStore.migrate(await db.database);
     final acquired = await db.tryAcquireLocalLease(
       _leaseKey,
       holdFor: const Duration(minutes: 3),
@@ -437,7 +443,8 @@ class SimulatedPhoneRepository {
       if (!await isEnabled()) return;
       _enabledGuard = {enabledKey: await db.getSetting(enabledKey) ?? ''};
       for (final refresh in [
-        _refreshDiary, _refreshMood, _refreshNotes, _refreshWishes, _refreshCart,
+        _refreshDiary, _refreshMood, _refreshNotes, _refreshWishes,
+        if (cartGenerationEnabled) _refreshCart,
       ]) {
         if (!await db.brainWorkFenceCurrent(_refreshFence!) ||
             !await isEnabled()) return;
@@ -587,11 +594,10 @@ class SimulatedPhoneRepository {
         : null;
     final fence = _refreshFence;
     if (fence == null || !await db.setSettingsAtomically({
+      ...PhoneHistoryStore.values(next.toJson()),
       _diaryKey: jsonEncode(updated.take(180).map((entry) => entry.toJson()).toList()),
       _diaryPendingKey: jsonEncode(pending),
       if (job != null) job.key: jsonEncode(job.initial()),
-      for (final expired in updated.skip(180))
-        '${IllustrationJob.diaryMediaPrefix}${expired.id}': '',
     }, workFence: fence, expectedSettings: _enabledGuard)) {
       throw const BrainWorkInvalidated();
     }
@@ -745,7 +751,13 @@ class SimulatedPhoneRepository {
         'day_slot': noteSlot,
       },
     );
-    await _writeList(_notesKey, [next, ...entries].take(300).toList());
+    final fence = _refreshFence;
+    if (fence == null || !await db.setSettingsAtomically({
+      ...PhoneHistoryStore.values(next.toJson()),
+      _notesKey: jsonEncode([next, ...entries].take(300).map((e) => e.toJson()).toList()),
+    }, workFence: fence, expectedSettings: _enabledGuard)) {
+      throw const BrainWorkInvalidated();
+    }
   }
 
   static List<String> _noteItems(DailyContinuityRecord record) => <String>[

@@ -1,3 +1,5 @@
+import 'package:ai_companion_localfirst/core/phone/phone_history_store.dart';
+import 'package:ai_companion_localfirst/core/phone/simulated_cart_generator.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,14 @@ class _Diary implements SimulatedDiaryGenerator {
       '我们谈到AI这个词背后的设计限制，我想先把真正能够确认的部分说清楚，剩下的疑问留着继续讨论。') : null;
   }
 }
+class _Cart implements SimulatedCartGenerator {
+  int calls = 0;
+  @override
+  Future<List<SimulatedCartItem>> generate({required DateTime now, required List<String> recentTitles}) async {
+    calls++;
+    throw StateError('retired cart must not be generated');
+  }
+}
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); sqfliteFfiInit();
   test('failed diary keeps source, respects cooldown, and repairs old date without blocking other columns', () async {
@@ -32,7 +42,8 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     final db = await AppDatabase.createForTesting(databaseFactoryFfi);
     final generator = _Diary();
-    final repo = SimulatedPhoneRepository(db, diaryGenerator: generator);
+    final cart = _Cart();
+    final repo = SimulatedPhoneRepository(db, diaryGenerator: generator, cartGenerator: cart);
     final now = DateTime(2026, 10, 4, 8);
     final day = now.subtract(const Duration(days: 1));
     try {
@@ -59,6 +70,9 @@ void main() {
       expect(entry['id'], old.id); expect(entry['created_at'], day.millisecondsSinceEpoch);
       expect(entry['metadata']['generation_mode'], 'deepseek');
       expect(await db.getSetting('simulated_phone_diary_pending_v1'), '{}');
+      expect(cart.calls, 0);
+      final archived = await PhoneHistoryStore.page(await db.database, day: old.localDay);
+      expect(archived.where((e) => e['id'] == old.id).single['body'], entry['body']);
     } finally {
       await db.closeForTesting(); PathProviderPlatform.instance = paths;
       await root.delete(recursive: true);

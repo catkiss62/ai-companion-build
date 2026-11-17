@@ -10,6 +10,7 @@ import '../../core/database/app_database.dart';
 import '../../core/illustration/illustration_job.dart';
 import '../illustration/illustration_result_view.dart';
 import '../../core/phone/mood_chart_layout.dart';
+import '../../core/phone/phone_history_store.dart';
 import '../../core/phone/simulated_phone_repository.dart';
 import '../../core/models/companion_album.dart';
 import '../../core/platform/android_bridge.dart';
@@ -772,7 +773,7 @@ List<PhoneAppItem> buildApps(
       badge: snapshot?.notesUnread,
       onOpen: repository.markNotesRead,
       onClosed: refreshAfterClose,
-      page: NotesPage(entries: snapshot?.notes ?? const []),
+      page: NotesPage(entries: (snapshot?.notes ?? const <SimulatedPhoneEntry>[]).take(50).toList()),
     ),
     PhoneAppItem(
       title: '心情',
@@ -796,13 +797,14 @@ List<PhoneAppItem> buildApps(
       badge: snapshot?.diaryUnread,
       onOpen: repository.markDiaryRead,
       onClosed: refreshAfterClose,
-      page: DiaryPage(entries: snapshot?.diary ?? const []),
+      page: PhoneCalendarPage(db: repository.db, title: '日记',
+        initialDay: snapshot?.diary.firstOrNull?.localDay),
     ),
     PhoneAppItem(
-      title: '购物车',
-      emoji: '🛒',
-      colors: const [Color(0xFF482006), orange],
-      page: CartPage(entries: snapshot?.cart ?? const []),
+      title: '日历',
+      emoji: '📅',
+      colors: const [Color(0xFF143342), cyan],
+      page: PhoneCalendarPage(db: repository.db),
     ),
     PhoneAppItem(
       title: '塔罗牌',
@@ -813,7 +815,10 @@ List<PhoneAppItem> buildApps(
         user: snapshot?.tarotUser,
       ),
     ),
-  ];
+  ]..sort((a, b) {
+    const order = ['相册', '浏览器', '心情', '塔罗牌', '愿望单', '日记', '随笔', '日历'];
+    return order.indexOf(a.title).compareTo(order.indexOf(b.title));
+  });
 }
 
 Future<void> openPhoneApp(BuildContext context, PhoneAppItem item) async {
@@ -1823,6 +1828,16 @@ class NotesPage extends StatelessWidget {
   Widget build(BuildContext context) => PhoneAppScaffold(
         emoji: '📝',
         title: '随笔',
+        actions: [IconButton(
+          tooltip: '按日期查看全部随笔和日记',
+          icon: const Icon(Icons.calendar_month),
+          onPressed: () => openPhonePage(context, PhoneCalendarPage(db: AppDatabase.instance)),
+        )],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(26),
+          child: Padding(padding: EdgeInsets.only(bottom: 6),
+            child: Text('最近 50 条 · 更早内容可在日历按日期查看', style: TextStyle(color: text2, fontSize: 11))),
+        ),
         child: entries.isEmpty
             ? const HonestEmpty(
                 emoji: '✍️',
@@ -2306,6 +2321,108 @@ class WishList extends StatelessWidget {
           ]));
       });
   }
+}
+
+/// Date navigation reads bounded history pages, never the complete archive.
+class PhoneCalendarPage extends StatefulWidget {
+  const PhoneCalendarPage({required this.db, this.title = '日历', this.initialDay, super.key});
+  final AppDatabase db;
+  final String title;
+  final String? initialDay;
+  @override
+  State<PhoneCalendarPage> createState() => _PhoneCalendarPageState();
+}
+
+class _PhoneCalendarPageState extends State<PhoneCalendarPage> {
+  late DateTime _day;
+  int _offset = 0;
+  late Future<List<SimulatedPhoneEntry>> _entries;
+  String get _dayKey => '${_day.year.toString().padLeft(4, '0')}-${_day.month.toString().padLeft(2, '0')}-${_day.day.toString().padLeft(2, '0')}';
+
+  @override
+  void initState() {
+    super.initState();
+    final date = DateTime.tryParse(widget.initialDay ?? '') ?? DateTime.now();
+    _day = DateTime(date.year, date.month, date.day);
+    _entries = _fetch(_dayKey, 0);
+  }
+
+  Future<List<SimulatedPhoneEntry>> _fetch(String day, int offset) async {
+    final sql = await widget.db.database;
+    await PhoneHistoryStore.migrate(sql);
+    return (await PhoneHistoryStore.page(sql, day: day, offset: offset, limit: 51))
+        .map(SimulatedPhoneEntry.fromJson).toList();
+  }
+
+  void _select(DateTime day, {int offset = 0}) => setState(() {
+    _day = DateTime(day.year, day.month, day.day);
+    _offset = offset;
+    _entries = _fetch(_dayKey, _offset);
+  });
+
+  Future<void> _pick() async {
+    final date = await showDatePicker(context: context, initialDate: _day,
+        firstDate: DateTime(1970), lastDate: DateTime(2200, 12, 31));
+    if (date != null && mounted) _select(date);
+  }
+
+  @override
+  Widget build(BuildContext context) => PhoneAppScaffold(
+    emoji: widget.title == '日记' ? '📔' : '📅', title: widget.title,
+    child: Column(children: [
+      Row(children: [
+        IconButton(tooltip: '前一天', icon: const Icon(Icons.chevron_left),
+            onPressed: () => _select(DateTime(_day.year, _day.month, _day.day - 1))),
+        Expanded(child: TextButton(onPressed: _pick,
+          child: Text(_dayKey, style: const TextStyle(color: text1)))),
+        IconButton(tooltip: '后一天', icon: const Icon(Icons.chevron_right),
+            onPressed: () => _select(DateTime(_day.year, _day.month, _day.day + 1))),
+        TextButton(onPressed: () => _select(DateTime.now()), child: const Text('今天')),
+      ]),
+      const Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Text('点击日期选择 · 日记、随笔与日记配图', style: TextStyle(color: text2, fontSize: 12))),
+      Expanded(child: FutureBuilder<List<SimulatedPhoneEntry>>(
+        key: ValueKey('$_dayKey:$_offset'), future: _entries,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return Center(child: TextButton(
+            onPressed: () => _select(_day, offset: _offset), child: const Text('读取失败，点击重试')));
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final entries = snapshot.data!;
+          return Column(children: [
+            Expanded(child: entries.isEmpty
+              ? const Center(child: Text('这一天还没有日记或随笔', style: TextStyle(color: text2)))
+              : ListView.builder(padding: const EdgeInsets.all(12),
+                  itemCount: math.min(entries.length, 50), itemBuilder: (context, index) {
+                final entry = entries[index];
+                final diary = entry.kind == 'diary';
+                return Card(color: const Color(0xFF151A2A), child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${diary ? '📔 日记' : '📝 随笔'} · ${entry.title}',
+                        style: const TextStyle(color: text1, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text(entry.body, maxLines: 8, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: text2, height: 1.5)),
+                    if (diary) IllustrationResultView(source: IllustrationSource.diary, ownerId: entry.id),
+                    Align(alignment: Alignment.centerRight, child: TextButton(
+                      onPressed: () => openPhonePage(context, EntryDetailPage(entry: entry, emoji: diary ? '📔' : '📝')),
+                      child: const Text('查看全文'))),
+                  ]),
+                ));
+              })),
+            if (_offset > 0 || entries.length > 50)
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                TextButton(onPressed: _offset > 0 ? () => _select(_day, offset: _offset - 50) : null,
+                    child: const Text('上一页')),
+                Text('第 ${_offset ~/ 50 + 1} 页', style: const TextStyle(color: text2)),
+                TextButton(onPressed: entries.length > 50 ? () => _select(_day, offset: _offset + 50) : null,
+                    child: const Text('下一页')),
+              ]),
+          ]);
+        },
+      )),
+    ]),
+  );
 }
 
 class DiaryPage extends StatelessWidget {

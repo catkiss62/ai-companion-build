@@ -1,3 +1,4 @@
+import '../phone/phone_history_store.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -124,7 +125,8 @@ class IllustrationWorker {
     }
     if (diary) {
       final entries = await db.getSetting(IllustrationJob.diaryEntriesKey);
-      if (!IllustrationJob.diaryContains(entries, ownerId)) {
+      if (!IllustrationJob.diaryContains(entries, ownerId) &&
+          !await PhoneHistoryStore.contains(await db.database, 'diary', ownerId)) {
         await fail('source_missing');
         return;
       }

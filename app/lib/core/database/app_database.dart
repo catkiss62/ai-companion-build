@@ -1,3 +1,4 @@
+import '../phone/phone_history_store.dart';
 import '../memory/local_semantic_index.dart';
 import '../memory/hybrid_memory_ranking.dart';
 import '../illustration/illustration_job.dart';
@@ -14417,7 +14418,8 @@ class AppDatabase {
       if (state?['state'] != 'queued') return false;
       if (diary) {
         final entries = await BrainWorkFence.value(txn, IllustrationJob.diaryEntriesKey);
-        if (!IllustrationJob.diaryContains(entries, ownerId)) return false;
+        if (!IllustrationJob.diaryContains(entries, ownerId) &&
+            !await PhoneHistoryStore.contains(txn, 'diary', ownerId)) return false;
       } else {
         final owner = await txn.query('messages', columns: ['role'],
             where: 'id = ?', whereArgs: [ownerId], limit: 1);

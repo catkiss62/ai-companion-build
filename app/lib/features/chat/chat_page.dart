@@ -2258,7 +2258,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   _QuickPanelTile(
                     icon: Icons.phone_iphone_rounded,
                     title: '查手机',
-                    subtitle: '相册、浏览器、心情、购物车、塔罗与日记。',
+                    subtitle: '相册、浏览器、心情、塔罗、愿望、日记、随笔与日历。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
                       await Navigator.of(pageContext).push(

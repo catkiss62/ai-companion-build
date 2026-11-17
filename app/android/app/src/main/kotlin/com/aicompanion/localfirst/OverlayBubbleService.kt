@@ -3475,6 +3475,8 @@ class OverlayBubbleService : Service() {
     }
 
     private inner class NativeChatAdapter : BaseAdapter() {
+        // View-only state, discarded with this window; never sent to Dart.
+        private val imagePages = mutableMapOf<String, Pair<List<String>, Int>>()
         private val expandedReasoning = mutableSetOf<String>()
         private val collapsedTools = mutableSetOf<String>()
         private val translatingReasoning = mutableSetOf<String>()
@@ -3553,18 +3555,31 @@ class OverlayBubbleService : Service() {
                 textSize = 11f
                 setTextColor(Color.rgb(188, 169, 220))
             })
-            message.attachments.filter { it.kind == "image" }.forEach { attachment ->
-                val image = ImageView(this@OverlayBubbleService).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    adjustViewBounds = true
-                    contentDescription = "聊天图片"
+            val images = message.attachments.filter { it.kind == "image" }
+            imagePages.keys.retainAll(loadedMessages.map { it.id }.toSet())
+            if (images.size > 1) {
+                val paths = images.map { it.thumbnailPath }
+                val saved = imagePages[message.id]
+                val page = if (saved != null && saved.first == paths) saved.second else 0
+                bubble.addView(OverlayImageGallery(this@OverlayBubbleService, paths, page,
+                    bind = { image, path -> bindThumbnail(image, path) },
+                    changed = { selected -> imagePages[message.id] = paths to selected }),
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+            } else {
+                imagePages.remove(message.id)
+                images.forEach { attachment ->
+                    val image = ImageView(this@OverlayBubbleService).apply {
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        adjustViewBounds = true
+                        contentDescription = "聊天图片"
+                    }
+                    bubble.addView(image, LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, dp(180)).apply {
+                        topMargin = dp(6); bottomMargin = dp(4)
+                    })
+                    bindThumbnail(image, attachment.thumbnailPath)
                 }
-                bubble.addView(image, LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(180)).apply {
-                    topMargin = dp(6)
-                    bottomMargin = dp(4)
-                })
-                bindThumbnail(image, attachment.thumbnailPath)
             }
             if (message.role == "assistant" && message.reasoning.isNotBlank()) {
                 val live = message.id == STREAMING_MESSAGE_ID

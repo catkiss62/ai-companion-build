@@ -36,3 +36,7 @@
 [chat_attachment_gallery.dart](../../lib/features/chat/chat_attachment_gallery.dart)只负责App同一消息附件分页，默认第一页，横滑切图、圆点标记，识图状态对应当前图。单图沿用原缩略图尺寸；图片区固定高度避免横滑时聊天跳动。异步识图更新保留页码，附件身份变化重置；点开图仍走原放大入口。相册保存仍由原识图/用户要求流程决定，新增分页不增加收藏按钮，也不改变模型所见顺序或存档。悬浮原生列表保持原展示。
 
 回归：[chat_attachment_gallery_test.dart](../../test/chat_attachment_gallery_test.dart)，覆盖分页/操作目标/状态更新/批次变化、单图、窄屏大字体下纵向聊天滚动；保留原缩略图回归。真机检查横滑、放大返回、上下滚动和混合长宽图片。
+
+## +443 悬浮图片
+
+原生[OverlayImageGallery.kt](../../android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayImageGallery.kt)显示同条消息当前图片和圆点，横滑切换，纵滑释放给聊天列表。单图沿用原样。Service仍通过原异步缩略图tag/window epoch防迟到回灌；页码按消息及附件路径组暂存于当前窗口，换组重置、关闭窗口释放，未新增识图或存储行为。回归[OverlayImageGalleryTest.kt](../../android/app/src/test/kotlin/com/aicompanion/localfirst/OverlayImageGalleryTest.kt)覆盖切换/边界、纵滑、取消、恢复页码和缺图。
