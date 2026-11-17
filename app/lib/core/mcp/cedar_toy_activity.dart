@@ -2227,8 +2227,9 @@ class CedarToyActivityStore {
     final state = await loadState();
     final session = gameId.isEmpty ? state.activeSession : state.sessions[gameId];
     if (session == null) return;
-    final correction = CedarGameCorrection.accepts(text);
-    final retract = CedarGameCorrection.retracts(text,
+    final scoped = allowSessionAdvice || gameId.isNotEmpty;
+    final correction = scoped && CedarGameCorrection.accepts(text);
+    final retract = scoped && CedarGameCorrection.retracts(text,
         gameNames: [session.gameId, session.gameTitle]);
     if (!switchGame && !correction && !retract &&
         !CedarGameAdvicePolicy.isLikelyAdvice(text)) return;

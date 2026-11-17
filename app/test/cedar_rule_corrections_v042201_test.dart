@@ -60,6 +60,8 @@ void main() {
         gameId: 'chess', allowSessionAdvice: false);
     await store.rememberUserAdvice('游戏币不等于额度', gameId: 'missing');
     await store.rememberUserAdvice('两款游戏的规则都记错了', allowSessionAdvice: false);
+    await store.rememberUserAdvice('换个游戏，两款游戏的规则都记错了',
+        allowSessionAdvice: false);
     expect((await store.loadSession('chess'))!.ruleCorrections, hasLength(1));
     expect((await store.loadSession('arcade'))!.ruleCorrections, isEmpty);
     expect((await store.loadState()).activeGameId, 'arcade');
