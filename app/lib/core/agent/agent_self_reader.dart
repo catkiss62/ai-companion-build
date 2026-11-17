@@ -107,7 +107,7 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.203+447';
+  static const buildLabel = 'v0.42.204+448';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -189,7 +189,7 @@ class AgentSelfReader {
       id: 'sticker_agent_v04146',
       title: '表情包 Agent 与自我认知',
       status: 'implemented_bounded',
-      detail: '普通回复和主动消息均可从已启用的内部图库自主选择文字、图文或纯表情包；用户只发表情包不会强制斗图。她可自主让一张表情包承担整条回复，但具体问题和任务须保留文字，图片准备失败则保留本轮生成的文字。收集的表情支持QQ和已下载联网图片的自主收藏、用户单张上传及相册添加，caption保存表情语义，可编辑；来源只用于管理筛选，不新增自动小类。附件内容摘要会进入后续聊天历史，不写入查手机相册。',
+      detail: '普通回复和主动消息均可从已启用的内部图库自主选择文字、图文或纯表情包；用户只发表情包不会强制斗图。她可自主让一张表情包承担整条回复，但具体问题和任务须保留文字，图片准备失败则保留本轮生成的文字。收集的表情支持QQ和已下载联网图片的自主收藏、用户单张上传及相册中带表情包标签图片的添加（含手动标签、预览及分页），caption保存表情语义，可编辑；来源只用于管理筛选，不新增自动小类。附件内容摘要会进入后续聊天历史，不写入查手机相册。',
     ),
     AgentSystemFact(
       id: 'memory_grounding_v04134',

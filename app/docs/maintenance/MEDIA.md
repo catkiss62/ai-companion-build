@@ -50,3 +50,6 @@
 回归：collected_stickers_v042203_test.dart、portable_snapshot_v04256_test.dart、原shared_stickers与sticker_workbench测试。必须验证收藏→重启→选用→删除来源→备份恢复，语义编辑与开关。自动收藏失败不宣称成功、不回退原图保存；QQ收藏不依赖多人复读门槛。
 
 +447验证入口：`collected_stickers_v042203_test.dart`、`sticker_workbench_v04274_test.dart`、`portable_snapshot_v04256_test.dart`。联网收藏在写入前复核当前任务与相册原图归属；QQ复核会话与识图记录。已通过完整CI3533项测试，真机待验。v3存档须使用+447及后续兼容版恢复，旧APK不支持；历史v1/v2仍可导入。
+
+## +448 相册表情入口
+只查询saved、非NSFW、原图stored且有效标签含sticker的相册项；手动标签同等生效。过滤先于40条分页，使用saved_at/id游标，避免最近200条截断。入口直接读取CompanionAlbumStorage缩略图，cacheWidth168，不生成副本；按收集库原图hash标记已收藏。QQ直接收藏与联网先相册后独立选择的流程保留。验证：album_sticker_picker_v042204_test.dart（旧图可达、手动增删标签、无原图/删除排除、同时间/新增记录分页）。

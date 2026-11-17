@@ -14745,6 +14745,30 @@ class AppDatabase {
     return rows.map(CompanionAlbumItem.fromDb).toList(growable: false);
   }
 
+  /// Filter before pagination: older stickers must remain reachable even when
+  /// hundreds of newer ordinary photos exist. Tags include user edits.
+  Future<List<CompanionAlbumItem>> companionAlbumStickerPage({
+    int limit = 40,
+    CompanionAlbumItem? before,
+  }) async {
+    final sql = await database;
+    final stamp = before?.savedAt?.millisecondsSinceEpoch ?? 0;
+    final rows = await sql.query(
+      'companion_album_candidates',
+      where: "lifecycle_state = 'saved' AND nsfw = 0 "
+          "AND original_status = 'stored' AND original_path != '' "
+          "AND user_tags_json LIKE ?"
+          "${before == null ? '' : ' AND (COALESCE(saved_at, 0) < ? OR (COALESCE(saved_at, 0) = ? AND id < ?))'}",
+      whereArgs: [
+        '%"sticker"%',
+        if (before != null) ...[stamp, stamp, before.id],
+      ],
+      orderBy: 'COALESCE(saved_at, 0) DESC, id DESC',
+      limit: limit.clamp(1, 100).toInt(),
+    );
+    return rows.map(CompanionAlbumItem.fromDb).toList(growable: false);
+  }
+
   Future<List<CompanionAlbumItem>> allCompanionAlbumItemsForMediaMigration() async {
     final db = await database;
     final rows = await db.query(

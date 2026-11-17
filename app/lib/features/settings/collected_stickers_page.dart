@@ -6,6 +6,7 @@ import '../../core/stickers/collected_sticker_storage.dart';
 import '../../core/stickers/sticker_pack_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
 import '../../core/models/companion_album.dart';
+import 'album_sticker_picker.dart';
 
 class CollectedStickersPage extends StatefulWidget {
   const CollectedStickersPage({super.key});
@@ -77,14 +78,9 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
     await _run(() async {await packs.saveCaptionEdits({entry.record.usageKey:caption});status='语义已保存';await _load();});
   }
   Future<void> _album() => _run(() async {
-    final items=(await db.companionAlbumItems(limit:200))
-      .where((i)=>i.lifecycle=='saved' && i.hasOriginal).toList();
-    if(!mounted)return;
-    final picked=await showDialog<CompanionAlbumItem>(context:context,builder:(context)=>SimpleDialog(
-      title:const Text('从最近200条相册记录中选择'),
-      children:[if(items.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('暂无可用原图')),
-        for(final item in items)SimpleDialogOption(onPressed:()=>Navigator.pop(context,item),
-          child:Text(item.summary.isEmpty?item.title:item.summary,maxLines:2,overflow:TextOverflow.ellipsis))]));
+    final picked=await showDialog<CompanionAlbumItem>(context:context,
+      builder:(context)=>AlbumStickerPicker(db:db,
+        collectedHashes:entries.map((e)=>e.record.path.split('/').last.split('.').first).toSet()));
     if(picked==null || !mounted)return;
     final caption=await _captionDialog(String.fromCharCodes(picked.summary.runes.take(240)));
     if(caption==null)return;
