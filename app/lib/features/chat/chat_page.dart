@@ -3,6 +3,7 @@ import '../illustration/illustration_result_view.dart';
 import '../creative/creative_pages.dart';
 import '../creative/balance_with_spend.dart';
 import 'chat_tail_follower.dart';
+import 'chat_attachment_gallery.dart';
 import 'chat_attachment_thumbnail.dart';
 import 'chat_image_send_dialog.dart';
 import '../../widgets/caicai_stage_viewport.dart';
@@ -2937,22 +2938,16 @@ class _MessageBubble extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
           ),
-        for (final attachment in message.attachments)
-          if (attachment.isImage) ...[
-            ChatAttachmentThumbnail(
-              key: ValueKey(attachment.id),
-              attachment: attachment,
-              storage: attachmentStorage,
-              onTap: () => onOpenAttachment(attachment),
-            ),
-            const SizedBox(height: 5),
-            if (message.isUser &&
-                !attachment.source.startsWith('user_sticker:'))
-              _VisionStatus(
-                attachment: attachment,
-                onRetry: onRetryVision,
-              ),
-          ],
+        ChatAttachmentGallery(
+          key: ValueKey('attachments-${message.id}'),
+          attachments: message.attachments.where((a) => a.isImage).toList(),
+          storage: attachmentStorage,
+          onOpen: onOpenAttachment,
+          statusBuilder: (attachment) => message.isUser &&
+                  !attachment.source.startsWith('user_sticker:')
+              ? _VisionStatus(attachment: attachment, onRetry: onRetryVision)
+              : const SizedBox.shrink(),
+        ),
         if (message.isAssistant)
           IllustrationResultView(
             source: message.isProactive ? IllustrationSource.proactive : IllustrationSource.chat,

@@ -120,6 +120,7 @@ jobs:
           test/immersive_room_header_v042134_test.dart
           test/chat_image_send_dialog_test.dart
           test/chat_attachment_thumbnail_v042192_test.dart
+          test/chat_attachment_gallery_test.dart
           test/local_semantic_index_test.dart
           test/background_commit_v042132_test.dart
           test/execution_recovery_v042130_test.dart

@@ -107,7 +107,7 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.197+441';
+  static const buildLabel = 'v0.42.198+442';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -115,7 +115,7 @@ class AgentSelfReader {
       detail: '第一通道承担内部处理并可回复；第二通道用于正文，已开启且配置的第三通道优先尝试。失败按对应场景处理，不能从能力清单推断当前连接成功。模型对谈固定参与模型，重试不跨模型代答。'),
     AgentSystemFact(
       id: 'image_batches_qq', title: '图片与QQ接入', status: 'implemented_bounded',
-      detail: 'App每批图片可选DS或千问识图，多图一次回复；千问需视觉凭据，失败可回退DS。QQ本人绑定、群聊、主动消息、语音和生图各受对应配置约束。QQ引用图片和动图仅在可获取材料与预算内读取，部分帧不代表通用视频理解。'),
+      detail: 'App每批图片可选DS或千问识图，多图一次回复，App同批附件可左右滑动查看；千问需视觉凭据，失败可回退DS。QQ本人绑定、群聊、主动消息、语音和生图各受对应配置约束。QQ引用图片和动图仅在可获取材料与预算内读取，部分帧不代表通用视频理解。'),
     AgentSystemFact(
       id: 'development_boundary', title: '未开放的扩展与自修改', status: 'not_implemented',
       detail: 'App插件化、Agent修改自身代码和通用视频理解尚未开放；制作HTML小作品、QQ动图选帧及Cedar专用MCP不等于这些能力。'),
