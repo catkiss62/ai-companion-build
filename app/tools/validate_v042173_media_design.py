@@ -36,7 +36,10 @@ assert 'Duration(seconds:45)' in review and "verification['hash']!=hash" in revi
 assert 'bytes.length>180000' in review and "'request_id':requestId" in review
 assert 'vision.reviewWorkBytes' in review
 vision = read('lib/core/ai/qwen_vision_client.dart')
-assert 'bool creativeReview = false' in vision and 'creativeReview ? 900 : 4096' in vision
+assert 'bool creativeReview = false' in vision
+# QQ observation has its own OCR budget; creative review and App retain theirs.
+assert 'creativeReview ? 900 : qqObservation && !assessForAlbum ? 8192 : 4096' in vision
+assert 'this.qqObservation = false' in vision
 diagnostics = read('lib/core/diagnostics/preflight_diagnostics.dart')
 assert 'recentVoiceChoices' in diagnostics and 'QqFailureHistory.safeDetails(item)' in diagnostics
 for name in ('build-apk.yml','system-logic-validation.yml'):
