@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:ai_companion_localfirst/features/settings/album_sticker_picker.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -47,4 +49,23 @@ void main() {
     expect([...first, ...second, ...third].map((e) => e.id), ['e','d','c','b','a','undated']);
     expect(await db.companionAlbumStickerPage(before: third.last), isEmpty);
   });
+  testWidgets('broken preview paths on visible and offscreen rows do not raise an async error', (tester) async {
+    await tester.runAsync(() async {
+      for (var i = 0; i < 45; i++) { await add('broken$i'); }
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: AlbumStickerPicker(
+        db: db, collectedHashes: const {},
+      ))));
+      // Wait for real SQLite I/O outside the widget test's fake clock.
+      for (var attempt = 0; attempt < 100; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+        if (find.byType(ListTile).evaluate().isNotEmpty) break;
+      }
+    });
+    expect(find.byType(ListTile), findsWidgets);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
 }

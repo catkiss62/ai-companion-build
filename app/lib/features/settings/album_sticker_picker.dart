@@ -15,7 +15,7 @@ class AlbumStickerPicker extends StatefulWidget {
 
 class _AlbumStickerPickerState extends State<AlbumStickerPicker> {
   final items = <CompanionAlbumItem>[];
-  final previews = <String, Future<File>>{};
+  final previews = <String, Future<File?>>{};
   bool loading = false, more = true;
   String? error;
   static const pageSize = 40;
@@ -28,18 +28,22 @@ class _AlbumStickerPickerState extends State<AlbumStickerPicker> {
       final page = await widget.db.companionAlbumStickerPage(
         limit: pageSize, before: items.isEmpty ? null : items.last);
       if (!mounted) return;
-      final storage = CompanionAlbumStorage(db: widget.db);
       setState(() {
         items.addAll(page);
-        for (final item in page) {
-          previews[item.id] = storage.fileFor(item.thumbnailPath);
-        }
         more = page.length == pageSize;
       });
     } catch (_) {
       if (mounted) setState(() => error = '相册加载失败，请重试');
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+  Future<File?> _preview(CompanionAlbumItem item) async {
+    try {
+      return await CompanionAlbumStorage(db: widget.db).fileFor(item.thumbnailPath);
+    } catch (_) {
+      // A damaged legacy path is a missing preview, not a page-level error.
+      return null;
     }
   }
   @override
@@ -61,8 +65,8 @@ class _AlbumStickerPickerState extends State<AlbumStickerPicker> {
             final item = items[index];
             final collected = widget.collectedHashes.contains(item.originalContentSha256);
             return ListTile(
-              leading: SizedBox(width: 56, height: 56, child: FutureBuilder<File>(
-                future: previews[item.id], builder: (context, snapshot) {
+              leading: SizedBox(width: 56, height: 56, child: FutureBuilder<File?>(
+                future: previews.putIfAbsent(item.id, () => _preview(item)), builder: (context, snapshot) {
                   if (!snapshot.hasData) return const Icon(Icons.image_outlined);
                   return Image.file(snapshot.data!, width: 56, height: 56,
                     cacheWidth: 168, fit: BoxFit.contain,
