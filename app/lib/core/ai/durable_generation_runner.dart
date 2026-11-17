@@ -535,8 +535,9 @@ class DurableGenerationRunner {
             (effectiveCedarCertain && const {'act_now','accept'}.contains(effectiveCedarIntent))));
       await cedarActivityStore.rememberUserAdvice(
         user.content, allowSessionAdvice: !mentionsCatalogGame,
+        gameId: explicitCedarGameId, sourceId: user.id, sourceAt: user.createdAt,
       );
-      if (!mentionsCatalogGame) {
+      if (!mentionsCatalogGame || explicitCedarGameId.isNotEmpty) {
         cedarState = await cedarActivityStore.loadState();
         cedarSession = cedarState.activeSession;
       }
@@ -840,6 +841,7 @@ class DurableGenerationRunner {
                   cedarPromptSession,
                   state: cedarState,
                   playProtocol: cedarPlayProtocol,
+                  includeRuleCorrections: true,
                 ),
               if (cedarContextOnly)
                 '结合用户本轮意图和最近对话，判断是否现在要你推进真实游戏。若是，就根据真实目录、指南和状态调用 Cedar 工具；若是在闲聊、转移话题或延后，则不要调用。没有真实 Outcome 不得只用对白声称或推迟本应执行的动作。',
@@ -1877,6 +1879,7 @@ $finalGenerationReminder
                     cedarSession!,
                     state: cedarState,
                     playProtocol: cedarPlayProtocol,
+                    includeRuleCorrections: true,
                   ),
               ].join('\n\n'),
             },

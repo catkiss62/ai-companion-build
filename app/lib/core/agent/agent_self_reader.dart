@@ -107,7 +107,7 @@ class AgentSelfReader {
   // Historical validator token: v0.42.5+249
   // Historical validator token: v0.42.6+250
   // Historical validator token: buildLabel = 'v0.42.13+257'
-  static const buildLabel = 'v0.42.200+444';
+  static const buildLabel = 'v0.42.201+445';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -183,7 +183,7 @@ class AgentSelfReader {
       id: 'cedar_toy_mcp_v04167',
       title: 'Cedar Toy 游戏厅',
       status: 'implemented_bounded',
-      detail: '用户明确邀请时可经 MCP 动态读取真实游戏列表、指南并游玩；列表、指南与结果都进入现有 Agent 工具循环，没有真实 Outcome 不会声称经历。也支持受自主游玩开关、主设备状态及活动控制约束的后台游玩与续玩，分享有独立开关；需配置有效凭据并开启游戏厅。账号与 Token 只在设置页安全保存。',
+      detail: '用户明确邀请时可经 MCP 动态读取真实游戏列表、指南并游玩；列表、指南与结果都进入现有 Agent 工具循环，没有真实 Outcome 不会声称经历。也支持受自主游玩开关、主设备状态及活动控制约束的后台游玩与续玩，分享有独立开关；需配置有效凭据并开启游戏厅。明确规则纠正可按对应游戏会话保留并供游戏对话和执行核对，可显式撤回；仅轻量识别，不保证所有口语命中，实时数值以工具结果为准，不扩展分享记忆。账号与 Token 只在设置页安全保存。',
     ),
     AgentSystemFact(
       id: 'sticker_agent_v04146',

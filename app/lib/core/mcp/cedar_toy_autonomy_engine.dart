@@ -2143,7 +2143,7 @@ ${readOnlyRecovery ? '当前定时任务仍有效，但远端等待未给next_ca
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
 平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。
 
-${store.promptContext(session, state: state, playProtocol: playProtocol)}
+${store.promptContext(session, state: state, playProtocol: playProtocol, includeRuleCorrections: true)}
 
 $shareContext
 ${CedarExecutionRepair.prompt(session)}

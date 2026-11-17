@@ -1,3 +1,4 @@
+import 'cedar_game_correction.dart';
 import '../database/cedar_media_schema.dart';
 import 'dart:convert';
 import '../wishes/wish_store.dart';
@@ -256,6 +257,7 @@ class CedarGameSession {
     this.seenRoomMessageKeys = const <String>[],
     this.ownRoomAliases = const <String>[],
     this.adviceNotes = const <String>[],
+    this.ruleCorrections = const <CedarGameCorrection>[],
     this.arrangementSaveEpochs = const <String, String>{},
     this.pendingTerminalKey = '',
     this.pendingTerminalSummary = '',
@@ -292,6 +294,7 @@ class CedarGameSession {
   final List<String> seenRoomMessageKeys;
   final List<String> ownRoomAliases;
   final List<String> adviceNotes;
+  final List<CedarGameCorrection> ruleCorrections;
   final Map<String, String> arrangementSaveEpochs;
   final String pendingTerminalKey;
   final String pendingTerminalSummary;
@@ -385,6 +388,7 @@ class CedarGameSession {
     List<String>? seenRoomMessageKeys,
     List<String>? ownRoomAliases,
     List<String>? adviceNotes,
+    List<CedarGameCorrection>? ruleCorrections,
     Map<String, String>? arrangementSaveEpochs,
     String? pendingTerminalKey,
     String? pendingTerminalSummary,
@@ -425,6 +429,7 @@ class CedarGameSession {
             seenRoomMessageKeys ?? this.seenRoomMessageKeys,
         ownRoomAliases: ownRoomAliases ?? this.ownRoomAliases,
         adviceNotes: adviceNotes ?? this.adviceNotes,
+        ruleCorrections: ruleCorrections ?? this.ruleCorrections,
         arrangementSaveEpochs: arrangementSaveEpochs ?? this.arrangementSaveEpochs,
         pendingTerminalKey: clearPendingTerminal
             ? ''
@@ -459,6 +464,7 @@ class CedarGameSession {
         'seen_room_message_keys': seenRoomMessageKeys,
         'own_room_aliases': ownRoomAliases,
         'advice_notes': adviceNotes,
+        'rule_corrections': ruleCorrections.map((v)=>v.toJson()).toList(),
         'arrangement_save_epochs': arrangementSaveEpochs,
         'pending_terminal_key': pendingTerminalKey,
         'pending_terminal_summary': pendingTerminalSummary,
@@ -506,6 +512,7 @@ class CedarGameSession {
       arrangementSaveEpochs: (json['arrangement_save_epochs'] is Map)
           ? (json['arrangement_save_epochs'] as Map).map((k,v)=>MapEntry(k.toString(),v.toString()))
           : const <String, String>{},
+      ruleCorrections: CedarGameCorrection.decode(json['rule_corrections']),
       adviceNotes: (json['advice_notes'] as List?)
               ?.map((item) => item.toString())
               .where((item) => item.trim().isNotEmpty)
@@ -2207,35 +2214,42 @@ class CedarToyActivityStore {
     r'换个游戏|换一个游戏|玩玩别的|玩点别的|玩一下别的|试试别的游戏|别再玩(?:这个|《烛》)',
   );
 
-  Future<void> rememberUserAdvice(String text, {bool allowSessionAdvice = true}) async {
+  Future<void> rememberUserAdvice(String text, {
+    bool allowSessionAdvice = true,
+    String gameId = '',
+    String sourceId = '',
+    DateTime? sourceAt,
+  }) async {
     final switchGame = _switchGameAdvice.hasMatch(text) &&
         !RegExp(r'(?:不用|不必|不要)换|别换|不想换').hasMatch(text);
-    if (!switchGame &&
-        (!allowSessionAdvice || !CedarGameAdvicePolicy.isLikelyAdvice(text))) return;
+    // Multiple catalog targets must not silently fall back to the active game.
+    if (!allowSessionAdvice && gameId.isEmpty && !switchGame) return;
     final state = await loadState();
-    final session = state.activeSession;
+    final session = gameId.isEmpty ? state.activeSession : state.sessions[gameId];
     if (session == null) return;
-    final avoid = switchGame && session.mode == CedarParticipationMode.solo
-        ? session.gameId : null;
-    if (!session.continuable && avoid == null) return;
-    final note = CedarGameAdvicePolicy.bounded(text);
-    final values = <String>[
-      ...session.adviceNotes.where((item) => item != note),
-      note,
-    ];
-    final bounded = values.length <= CedarGameAdvicePolicy.maxNotes
-        ? values
-        : values.sublist(values.length - CedarGameAdvicePolicy.maxNotes);
+    final correction = CedarGameCorrection.accepts(text);
+    final retract = CedarGameCorrection.retracts(text,
+        gameNames: [session.gameId, session.gameTitle]);
+    if (!switchGame && !correction && !retract &&
+        !CedarGameAdvicePolicy.isLikelyAdvice(text)) return;
+    final avoid = switchGame && gameId.isEmpty &&
+        session.mode == CedarParticipationMode.solo ? session.gameId : null;
+    if (!session.continuable && avoid == null && !correction && !retract) return;
     final now = DateTime.now();
+    final note = CedarGameAdvicePolicy.bounded(text);
+    final values = [...session.adviceNotes.where((item) => item != note), note];
+    final notes = correction || retract ? session.adviceNotes : values.skip(
+        (values.length - CedarGameAdvicePolicy.maxNotes)
+            .clamp(0, values.length).toInt()).toList();
+    final corrections = retract ? <CedarGameCorrection>[] : correction
+        ? CedarGameCorrection.append(session.ruleCorrections, CedarGameCorrection(
+            CedarGameCorrection.normalize(text), sourceId.length <= 160 ? sourceId : '',
+            (sourceAt ?? now).millisecondsSinceEpoch)) : session.ruleCorrections;
     await _saveState(state.copyWith(
       switchAwayFromGameId: avoid,
       sessions: Map<String, CedarGameSession>.from(state.sessions)
-        ..[session.gameId] = session.copyWith(
-          adviceNotes: bounded,
-          updatedAt: now,
-        ),
-      updatedAt: now,
-    ));
+        ..[session.gameId] = session.copyWith(adviceNotes: notes,
+          ruleCorrections: corrections, updatedAt: now), updatedAt: now));
   }
 
   Future<bool> releaseDeferredSoloGame(DateTime now) async {
@@ -2362,6 +2376,7 @@ class CedarToyActivityStore {
     CedarGameSession session, {
     CedarToyActivityState? state,
     String playProtocol = '',
+    bool includeRuleCorrections = false,
   }) {
     final queued = state?.queuedSwitches.map((item) => item.targetGameId).join(',') ?? '';
     final notices = state?.notices
@@ -2404,6 +2419,7 @@ terminal_delivery_pending=${session.hasPendingTerminalDelivery}
 terminal_summary=${session.pendingTerminalSummary}
 recent_game_episode=$recentEpisode
 recent_user_game_advice=${session.adviceNotes.join(' | ')}
+${includeRuleCorrections ? CedarGameCorrection.prompt(session.ruleCorrections) : ''}
 latest_platform_event=$latestPlatformEvent
 recent_submitted_inputs=${session.events.where((e) => e.inputJson.isNotEmpty).toList().reversed.take(6).map((e) => '${e.action}: ${e.inputJson}').join(' | ')}
 last_action=${session.lastAction}
