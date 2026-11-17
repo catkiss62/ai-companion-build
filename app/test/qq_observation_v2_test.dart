@@ -88,6 +88,10 @@ void main() {
         cursor=pending.first as String;
       }
       expect(combined,value);
+      final displayed=await reader.display(row,speaker:'群成员');
+      expect(displayed,contains('图中文字：'));expect(displayed,contains('末尾关键转折'));
+      expect(displayed,isNot(contains(QqVisionObservationData.prefix)));
+      expect(displayed,isNot(contains('visible_text')));
       final context=await reader.participationContext(cid,through:seq,stamp:[]);
       expect(context,contains('末尾关键转折'));
     } finally {await db.closeForTesting();}

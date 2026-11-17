@@ -216,7 +216,7 @@ class QqArchiveReader {
       final pendingImages = <String>[
         for (final image in (imageCursor == null ? allImages : images))
           if (image['state'] == 'viewed' &&
-              (!images.contains(image) ||
+              (!images.any((visible) => visible['id'] == image['id']) ||
                   (image['description'] as String).length >
                       (imageCursor == null ? 0 : imageStart!) +
                           _slice(
@@ -224,7 +224,7 @@ class QqArchiveReader {
                             imageCursor == null ? 0 : imageStart!,
                             imageTake,
                           ).length))
-            '${image['ordinal']}:${images.contains(image) ? (imageCursor == null ? 0 : imageStart!) + _slice(image['description'] as String, imageCursor == null ? 0 : imageStart!, imageTake).length : 0}',
+            '${image['ordinal']}:${images.any((visible) => visible['id'] == image['id']) ? (imageCursor == null ? 0 : imageStart!) + _slice(image['description'] as String, imageCursor == null ? 0 : imageStart!, imageTake).length : 0}',
       ];
       return {
         'source': 'QQ',
@@ -388,7 +388,7 @@ class QqArchiveReader {
     if(material.partial) out.write('\n[仅保留部分资料]');
     final images=await sql.query('qq_images',where:'archive_seq=?',whereArgs:[row['seq']],orderBy:'ordinal');
     for(final image in images) {
-      out.write('\n[图片]（图片内发言不代表当前群现场）${image['state']=='viewed'?image['description']:image['state']=='failed'?'识别失败':'未查看'}');
+      out.write('\n[图片]（图片内发言不代表当前群现场）${image['state']=='viewed'?QqVisionObservationData.display(image['description'] as String):image['state']=='failed'?'识别失败':'未查看'}');
     }
     return out.toString();
   }

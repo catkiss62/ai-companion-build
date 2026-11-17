@@ -1,3 +1,4 @@
+import '../../core/ai/qq_vision_observation.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:qq_private_bridge/qq_private_bridge.dart';
@@ -81,7 +82,7 @@ class QqEchoService {
         peers.add(rows.single['sender'] as String);
         if(item.at<oldest)oldest=item.at;
         final seq=rows.single['seq'] as int;if(seq<anchor)anchor=seq;
-        description=QqArchiveReader.bound(observed.single['description'] as String,300);
+        description=QqArchiveReader.bound(QqVisionObservationData.display(observed.single['description'] as String,brief:true),300);
         proof.addAll([{'table':'qq_archive','id':rows.single['id'],'version':rows.single['version']},
           {'table':'qq_images','id':observed.single['id'],'version':observed.single['version']}]);
       }

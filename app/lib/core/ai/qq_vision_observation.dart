@@ -52,6 +52,20 @@ abstract final class QqVisionObservationData {
     if (parsed == null) return '$frames$summary';
     return encode(parsed, frames: frames);
   }
+  static String display(String stored, {bool brief = false}) {
+    final data = decode(stored);
+    if (data == null) return stored;
+    String field(String key) => data[key] is String ? data[key] as String : '';
+    final scene=field('summary'), keyText=field('key_text'), visible=field('visible_text');
+    return [
+      if(!brief && field('frames').isNotEmpty) field('frames'),
+      if(scene.isNotEmpty) scene,
+      if(keyText.isNotEmpty) '关键文字：$keyText',
+      if(!brief && visible.isNotEmpty) '图中文字：\n$visible',
+      if(!brief && field('uncertainty').isNotEmpty) '不确定处：${field('uncertainty')}',
+      if(!brief && (data['text_complete']!=true || data['bounded']==true)) '部分内容未确认完整，请以原图为准',
+    ].join('\n');
+  }
   static String participation(String stored) {
     final data = decode(stored);
     if (data == null) return clip(stored, 640);
@@ -62,6 +76,7 @@ abstract final class QqVisionObservationData {
       'key_text': clip((data['key_text']?.toString() ?? '').isNotEmpty
           ? data['key_text'].toString() : data['visible_text']?.toString() ?? '', 350),
       'uncertainty': clip(data['uncertainty']?.toString() ?? '', 100),
+      if(data['frames'] is String) 'frames': clip(data['frames'] as String,100),
       'scope': '图片内容不等于外层发言；不是对话对象证据；较完整文字见图片资料',
       'text_complete': data['text_complete'] == true,
       if (data['bounded'] == true) 'bounded': true,
