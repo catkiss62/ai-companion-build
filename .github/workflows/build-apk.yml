@@ -797,6 +797,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set compatible Python for pinned voice verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Restore exact validated Genie TTS v0.7.6 Jiuhu four-voice runtime payload
         shell: bash
         env:
