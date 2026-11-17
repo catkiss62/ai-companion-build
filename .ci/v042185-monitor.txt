@@ -1,7 +1,7 @@
 status=success
-run_id=43941615828
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828
-head_sha=efbe55d7fa58fd86abb408504bb2dbe70d26667e
+run_id=44006737391
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44006737391
+head_sha=8b366d04ca09060ca14b96b1265bd041f93f9ec7
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-58a6693fcef70a995f39123bd46171972bf55f51ef222246c195b1ac44b1e4a1  AI-Companion-v0.42.195-439-Semantic-Query-Cache-Fix-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d8bce0df507025ad805c
+5d553c31fd6bbf574273084b61ac5afd68ce0ee683446878940f4c5d85b7d542  AI-Companion-v0.42.196-440-Capability-Help-Nicknames-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5cdcd22960152d26e1c6
