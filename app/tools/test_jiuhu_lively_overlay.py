@@ -5,12 +5,23 @@ import io
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
+import apply_jiuhu_lively_overlay as overlay
 import wave
 import zipfile
 from pathlib import Path
 from apply_jiuhu_lively_overlay import ALLOWED, MAGIC, NAMES, apply, crypt, digest, unpack
 
 class LivelyOverlayTest(unittest.TestCase):
+    def test_key_derivation_matches_preparation_domain(self):
+        payload=b'private APK fixture'
+        with tempfile.TemporaryDirectory() as directory:
+            apk=Path(directory)/'base.apk';apk.write_bytes(payload)
+            with patch.object(overlay,'BASE_APK_SHA256',hashlib.sha256(payload).hexdigest()):
+                expected=hashlib.sha256(payload+bytes.fromhex('5c30')+b'jiuhu-lively-overlay-v1').digest()
+                self.assertEqual(overlay.key_from_apk(apk),expected)
+                apk.write_bytes(payload+b'changed')
+                with self.assertRaises(ValueError):overlay.key_from_apk(apk)
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name)

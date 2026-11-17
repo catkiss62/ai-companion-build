@@ -19,7 +19,8 @@ import zipfile
 from pathlib import Path
 
 BASE_APK_SHA256 = 'af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'
-DOMAIN = b'\0jiuhu-lively-overlay-v1'
+# Match the preparation workflow's literal backslash + zero prefix, not NUL.
+DOMAIN = bytes([0x5c, 0x30]) + b'jiuhu-lively-overlay-v1'
 MAGIC = b'JHLIVELY1'
 NAMES = {'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'}
 ALLOWED = {'patch.json', 'references/jiuhu_idle50.wav'} | {
