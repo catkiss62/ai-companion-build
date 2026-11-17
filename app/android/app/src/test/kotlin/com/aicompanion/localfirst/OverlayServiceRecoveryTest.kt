@@ -3,6 +3,7 @@ package com.aicompanion.localfirst
 import android.app.Activity
 import android.os.Looper
 import android.widget.FrameLayout
+import android.widget.Button
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 import java.nio.ByteBuffer
@@ -23,13 +24,14 @@ import org.robolectric.annotation.LooperMode
 @Config(manifest = Config.NONE, sdk = [28])
 @LooperMode(LooperMode.Mode.PAUSED)
 class OverlayServiceRecoveryTest {
-    private class Channel : MethodChannel(object : BinaryMessenger {
+    private class Channel(var throwOnInvoke: Boolean = false) : MethodChannel(object : BinaryMessenger {
         override fun send(channel: String, message: ByteBuffer?) {}
         override fun send(channel: String, message: ByteBuffer?, callback: BinaryMessenger.BinaryReply?) {}
         override fun setMessageHandler(channel: String, handler: BinaryMessenger.BinaryMessageHandler?) {}
     }, "fixture") {
         val calls = mutableListOf<Pair<String, MethodChannel.Result>>()
         override fun invokeMethod(method: String, arguments: Any?, callback: MethodChannel.Result?) {
+            if (throwOnInvoke) throw IllegalStateException("private transport detail")
             if (callback != null) calls.add(method to callback)
         }
     }
@@ -40,6 +42,7 @@ class OverlayServiceRecoveryTest {
         OverlayBubbleService::class.java.declaredMethods.single { it.name == name }.apply { isAccessible = true }.invoke(service, *args)
     private fun cleanup(service: OverlayBubbleService) {
         (get(service, "lifetime") as OverlayWindowSession).destroy()
+        (get(service, "thumbnailExecutor") as ExecutorService).shutdownNow()
         (get(service, "submissionIo") as ExecutorService).shutdownNow()
         (get(service, "submissionLogExecutor") as ExecutorService).shutdownNow()
         shadowOf(Looper.getMainLooper()).idle()
@@ -150,4 +153,85 @@ class OverlayServiceRecoveryTest {
             assertEquals(2, channel.calls.size)
         } finally { cleanup(service); activity.pause().stop().destroy() }
     }
+    private fun withHistory(block: (OverlayBubbleService, Channel, Button) -> Unit) {
+        val channel = Channel(); val service = service(channel)
+        val activity = Robolectric.buildActivity(Activity::class.java).setup()
+        try {
+            val root = FrameLayout(activity.get()); activity.get().setContentView(root)
+            set(service, "chatRoot", root)
+            val button = Button(activity.get()); set(service, "chatLoadOlder", button)
+            val rows = listOf(mapOf("id" to "current", "role" to "user", "content" to "body"))
+            set(service, "loadedMessages", (invoke(service, "parseMessageList", rows) as List<*>).toMutableList())
+            block(service, channel, button)
+        } finally { cleanup(service); activity.pause().stop().destroy() }
+    }
+    @Test fun olderHistoryTransportExceptionDoesNotEscapeTheUiHandler() = withHistory { service, channel, button ->
+        channel.throwOnInvoke = true
+        invoke(service, "loadOlderMessages")
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(button.isEnabled)
+        assertEquals(1, (get(service, "loadedMessages") as List<*>).size)
+    }
+    @Test fun olderHistoryTimeoutRestoresButtonAndLateReplyCannotAppendRows() = withHistory { service, channel, button ->
+        invoke(service, "loadOlderMessages")
+        assertFalse(button.isEnabled)
+        val old = channel.calls.single().second
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(9))
+        assertTrue(button.isEnabled)
+        invoke(service, "loadOlderMessages")
+        old.success(listOf(mapOf("id" to "late", "role" to "user")))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(button.isEnabled) // An old reply must not finish the new read.
+        assertEquals(1, (get(service, "loadedMessages") as List<*>).size)
+        channel.calls.last().second.success(listOf(mapOf("id" to "fresh", "role" to "user")))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(button.isEnabled)
+        assertEquals(2, (get(service, "loadedMessages") as List<*>).size)
+    }
+    @Test fun replacingHistoryWhileOlderPageIsInFlightDoesNotResurrectOldRows() = withHistory { service, channel, button ->
+        invoke(service, "loadOlderMessages")
+        set(service, "loadedMessages", mutableListOf<Any>())
+        channel.calls.single().second.success(listOf(mapOf("id" to "old", "role" to "user")))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(button.isEnabled)
+        assertTrue((get(service, "loadedMessages") as List<*>).isEmpty())
+    }
+    @Test fun replacedChannelRejectsOldHistoryAndRestoresReadControl() = withHistory { service, channel, button ->
+        invoke(service, "loadOlderMessages")
+        set(service, "backgroundCommands", Channel())
+        channel.calls.single().second.success(listOf(mapOf("id" to "old", "role" to "user")))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(button.isEnabled)
+        assertEquals(1, (get(service, "loadedMessages") as List<*>).size)
+    }
+    @Test fun destroyedServiceIgnoresReadTimeoutAndReply() = withHistory { service, channel, button ->
+        invoke(service, "loadOlderMessages")
+        (get(service, "lifetime") as OverlayWindowSession).destroy()
+        channel.calls.single().second.success(listOf(mapOf("id" to "late", "role" to "user")))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(9))
+        assertEquals(1, (get(service, "loadedMessages") as List<*>).size)
+        assertFalse(button.isEnabled) // Obsolete UI receives no writes.
+    }
+    @Test fun ttsSnapshotTimeoutContinuesPollingAndIgnoresLatePlayingState() {
+        val channel = Channel(); val service = service(channel)
+        try {
+            invoke(service, "beginTtsPolling")
+            val old = channel.calls.single().second
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(10))
+            assertTrue(channel.calls.count { it.first == "ttsSnapshot" } >= 2)
+            old.success(mapOf("phase" to "playing", "message_id" to "late"))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertNotEquals("late", get(service, "overlayTtsMessageId"))
+        } finally { cleanup(service) }
+    }
+    @Test fun duplicateHistoryRepliesHaveOnlyOneTerminalEffect() = withHistory { service, channel, button ->
+        invoke(service, "loadOlderMessages")
+        val reply = channel.calls.single().second
+        reply.success(listOf(mapOf("id" to "first", "role" to "user")))
+        reply.success(listOf(mapOf("id" to "second", "role" to "user")))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(button.isEnabled)
+        assertEquals(2, (get(service, "loadedMessages") as List<*>).size)
+    }
+
 }

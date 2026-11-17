@@ -1164,6 +1164,57 @@ class OverlayBubbleService : Service() {
         }
     }
 
+    /** Read-only transport boundary. Never use this for sending or cancelling
+     * messages: a lost reply must not duplicate a side effect. Callers still
+     * validate their window/request identity when applying UI results. */
+    private fun invokeOverlayRead(
+        channel: MethodChannel,
+        method: String,
+        arguments: Any?,
+        callback: MethodChannel.Result,
+        timeoutMs: Long = 8_000L,
+    ) {
+        if (!lifetime.alive) return
+        var completed = false
+        lateinit var timeout: Runnable
+        fun finish(deliver: () -> Unit) {
+            mainHandler.post {
+                if (completed || !lifetime.alive) return@post
+                completed = true
+                mainHandler.removeCallbacks(timeout)
+                if (backgroundCommands !== channel) {
+                    callback.error("overlay_read_channel_changed", "后台连接已更新，请重试。", null)
+                } else {
+                    deliver()
+                }
+            }
+        }
+        fun failure(code: String, message: String) {
+            finish {
+                // No request arguments, reply bodies or raw exception messages.
+                val app = applicationContext
+                submissionLogExecutor.execute {
+                    runCatching { NativeEventStore.addDeviceEvent(app, source = "system",
+                        eventType = "overlay_read_failure", appPackage = app.packageName,
+                        summary = "method=$method; category=$code") }
+                }
+                callback.error(code, message, null)
+            }
+        }
+        timeout = Runnable { failure("overlay_read_timeout", "后台暂未返回，请重试。") }
+        mainHandler.postDelayed(timeout, timeoutMs)
+        try {
+            channel.invokeMethod(method, arguments, object : MethodChannel.Result {
+                override fun success(result: Any?) = finish { callback.success(result) }
+                override fun error(code: String, message: String?, details: Any?) =
+                    finish { callback.error(code, message, details) }
+                override fun notImplemented() = finish { callback.notImplemented() }
+            })
+        } catch (_: Exception) {
+            failure("overlay_read_transport", "后台连接暂不可用，请重试。")
+        }
+    }
+
     private fun refreshOverlayMessages(opened: Boolean, attempt: Int) {
         val epoch = lifetime.windowEpoch
         if (!lifetime.matches(epoch) || !chatExpanded || chatRemovalPending || chatRoot == null) return
@@ -1187,7 +1238,7 @@ class OverlayBubbleService : Service() {
                 else setChatStatus("暂时没能读到聊天记录。", true)
             }
         }, 8_000L)
-        channel.invokeMethod(
+        invokeOverlayRead(channel,
             if (request.opened) "overlayOpened" else "loadRecentMessages",
             if (request.opened) null else mapOf("limit" to OVERLAY_RECENT_LIMIT),
             object : MethodChannel.Result {
@@ -1255,9 +1306,11 @@ class OverlayBubbleService : Service() {
         val epoch = lifetime.windowEpoch
         if (!isCurrentChatWindow(epoch)) return
         if (loadedMessages.isEmpty()) return
+        val anchor = loadedMessages.first().id
         val oldest = loadedMessages.first().createdAt
+        val channel = backgroundCommands ?: return
         chatLoadOlder?.isEnabled = false
-        backgroundCommands?.invokeMethod(
+        invokeOverlayRead(channel,
             "loadOlderMessages",
             mapOf("beforeMs" to oldest, "limit" to OVERLAY_OLDER_PAGE_LIMIT),
             object : MethodChannel.Result {
@@ -1265,6 +1318,12 @@ class OverlayBubbleService : Service() {
                     mainHandler.post {
                         if (!isCurrentChatWindow(epoch)) return@post
 
+                        // A reset/reload may have replaced the conversation while this
+                        // page was in flight. Never resurrect that old history.
+                        if (loadedMessages.firstOrNull()?.id != anchor) {
+                            chatLoadOlder?.isEnabled = true
+                            return@post
+                        }
                         val older = parseMessageList(result).orEmpty()
                         if (older.isNotEmpty()) {
                             val seen = loadedMessages.mapTo(mutableSetOf()) { it.id }
@@ -1291,7 +1350,7 @@ class OverlayBubbleService : Service() {
                     }
                 }
             },
-        ) ?: run { chatLoadOlder?.isEnabled = true }
+        )
     }
 
     private fun sendFromOverlay() {
@@ -1654,7 +1713,7 @@ class OverlayBubbleService : Service() {
             scheduleTtsPoll(epoch)
             return
         }
-        channel.invokeMethod(
+        invokeOverlayRead(channel,
             "ttsSnapshot",
             null,
             object : MethodChannel.Result {
@@ -1855,7 +1914,7 @@ class OverlayBubbleService : Service() {
     private fun pollPetAutonomy(epoch: Int) {
         if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return
         val channel = backgroundCommands ?: return schedulePetAutonomyPoll(epoch)
-        channel.invokeMethod(
+        invokeOverlayRead(channel,
             "petAutonomySnapshot",
             null,
             object : MethodChannel.Result {
@@ -3667,7 +3726,7 @@ class OverlayBubbleService : Service() {
                 notifyDataSetChanged()
                 return
             }
-            channel.invokeMethod(
+            invokeOverlayRead(channel,
                 "translateReasoning",
                 mapOf("messageId" to messageId),
                 object : MethodChannel.Result {
@@ -3723,6 +3782,7 @@ class OverlayBubbleService : Service() {
                         }
                     }
                 },
+                timeoutMs = 180_000L,
             )
         }
 
