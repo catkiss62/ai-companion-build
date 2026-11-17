@@ -1,0 +1,60 @@
+name: Documentation and handoff validation
+on:
+  push:
+    paths:
+      - 'AI_START_HERE.md'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'AI_Companion_当前总账.md'
+      - 'app/README.md'
+      - 'app/docs/**'
+      - 'app/pubspec.yaml'
+      - 'app/lib/core/database/app_database.dart'
+      - 'app/lib/core/agent/agent_self_reader.dart'
+      - 'app/tools/validate_current_ledger_handoff.py'
+      - 'app/tools/validate_historical_ledgers.py'
+      - 'app/tools/test_documentation_handoff.py'
+      - 'app/tools/test_release_identity_workflow.py'
+      - 'app/tools/run_validation_suite.py'
+      - 'app/tools/validation_suite.txt'
+      - '.github/workflows/build-apk.yml'
+      - '.github/workflows/system-logic-validation.yml'
+      - '.github/workflows/documentation-validation.yml'
+  pull_request:
+    paths:
+      - 'AI_START_HERE.md'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'AI_Companion_当前总账.md'
+      - 'app/README.md'
+      - 'app/docs/**'
+      - 'app/pubspec.yaml'
+      - 'app/lib/core/database/app_database.dart'
+      - 'app/lib/core/agent/agent_self_reader.dart'
+      - 'app/tools/validate_current_ledger_handoff.py'
+      - 'app/tools/validate_historical_ledgers.py'
+      - 'app/tools/test_documentation_handoff.py'
+      - 'app/tools/test_release_identity_workflow.py'
+      - 'app/tools/run_validation_suite.py'
+      - 'app/tools/validation_suite.txt'
+      - '.github/workflows/build-apk.yml'
+      - '.github/workflows/system-logic-validation.yml'
+      - '.github/workflows/documentation-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Exercise identity failures and actual build scope shell
+        run: python3 -m unittest discover -s app/tools -p test_documentation_handoff.py -v
+      - name: Validate current handoff and frozen history
+        run: python3 app/tools/validate_current_ledger_handoff.py
+      - name: Check active validation manifest
+        run: python3 app/tools/run_validation_suite.py --check-only

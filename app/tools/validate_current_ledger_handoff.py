@@ -1,187 +1,75 @@
 #!/usr/bin/env python3
-"""Validate the canonical ledger index and immutable historical archives."""
-
+"""Current source identity and handoff entries, plus immutable history checks."""
 from __future__ import annotations
 
-import hashlib
+import json
 import re
 from pathlib import Path
-
+from validate_historical_ledgers import main as validate_history
 
 ROOT = Path(__file__).resolve().parents[2]
-LEDGER = ROOT / "AI_Companion_当前总账.md"
-ARCHIVE = (
-    ROOT
-    / "app"
-    / "docs"
-    / "ledger"
-    / "archive"
-    / "AI_Companion_总账归档_截至_v0.41.74+218.md"
-)
-RECENT_ARCHIVE = (
-    ROOT
-    / "app"
-    / "docs"
-    / "ledger"
-    / "archive"
-    / "AI_Companion_总账归档_截至_v0.41.84+228.md"
-)
-PUBSPEC = ROOT / "app" / "pubspec.yaml"
-DATABASE = ROOT / "app" / "lib" / "core" / "database" / "app_database.dart"
-DOCUMENTATION_MAP = ROOT / "app" / "docs" / "DOCUMENTATION_MAP.md"
-INDEX_END_MARKER = "<!-- END QUICK HANDOFF INDEX -->"
-
-ARCHIVE_SHA256 = "602c712f0fb06e70c054c2d54fe0e280f312923864040a3a177ee8e7da67ed70"
-ARCHIVE_BYTES = 1_587_679
-RECENT_ARCHIVE_SHA256 = "47d053d842a73e3ff8107dabe867bd503e8a7e77daaecc2afb1867068faa952c"
-RECENT_ARCHIVE_BYTES = 98_372
+CURRENT = 'app/docs/ledger/AI_Companion_总账_v4.md'
+START = '<!-- CURRENT_SOURCE_IDENTITY -->'
+END = '<!-- END_CURRENT_SOURCE_IDENTITY -->'
 
 
-def require(condition: bool, message: str) -> None:
-    if not condition:
+def require(ok: bool, message: str) -> None:
+    if not ok:
         raise AssertionError(message)
 
 
+def one(pattern: str, text: str, label: str) -> str:
+    values = re.findall(pattern, text, re.MULTILINE)
+    require(len(values) == 1, f'{label}: expected exactly one declaration, got {len(values)}')
+    return values[0]
+
+
+def dart_code(text: str) -> str:
+    # Preserve strings while removing comments; declarations inside comments must
+    # never satisfy current identity. This is a lexer for these constant reads,
+    # not a general Dart parser.
+    token = r'''("""[\s\S]*?"""|\x27\x27\x27[\s\S]*?\x27\x27\x27|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|//[^\n]*|/\*[\s\S]*?\*/'''
+    return re.sub(token, lambda m: m.group(1) if m.group(1) and not m.group(1).startswith(('\"\"\"', "'''")) else ' ' + '\n' * m.group(0).count('\n'), text)
+
+
+def validate_current(root: Path = ROOT) -> None:
+    ledger = (root / CURRENT).read_text(encoding='utf-8')
+    snapshot = ledger.split('## 当前接班快照\n', 1)
+    require(len(snapshot) == 2, 'missing current handoff snapshot')
+    snapshot = re.split(r'^## ', snapshot[1], maxsplit=1, flags=re.MULTILINE)[0]
+    require(snapshot.count(START) == snapshot.count(END) == 1, 'current identity markers must occur once in snapshot')
+    identity = snapshot.split(START, 1)[1].split(END, 1)[0].strip()
+    require(identity.startswith('```json\n') and identity.endswith('\n```'), 'identity must be a JSON block')
+    identity = json.loads(identity[8:-4])
+    require(set(identity) == {'app_version', 'schema'}, 'unexpected current identity fields')
+    version = one(r'^version:\s*(\d+\.\d+\.\d+\+\d+)\s*$', (root/'app/pubspec.yaml').read_text(), 'pubspec version')
+    schema = one(r'^\s*static\s+const\s+int\s+schemaVersion\s*=\s*(\d+)\s*;', dart_code((root/'app/lib/core/database/app_database.dart').read_text()), 'schemaVersion')
+    build = one(r"^\s*static\s+const\s+(?:String\s+)?buildLabel\s*=\s*'v([^']+)'\s*;", dart_code((root/'app/lib/core/agent/agent_self_reader.dart').read_text()), 'buildLabel')
+    require(identity['app_version'] == version == build, 'current version differs between ledger, pubspec and self-reader')
+    require(type(identity['schema']) is int and identity['schema'] == int(schema), 'current schema differs from real declaration')
+    entries = ['README.md', 'app/README.md', 'AI_START_HERE.md', 'app/docs/BUILDING.md', 'app/docs/DOCUMENTATION_MAP.md', 'app/docs/maintenance/INDEX.md']
+    for name in entries:
+        text = (root/name).read_text(encoding='utf-8')
+        # Historical sections may retain old links; only the current introduction
+        # must point to v4 before any historical ledger link.
+        links = re.findall(r'\]\(([^)]+)\)', text)
+        ledger_links = [p for p in links if '总账' in p]
+        require(bool(ledger_links) and 'AI_Companion_总账_v4.md' in ledger_links[0], f'{name}: first ledger link must be current v4')
+    docs = [root/n for n in entries] + sorted((root/'app/docs/maintenance').glob('*.md'))
+    for path in docs:
+        for target in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
+            if '://' in target or target.startswith('#'):
+                continue
+            target = target.split('#', 1)[0]
+            resolved = (path.parent/target).resolve()
+            require(resolved.is_relative_to(root.resolve()) and resolved.exists(), f'{path.relative_to(root)}: missing/outside local link {target}')
+    print(f'current handoff: OK (v{version}, schema{schema})')
+
+
 def main() -> None:
-    ledger_bytes = LEDGER.read_bytes()
-    archive_bytes = ARCHIVE.read_bytes()
-    recent_archive_bytes = RECENT_ARCHIVE.read_bytes()
-    ledger = ledger_bytes.decode("utf-8")
-    archive = archive_bytes.decode("utf-8")
-    recent_archive = recent_archive_bytes.decode("utf-8")
-
-    require(
-        ledger.startswith("# AI Companion · 当前总账\n"),
-        "current ledger is not the canonical UTF-8 Markdown document",
-    )
-    require(
-        "\x00" not in ledger and "\ufffd" not in ledger,
-        "current ledger contains binary or replacement characters",
-    )
-    require(INDEX_END_MARKER in ledger, "current ledger lost its quick-index boundary")
-    quick_index = ledger.split(INDEX_END_MARKER, 1)[0].encode("utf-8")
-    require(len(quick_index) <= 100_000, "current ledger quick index exceeded 100 KB")
-    require(
-        len(archive_bytes) == ARCHIVE_BYTES,
-        "frozen ledger archive byte count changed",
-    )
-    require(
-        hashlib.sha256(archive_bytes).hexdigest() == ARCHIVE_SHA256,
-        "frozen ledger archive was modified",
-    )
-    require(
-        archive.startswith("# AI Companion · 当前总账\n"),
-        "frozen archive is not the expected historical ledger",
-    )
-    require(
-        len(recent_archive_bytes) == RECENT_ARCHIVE_BYTES,
-        "recent frozen ledger archive byte count changed",
-    )
-    require(
-        hashlib.sha256(recent_archive_bytes).hexdigest() == RECENT_ARCHIVE_SHA256,
-        "recent frozen ledger archive was modified",
-    )
-    require(
-        recent_archive.startswith("# AI Companion · 当前总账\n"),
-        "recent frozen archive is not the expected historical ledger",
-    )
-
-    required_current = (
-        "总账 v2",
-        "唯一的当前接班入口",
-        "v0.41.82+226",
-        "agent/v04182-cedar-state-machine-e2e",
-        "schema 61",
-        "Snapshot protocol 6",
-        "模型/API 双通道",
-        "Cedar 信任优先",
-        "Cedar 盲玩隔离",
-        "模型自主发现",
-        "陪我下五子棋",
-        "playerSafeGuide",
-        "public_web.search",
-        "allow_self_reset",
-        "TRUE DEVICE PENDING",
-        "全工具调用动作展示",
-        str(ARCHIVE.relative_to(ROOT)),
-        ARCHIVE_SHA256,
-        str(RECENT_ARCHIVE.relative_to(ROOT)),
-        RECENT_ARCHIVE_SHA256,
-    )
-    for fact in required_current:
-        require(fact in ledger, f"missing current ledger fact: {fact}")
-
-    require(
-        (
-            "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PENDING / CI PENDING / TRUE DEVICE PENDING"
-            in ledger
-        )
-        or (
-            "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING"
-            in ledger
-        )
-        or (
-            "TRUE DEVICE EVIDENCE CONFIRMED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING"
-            in ledger
-        )
-        or "IMPLEMENTATION IN PROGRESS / CI PENDING / APK PENDING / TRUE DEVICE PENDING" in ledger
-        or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger,
-        "current ledger has neither a valid pre-CI nor post-CI status",
-    )
-
-    required_archive = (
-        "总账双层同步强制规则（每次正式修改前后都必须执行）",
-        "v0.41.74+218 Cedar 游戏厅全量协议审计与一次性适配",
-        "v0.41.73+217 双弈确定性入口与回复完整性热修",
-        "模型/API 调用双通道永久合同",
-        "Desire / Thought / Intent / Gate",
-        "0.41.5+144",
-        "schema 40",
-        "NOT_IMPLEMENTED",
-        "SUPERSEDED",
-    )
-    for fact in required_archive:
-        require(fact in archive, f"missing frozen history fact: {fact}")
-
-    require(
-        re.search(
-            r"^version:\s*(?:0\.42\.2\+246|0\.42\.3\+247|0\.42\.4\+248|0\.42\.5\+249|0\.42\.6\+250|0\.42\.7\+251|0\.42\.8\+252|0\.42\.9\+253|0\.42\.10\+254|0\.42\.11\+255|0\.42\.12\+256|0\.42\.13\+257|0\.42\.14\+258|0\.42\.15\+259|0\.42\.16\+260|0\.42\.17\+261|0\.42\.18\+262|0\.42\.19\+263|0\.42\.20\+264|0\.42\.21\+265|0\.42\.22\+266|0\.42\.23\+267|0\.42\.24\+268|0\.42\.25\+269|0\.42\.26\+270|0\.42\.27\+271|0\.42\.28\+272|0\.42\.29\+273|0\.42\.30\+274|0\.42\.31\+275|0\.42\.32\+276|0\.42\.33\+277|0\.42\.34\+278|0\.42\.35\+279|0\.42\.36\+280|0\.42\.37\+281|0\.42\.38\+282|0\.42\.39\+283|0\.42\.40\+284|0\.42\.41\+285|0\.42\.42\+286|0\.42\.43\+287|0\.42\.44\+288|0\.42\.45\+289|0\.42\.46\+290|0\.42\.47\+291|0\.42\.48\+292|0\.42\.49\+293|0\.42\.50\+294|0\.42\.51\+295|0\.42\.52\+296|0\.42\.53\+297|0\.42\.54\+298|0\.42\.55\+299|0\.42\.56\+300|0\.42\.57\+301|0\.42\.58\+302|0\.42\.59\+303|0\.42\.60\+304|0\.42\.61\+305|0\.42\.62\+306|0\.42\.63\+307|0\.42\.64\+308|0\.42\.65\+309|0\.42\.66\+310|0\.42\.67\+311|0\.42\.68\+312|0\.42\.69\+313|0\.42\.70\+314|0\.42\.71\+315|0\.42\.72\+316|0\.42\.73\+317|0\.42\.74\+318|0\.42\.75\+319|0\.42\.76\+320|0\.42\.77\+321|0\.42\.78\+322|0\.42\.79\+323|0\.42\.80\+324|0\.42\.81\+325|0\.42\.82\+326|0\.42\.83\+327|0\.42\.84\+328|0\.42\.85\+329|0\.42\.86\+330|0\.42\.87\+331|0\.42\.88\+332|0\.42\.89\+333|0\.42\.90\+334|0\.42\.91\+335|0\.42\.92\+336|0\.42\.93\+337|0\.42\.94\+338|0\.42\.95\+339|0\.42\.96\+340|0\.42\.97\+341|0\.42\.98\+342|0\.42\.99\+343|0\.42\.100\+344|0\.42\.101\+345|0\.42\.102\+346|0\.42\.103\+347|0\.42\.104\+348|0\.42\.105\+349|0\.42\.106\+350|0\.42\.107\+351|0\.42\.108\+352|0\.42\.109\+353|0\.42\.110\+354|0\.42\.111\+355|0\.42\.112\+356|0\.42\.113\+357|0\.42\.114\+358|0\.42\.115\+359|0\.42\.116\+360|0\.42\.117\+361|0\.42\.118\+362|0\.42\.119\+363|0\.42\.120\+364|0\.42\.121\+365|0\.42\.122\+366|0\.42\.123\+367|0\.42\.124\+368|0\.42\.125\+369|0\.42\.126\+370|0\.42\.127\+371|0\.42\.128\+372|0\.42\.129\+373|0\.42\.130\+374|0\.42\.131\+375|0\.42\.132\+376|0\.42\.133\+377|0\.42\.134\+378|0\.42\.135\+379|0\.42\.136\+380|0\.42\.137\+381|0\.42\.138\+382|0\.42\.139\+383|0\.42\.140\+384|0\.42\.141\+385|0\.42\.142\+386|0\.42\.143\+387|0\.42\.144\+388|0\.42\.145\+389|0\.42\.146\+390|0\.42\.147\+391|0\.42\.148\+392|0\.42\.149\+393|0\.42\.(?:150\+394|151\+395|152\+396|(?:153\+397|154\+398|155\+399|156\+400|157\+401|158\+402|159\+403|160\+404|161\+405|162\+406|163\+407|164\+408|(?:165\+409|(?:166\+410|(?:167\+411|(?:168\+412|(?:169\+413|(?:170\+414|(?:171\+415|(?:172\+416|(?:173\+417|174\+418|175\+419|176\+420|177\+421|178\+422|179\+423|180\+424|181\+425|182\+426|183\+427|184\+428|185\+429|186\+430|187\+431|(?:188\+432|189\+433|190\+434|191\+435|192\+436|193\+437|194\+438|195\+439)))))))))))))\s*$",
-            PUBSPEC.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-        is not None,
-        "pubspec does not match current ledger target",
-    )
-    require(
-        re.search(
-            r"static const int schemaVersion = 62;",
-            DATABASE.read_text(encoding="utf-8"),
-        )
-        is not None,
-        "database schema no longer matches current baseline",
-    )
-    documentation_map = DOCUMENTATION_MAP.read_text(encoding="utf-8")
-    require(
-        "AI_Companion_当前总账.md" in documentation_map,
-        "documentation map lost the canonical ledger entry",
-    )
-    require(
-        "AI_Companion_总账归档_截至_v0.41.74+218.md" in documentation_map,
-        "documentation map lost the frozen archive entry",
-    )
-    require(
-        "AI_Companion_总账归档_截至_v0.41.84+228.md" in documentation_map,
-        "documentation map lost the recent frozen archive entry",
-    )
-
-    print("current ledger v2 handoff: OK")
-    print(f"current bytes: {len(ledger_bytes)}")
-    print(f"quick index bytes: {len(quick_index)}")
-    print(f"frozen archive bytes: {len(archive_bytes)}")
-    print(f"frozen archive sha256: {ARCHIVE_SHA256}")
-    print(f"recent frozen archive bytes: {len(recent_archive_bytes)}")
-    print(f"recent frozen archive sha256: {RECENT_ARCHIVE_SHA256}")
+    validate_current()
+    validate_history()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

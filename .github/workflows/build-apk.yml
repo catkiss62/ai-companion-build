@@ -584,6 +584,8 @@ on:
     paths-ignore:
       - 'AI_Companion_当前总账.md'
       - 'README.md'
+      - 'AI_START_HERE.md'
+      - 'AGENTS.md'
       - 'app/README.md'
       - 'app/docs/**'
 
@@ -694,7 +696,7 @@ jobs:
           if grep -Fqx 'app/tools/reconcile_v04155_build199_ledger.py' "${changed_files}"; then
             while IFS= read -r changed_path; do
               case "${changed_path}" in
-                'app/tools/reconcile_v04155_build199_ledger.py'|'.github/workflows/build-apk.yml'|'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
+                'app/tools/reconcile_v04155_build199_ledger.py'|'.github/workflows/build-apk.yml'|'AI_Companion_当前总账.md'|'README.md'|'AI_START_HERE.md'|'AGENTS.md'|'app/README.md'|app/docs/*)
                   ;;
                 *)
                   request_full_build "ledger_reconcile_with_project_change:${changed_path}"
@@ -710,7 +712,7 @@ jobs:
 
           while IFS= read -r changed_path; do
             case "${changed_path}" in
-              'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
+              'AI_Companion_当前总账.md'|'README.md'|'AI_START_HERE.md'|'AGENTS.md'|'app/README.md'|app/docs/*)
                 ;;
               *)
                 request_full_build "project_change:${changed_path}"
