@@ -10,9 +10,11 @@
 
 以上为当前工作源码身份，升级版本/schema 时同步；交付 APK 身份及验证状态由下方记录独立描述。
 
-- **维护资料入口：[模块维护目录](../maintenance/INDEX.md)。新增功能或行为变化须同步对应维护卡与验证入口，并核对 App 帮助、Agent 自查；未同步项在本总账登记。** 第一、二步文档整理已完成；第三步当前身份/历史归档校验及文档门禁已实现，文档CI与独立回归通过。第三步四项门禁问题已修复并再次复查，文档CI与独立回归通过；第四步帮助与自查修订已实现，正在验证并构建+440（含此前临时昵称调整）；当前已交付APK仍为+439。
+- **维护资料入口：[模块维护目录](../maintenance/INDEX.md)。新增功能或行为变化须同步对应维护卡与验证入口，并核对 App 帮助、Agent 自查；未同步项在本总账登记。** 第一、二步文档整理已完成；第三步当前身份/历史归档校验及文档门禁已实现，文档CI与独立回归通过。第三步四项门禁问题已修复并再次复查，文档CI与独立回归通过；第四步帮助与自查修订及复查完成，+440签名APK已生成（含此前临时昵称调整）。后续以真机反馈定点维护，新功能继续同步维护卡、帮助与自查。
 
-- 当前已交付 `v0.42.195+439`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `efbe55d7fa58fd86abb408504bb2dbe70d26667e`。修复 App 与 QQ 语义查询在缓存淘汰后短时停用的问题。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615649)与[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828)通过。真机待验项见「语义召回分段缓存修复」。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828/artifacts/14266085159)
+- 当前已交付 `v0.42.196+440`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `8b366d04ca09060ca14b96b1265bd041f93f9ec7`。帮助与能力自查更新、临时昵称规则已纳入本包；[独立CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44006737466)、[完整签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44006737391)通过，167项源码门禁及3493项Flutter测试通过。真机待观察，不将自动测试记作真机通过。[下载签名APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44006737391/artifacts/14295403840)
+
+- 上一版 `v0.42.195+439`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `efbe55d7fa58fd86abb408504bb2dbe70d26667e`。修复 App 与 QQ 语义查询在缓存淘汰后短时停用的问题。[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615649)与[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828)通过。真机待验项见「语义召回分段缓存修复」。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43941615828/artifacts/14266085159)
 
 - 上一版 `v0.42.194+438`、schema67，分支 `agent/v042107-review-recovery`，构建源码 `15e0958bca2722515ef3dbcc69e3ebc818aeccfc`。六项上下文截取与 token 上限修复已实现；[独立 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/43930896980) 1393 项、[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145) 的 167 项源码门禁和 3484 项 Flutter 测试均通过，原签名校验通过；真机待验。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/43930897145/artifacts/14260374288)。下一步从下方「上下文截取与 token 上限六项修复」的真机待验项及专项复查入口继续。
 
@@ -28,12 +30,18 @@
 - 真机优先：街机定时等待恢复与显式停止；多图一次回复/逐图收藏；QQ生图相册只存一份、主动发图和连接勾选；她/更多回聊天、聊天回桌面；第三通道关闭提示后不重弹。作品形式丰富度需观察后续自然产出，未批量重做旧作品。
 - 先前待验保留：+431千帆账户、QQ主动查证及普通帖子接话；+430 QQ补发、作品配图和主动近况。下一步按本页「2026-11-16」记录及真机反馈定点继续，不遍历历史总账。
 
-## 2026-11-17 · 第四步帮助与自查同步（进行中）
+## 2026-11-17 · 第四步帮助与自查同步（复查及签名构建通过）
 
 - 用户授权继续第四步。基线远端53ce238、本地1337c67，已交付+439/schema67。核对报告第6节与运行入口后修订帮助、Agent自查及必要的工具描述；不扩展插件或自修改能力。
 - 已补齐通道、逐批识图、后台作品、QQ、记忆、房间、语音、备份边界；修正自主创作/Cedar/表情包自查状态，并明确能力元数据不代表设备已开启。工具权限与执行器不变。新增自查真实输出与320dp/两档字体帮助页交互测试，纳入独立CI。
 - 复查发现诊断页仍称无聊天正文，与preflight_diagnostics.dart的jevDecisionContextIncluded及完整JEV上下文导出矛盾；同步修正文案，导出行为未变。通用MCP、视频、插件和自修改仍未开放。
 - 升级0.42.196+440/schema67，同步源码身份、构建标签和产物。首次167门本地147通过，16项旧版本白名单拦截新版本，已定点补入+440并重跑通过；另4项是既有素材/kotlinc环境缺口。Flutter SDK本地不可用，新增UI和自查回归由远端执行，不将静态检查当Flutter通过。维护卡同步，冻结归档未改。
+- 补充验证：31项维护入口负例、23项发布身份/工作流隔离用例、4项NDK启动用例，以及当前身份/历史归档检查通过。冻结哈希保持不变。初次手动验证使用了不存在的身份脚本名，随后改用活动入口validate_current_ledger_handoff.py并通过；无源码因此改动。
+- 远端源码提交8b366d04ca09060ca14b96b1265bd041f93f9ec7：[文档CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44006737385)与[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44006737466)通过，其中定向主组1399项包含新增能力输出断言、320dp/1.0与1.5字体帮助页逐节展开测试；Android原生两项前置任务通过。随后完整APK构建成功，证据见下。
+- [完整构建44006737391](https://github.com/catkiss62/ai-companion-build/actions/runs/44006737391)成功：167项源码门禁、3493项全量Flutter测试、原生前置/原生工具测试、作品归档复验、原签名与实际包版本及模型/素材打包校验通过。产物14295403840（压缩包750048143字节）；APK SHA256 `5d553c31fd6bbf574273084b61ac5afd68ce0ee683446878940f4c5d85b7d542`。未在本地重复下载大APK。
+- 完成后复查：帮助/自查/registry边界一致；自查结果仍按需读取，未改执行权限或后台调度；帮助逐节展开在320dp和两档字体下无布局异常。修复已确认的陈旧描述及诊断正文范围矛盾，本次范围未发现其他明确问题，不宣称全项目无缺陷。
+- 待真机：帮助页实际阅读、系统自查回答是否贴合当前开关；昵称在话题变化后是否自然收住及用户明确长期偏好是否遵守。用户按日常使用遇到问题再反馈，无需把CI通过当实机通过。第一至第四步维护整理已完成；后续按总账快照和模块卡定点继续，插件/Agent自改仍未实施。
+
 
 ## 2026-11-17 · 基础称呼与临时昵称（已实现，远端回归通过）
 

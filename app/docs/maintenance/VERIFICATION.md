@@ -19,6 +19,8 @@ python3 tools/run_validation_suite.py --check-only
 python3 tools/validate_current_ledger_handoff.py
 # 例：上下文相关定向测试；按实际修改再增补
 flutter test test/local_semantic_index_test.dart test/final_reply_failure_policy_test.dart test/json_completion_limits_test.dart
+# 例：帮助界面与能力自查（窄屏展开/真实输出）
+flutter test test/capability_help_page_test.dart test/agent_self_reader_v0416_test.dart
 # 例：作品工作区与交付
 flutter test test/creative_workspace_test.dart test/creative_delivery_test.dart
 ```
