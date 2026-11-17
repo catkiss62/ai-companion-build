@@ -1244,6 +1244,10 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (backgroundCommands !== channel) {
+                            error("overlay_read_channel_changed", "后台连接已更新，请重试。", null)
+                            return@post
+                        }
                         if (!isCurrentChatWindow(epoch) || !historyRefresh.current(request)) return@post
 
                         if (!historyRefresh.mayApply(request)) {
@@ -1316,6 +1320,10 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (backgroundCommands !== channel) {
+                            error("overlay_read_channel_changed", "后台连接已更新，请重试。", null)
+                            return@post
+                        }
                         if (!isCurrentChatWindow(epoch)) return@post
 
                         // A reset/reload may have replaced the conversation while this
@@ -1719,6 +1727,10 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (backgroundCommands !== channel) {
+                            error("overlay_read_channel_changed", "后台连接已更新，请重试。", null)
+                            return@post
+                        }
                         if (!lifetime.alive) return@post
                         if (epoch != ttsPollEpoch || !shouldPollTts()) return@post
                         val localPlayback = PlaybackSessionRegistry.snapshot()
@@ -1920,6 +1932,10 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        if (backgroundCommands !== channel) {
+                            error("overlay_read_channel_changed", "后台连接已更新，请重试。", null)
+                            return@post
+                        }
                         if (!lifetime.alive) return@post
                         if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return@post
                         petOverlayWindow?.setAutonomySnapshot(result)
@@ -3732,6 +3748,10 @@ class OverlayBubbleService : Service() {
                 object : MethodChannel.Result {
                     override fun success(result: Any?) {
                         mainHandler.post {
+                        if (backgroundCommands !== channel) {
+                            error("overlay_read_channel_changed", "后台连接已更新，请重试。", null)
+                            return@post
+                        }
                         if (!isCurrentChatWindow(epoch) || chatAdapter !== this@NativeChatAdapter) return@post
 
                             translatingReasoning.remove(messageId)

@@ -2,6 +2,7 @@ package com.aicompanion.localfirst
 
 import android.app.Activity
 import android.os.Looper
+import android.os.Handler
 import android.widget.FrameLayout
 import android.widget.Button
 import io.flutter.plugin.common.BinaryMessenger
@@ -232,6 +233,17 @@ class OverlayServiceRecoveryTest {
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue(button.isEnabled)
         assertEquals(2, (get(service, "loadedMessages") as List<*>).size)
+    }
+
+    @Test fun channelReplacementBetweenTransportAndUiApplyCannotInsertOldRows() = withHistory { service, channel, button ->
+        invoke(service, "loadOlderMessages")
+        channel.calls.single().second.success(listOf(mapOf("id" to "old", "role" to "user")))
+        // Transport completion queues UI application. Replace the engine in
+        // that gap to verify the check at the actual state mutation boundary.
+        Handler(Looper.getMainLooper()).post { set(service, "backgroundCommands", Channel()) }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(button.isEnabled)
+        assertEquals(1, (get(service, "loadedMessages") as List<*>).size)
     }
 
 }
