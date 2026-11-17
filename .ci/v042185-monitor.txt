@@ -1,7 +1,7 @@
 status=success
-run_id=44020964201
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44020964201
-head_sha=e3f8e2c05d4f1aaeec48d9cbc99a0f5c70856a15
+run_id=44029633763
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44029633763
+head_sha=bca10a5f68e233fd7cf570cba368de364882a6fe
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2e5c96069e1c648c793f3069ee789adbe0dba539276f896b10343f3360136e8c  AI-Companion-v0.42.197-441-Overlay-Read-Recovery-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-872da988ced7ae796854
+8a1bc2b31747dfaa6df5200471aa55ea26f6b61d81a9f57b079962be868929fb  AI-Companion-v0.42.198-442-Image-Gallery-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a2ad0735d952e347e4b4
