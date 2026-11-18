@@ -28,6 +28,9 @@ class ProactiveTopicEvidence {
   static final _ongoing = RegExp(
     r'第\s*[0-9一二三四五六七八九十百两]+\s*[集季话]|看到|追到|接着看|重[看刷]|二刷|重新开始|正在|还(?:没|在|差)|只做了|进度|约定|约好了|计划|准备',
   );
+  static final _viewingStateCue = RegExp(
+    r'第\s*[0-9一二三四五六七八九十百两]+\s*[集季话]|(?:还|正|正在|接着|继续)看|看(?:到|完)|追(?:到|完)|刷完|重[看刷]|二刷|不(?:看|追)了|弃剧',
+  );
   static final _viewingDone = RegExp(r'看完|追完|刷完');
   static final _workDone = RegExp(r'做完|做好|弄完|搞定|完成');
   static final _cancelled = RegExp(r'不(?:看|追|做|弄)了|弃剧|放弃了|取消了');
@@ -85,8 +88,8 @@ class ProactiveTopicEvidence {
     return _ongoing.hasMatch(text) ? TopicProgress.ongoing : null;
   }
 
-  /// Only bounded, ordinary user history can link an unnamed update to a title.
-  /// A new title, speaker or unrelated user statement ends the chain.
+  /// A single aside may occur between two reports of the same progress.
+  /// An explicit switch, another speaker, or a longer gap ends the chain.
   static List<ChatMessage> linkedQuotes(
     Iterable<ChatMessage> ordered,
     Set<String> titles,
@@ -95,32 +98,35 @@ class ProactiveTopicEvidence {
   }) {
     final result = <ChatMessage>[];
     DateTime? anchorAt;
+    var asides = 0;
     for (final message in ordered) {
       final text = message.content.trim();
       final names = titlesIn(text);
-      // Don't take a substring of an explicitly named different work.
       final exact = names.isNotEmpty
-          ? names.any(titles.contains) && names.every(titles.contains)
+          ? names.every(titles.contains)
           : titles.any((title) => _mentions(text, title));
-      final source =
-          sourceIds.contains(message.id) &&
-          (names.isEmpty || names.every(titles.contains));
-      final adjacent =
+      if (!message.isUser ||
+          _otherActor.hasMatch(text) ||
+          !exact && (names.isNotEmpty || _switchWork.hasMatch(text))) {
+        anchorAt = null;
+        continue;
+      }
+      final source = sourceIds.contains(message.id);
+      final progress = progressIn(text, viewing: viewing);
+      final nearby =
           anchorAt != null &&
-          message.createdAt.difference(anchorAt) <= const Duration(hours: 2) &&
-          names.isEmpty &&
-          !_switchWork.hasMatch(text) &&
-          progressIn(text, viewing: viewing) != null;
-      if (message.isUser &&
-          !_otherActor.hasMatch(text) &&
-          (source || exact || adjacent)) {
+          message.createdAt.difference(anchorAt) <= const Duration(hours: 2);
+      final relatedUpdate =
+          progress != null && (!viewing || _viewingStateCue.hasMatch(text));
+      if (source || exact || nearby && relatedUpdate) {
         result.add(message);
-        // A named question or comparison may be useful context, but cannot
-        // establish the referent for an unnamed statement from another turn.
-        if ((source || exact) && progressIn(text, viewing: viewing) != null) {
+        if (progress != null) {
           anchorAt = message.createdAt;
+          asides = 0;
+        } else {
+          anchorAt = null;
         }
-      } else {
+      } else if (!nearby || ++asides > 1) {
         anchorAt = null;
       }
     }
@@ -186,9 +192,9 @@ class ProactiveTopicEvidence {
         columns: columns,
         where:
             "role = 'user' AND is_proactive = 0 AND created_at > ? AND created_at <= ?",
-        whereArgs: [at, at + const Duration(hours: 2).inMilliseconds],
+        whereArgs: [at, at + const Duration(hours: 4).inMilliseconds],
         orderBy: 'created_at, id',
-        limit: 5,
+        limit: 8,
       )) {
         rows[row['id'] as String] = row;
       }
@@ -197,14 +203,7 @@ class ProactiveTopicEvidence {
     for (final row in rows.values) {
       final id = row['id'] as String;
       final text = row['content'] as String? ?? '';
-      final source =
-          anchors.containsKey(id) ||
-              _ongoing.hasMatch(text) ||
-              _viewingDone.hasMatch(text) ||
-              _workDone.hasMatch(text) ||
-              _cancelled.hasMatch(text)
-          ? await ConversationSourceStore.qualifyMessage(sql, id)
-          : null;
+      final source = await ConversationSourceStore.qualifyMessage(sql, id);
       // Keep a gap as a chain boundary even when that turn is unavailable.
       messages.add(
         ChatMessage(

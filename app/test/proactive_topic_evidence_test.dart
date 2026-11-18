@@ -80,6 +80,31 @@ void main() {
   );
 
   test(
+    'named draft finds a bare completion across episode updates and one aside',
+    () async {
+      await say('title', '接着看潮汐邮局咯', 0);
+      await say('earlier-episode', '第八集了', 4);
+      await say('aside', '新靠垫已经摆好了', 7);
+      await say('later-episode', '一集还挺长的，现在在第十集，明天再打游戏', 101);
+      await say('finish', '看完了，结尾很意外', 194);
+      final evidence = await recall(withSeed: false);
+      expect(evidence.completed, isTrue);
+      expect(evidence.prompt, contains('现在在第十集'));
+      expect(evidence.prompt, contains('看完了，结尾很意外'));
+      expect(evidence.prompt, isNot(contains('新靠垫')));
+    },
+  );
+
+  test('a named different show breaks a viewing chain', () async {
+    await say('progress', '《潮汐邮局》看到第十集', 0);
+    await say('switch', '换一部，接着看《水下车站》', 20);
+    await say('finish', '看完了，结尾很意外', 90);
+    final evidence = await recall();
+    expect(evidence.completed, isFalse);
+    expect(evidence.prompt, isNot(contains('结尾很意外')));
+  });
+
+  test(
     'new viewing round supersedes completion and other works do not',
     () async {
       await say('progress', '《潮汐邮局》看到第十集', 0);
