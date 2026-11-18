@@ -2,13 +2,13 @@
 
 ## 当前接班快照
 
-- 第一组源码 v0.42.211+455/schema67 已实现并复查。确认缓存外语重播和识图准备异常两条遗漏并已补修。签名 APK 和此版真机结果待验。第二组入口为末尾「四批修复顺序与验收」。
+- **当前交付 v0.42.211+455 / schema67**，分支 agent/v042107-review-recovery，构建源码 9b3e46f。第一组识图、配图、外语译文与草稿修复及构建前复查已完成；缓存外语重播、识图准备异常也已补修。[签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44380656458/artifacts/14467161450)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44380656536)通过。Redmi 真机待验。后续入口为末尾「四批修复顺序与验收」第 2 组。
 
 - 2026-11-19 第一组发布复查开工：用户要求修复完成后再次检查，处理发现的问题，再构建签名测试 APK。复查起点 dbde9c0。
 
 - 2026-11-19 第一组修复开工：以 1ce6eca / +454 为基线，处理识图、配图、外语翻译与草稿的异步归属；验证旧任务、当前任务及重生成后的连续操作。
 
-- **2026-11-19 四批大审查已完成，当前交付仍为 v0.42.210+454 / schema67。** 第四批新增悬浮重播会改全局语种、跨引擎同步漏掉已有消息的附件更新、切字首次捕获超时未解除等待。下一步从末尾「四批修复顺序与验收」的第 1 组开始；四批均为检查，产品修复、修复后 CI 与对应真机验收待做。用户反馈真机暂未听到 TTS 意外断音。
+- **2026-11-19 四批大审查已完成，审查基线为 v0.42.210+454 / schema67。** 第四批新增悬浮重播会改全局语种、跨引擎同步漏掉已有消息的附件更新、切字首次捕获超时未解除等待。下一步从末尾「四批修复顺序与验收」的第 1 组开始；四批均为检查，产品修复、修复后 CI 与对应真机验收待做。用户反馈真机暂未听到 TTS 意外断音。
 
 - 2026-11-19 第三批大审查 G6 语音与播放归属、G9 安卓性能与资源占用完成，仍为 +454。末尾「第三批大审查」记录外语翻译迟到、播放准备失败、悬浮/后台语义模型入口、局部索引重建及前台页面被覆盖时的资源归属。第四批 G8 和跨批反例的最终结果见末尾。
 
@@ -18,7 +18,7 @@
 
 - +454 最近一次切字文字微调用户反馈正常。大审查 G3/G4 新增近几轮召回明细导出需求及普通聊天相对日期与说话人归属案例，见本账末尾 11 月 19 日记录。
 
-- **当前交付 v0.42.210+454 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `f359f367a2bfef7956a86076de860ca8ef868879`。** 普通连切、受击「痛！」和爱字连切提示改为纯色，爱意连切左上角状态保留标题和倒计时。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227409)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227111)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126/artifacts/14440537198)（登录 GitHub 后下载 ZIP，内含 APK）。真机观感待确认。
+- **上一版交付 v0.42.210+454 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `f359f367a2bfef7956a86076de860ca8ef868879`。** 普通连切、受击「痛！」和爱字连切提示改为纯色，爱意连切左上角状态保留标题和倒计时。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227409)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227111)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126/artifacts/14440537198)（登录 GitHub 后下载 ZIP，内含 APK）。真机观感待确认。
 
 - **上一版交付 v0.42.209+453 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `4bda2c051eef00a54edc95abbaaf5f94aebb9494`。** 切字受击红字渐大、连切与受击字细描边、音量 1.5 倍和结算卡精简；触碰挂件后系统按键切出、返回或恢复的退出音已从清理流程移除。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024197)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024226)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194/artifacts/14435775293)（登录 GitHub 下 ZIP，内含 APK）。下一步从末尾 +453 条目收集系统键、音量和密集连切的真机反馈。
 
@@ -979,3 +979,5 @@
 构建前复查：沿旧消息重播、等待确认的草稿重播、识图取得租约后的提前退出逐段检查。原实现跳过已缓存译文的归属确认，可能播放旧修订，还会抢占正在播放的新回复。现先重读当前存档中的译文或核对草稿任务，并在等待期间检查有无新的播放操作。新增旧缓存与新播放并存的反例，草稿正常重播沿用现有成功用例。识图准备阶段原先仅在正常提前退出时释放租约；现将准备也置于 finally 保护内。旧版缺修订的配图按 0 处理，已有相册原图保留。新增测试首轮因未声明测试图片包编译失败，已改自包含 PNG；前一版独立回归的新用例与分析已过。本地轻量工作树缺少桌宠资产，完整版本回归以 CI 恢复资产后的结果登记。
 
 发布门禁记录：99f8c4c 独立 Flutter 回归运行 44377991145 成功，文档、Android 原生和语音导出验证通过。签名流程 44377991116 在第 149/167 项数据库文件哈希检查停止，尚未编译 APK。复核从基线到当前的数据库差异仅涉及识图与翻译事务归属、重生成修订和配图发布／相册归属；schema、存档格式、恢复流程及加密文件未改。保持门禁启用，只登记本次已审数据库文件的新摘要。
+
+第一组交付：源码 9b3e46fe874f669dd8029ecdf682179afeca6ad6。签名构建 44380656458、独立回归 44380656536、文档检查 44380656451 全部通过，含全部 167 项源码校验、原生测试、Flutter 全套、存档恢复与最终包签名及身份校验。[测试 APK 压缩包](https://github.com/catkiss62/ai-companion-build/actions/runs/44380656458/artifacts/14467161450)。内含 APK 的 SHA-256 为 c11cc0c505c0c492af3ab819f03e3d829f5571659291641fbf0f1023ebd83c98。第一组完成，仅此版生成了 APK。Redmi 待验：重生成期间旧图/旧外语不能进入新回复，已有相册原图可打开，已撤草稿不朗读，切换存档后图片状态以当前存档为准。未取得此版真机反馈。第二至四组待做。
