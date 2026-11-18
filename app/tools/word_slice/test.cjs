@@ -2,7 +2,7 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 const nodes=new Map();
 function element(id){if(nodes.has(id))return nodes.get(id);let el={style:{},textContent:'',classList:{add(){},remove(){}},clientWidth:390,clientHeight:844,events:{},addEventListener(n,f){this.events[n]=f},getBoundingClientRect(){return id==='input'?{left:75,top:700,width:240,height:48}:id==='.heat'?{left:344,top:87,width:28,height:120}:id==='conversation'?{left:16,top:397,width:358,height:270}:{left:0,top:0,width:390,height:844}},querySelectorAll(){return[]},setPointerCapture(){},hasPointerCapture(){return false},releasePointerCapture(){},getContext(){return new Proxy({},{get(t,k){if(k==='createLinearGradient')return()=>({addColorStop(){}});return()=>{}}})}};nodes.set(id,el);return el}
 const sandbox={console,Math,Promise,devicePixelRatio:2,Image:class{set src(v){if(this.onload)this.onload()}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},document:{hidden:false,getElementById:element,querySelector:element,addEventListener(){},createRange(){}},window:{addEventListener(){}},getComputedStyle(){return{fontSize:'17px'}}};
-vm.createContext(sandbox);vm.runInContext(fs.readFileSync(__dirname+'/check.js','utf8'),sandbox);const run=s=>vm.runInContext(s,sandbox);
+vm.createContext(sandbox);vm.runInContext(fs.readFileSync(__dirname+'/template.html','utf8').split('<script>')[1].split('</script>')[0].replace('__ASSETS__',fs.readFileSync(__dirname+'/assets.json','utf8')),sandbox);const run=s=>vm.runInContext(s,sandbox);
 run('loaded=true;resize();');
 assert.equal(run('W'),390);
 run('startGame();');assert.equal(run('mode'),'intro');

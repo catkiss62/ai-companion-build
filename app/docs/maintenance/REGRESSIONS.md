@@ -15,3 +15,5 @@
 | 文档版本 | 多入口仍标旧总账/旧“当前”；校验误匹配历史 schema 注释 | 当前入口唯一；历史标签；实际代码版本单独核对 | [整理前分析](../audits/maintenance_20261117/REPORT.md) |
 
 储存锁、进程恢复、语音与 Live2D 的维护约束见各维护卡及测试；没有在此列出某个历史事件，不代表该领域已无风险。后续遇到新的真实问题，补充最小结论和证据链接，不复制整份总账。
+
+- +449切字开场漏正文：SelectableText使用RenderEditable，不能只遍历RenderParagraph，否则只抓到时间/图标。+450用显式正文边界和字素级布局；回归见word_slice_bridge_test.dart。原型普通Text测试不能代替真实SelectableText.rich集成；真机反馈与结果见总账本批记录。

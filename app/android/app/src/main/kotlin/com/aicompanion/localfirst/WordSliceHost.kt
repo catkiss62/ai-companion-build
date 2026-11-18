@@ -21,7 +21,8 @@ import org.json.JSONObject
 import java.io.ByteArrayInputStream
 
 /** Trusted bundled game only. No file/content/network access or chat write API. */
-class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine) {
+internal class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine,
+    private val motion: RoomDepthMotionBridge?) {
     private val channel = MethodChannel(engine.dartExecutor.binaryMessenger, "ai_companion/word_slice")
     private val main = Handler(Looper.getMainLooper())
     private var web: WebView? = null
@@ -33,6 +34,9 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
     private var playing = false
     private var disposed = false
     private var epoch = 0
+    private var pendantX = Double.NaN
+    private var pendantY = Double.NaN
+    private var lastMotion = 0L
     private var lastHeartbeat = 0L
     private val density get() = activity.resources.displayMetrics.density
     private val timeout = Runnable { if (playing) reset() }
@@ -52,6 +56,7 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
                     val args = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
                     enabled = args["enabled"] == true
                     layout = JSONObject(args)
+                    pendantX = Double.NaN; pendantY = Double.NaN
                     if (enabled && resumed) {
                         try { ensurePage(); show() } catch (_: Exception) { destroyPage() }
                     } else hide()
@@ -86,6 +91,7 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
         reset(); return true
     }
     private fun hide() {
+        motion?.setPendantListener(null)
         reset()
         evaluate("window.sliceHost&&sliceHost.suspend()")
         layer?.visibility = View.GONE
@@ -96,6 +102,13 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
         web?.onResume()
         evaluate("sliceHost.configure($layout);sliceHost.resume()")
         layer?.visibility = View.VISIBLE
+        motion?.setPendantListener { x, y, reset ->
+            val now = android.os.SystemClock.uptimeMillis()
+            if (reset || now-lastMotion >= 33) {
+                lastMotion = now
+                evaluate("sliceHost.motion($x,$y,$reset)")
+            }
+        }
     }
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun ensurePage() {
@@ -105,8 +118,8 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
             override fun dispatchTouchEvent(event: MotionEvent): Boolean {
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                     val x = event.x / density; val y = event.y / density
-                    val ax = layout.optDouble("anchorX").toFloat()
-                    val ay = layout.optDouble("panelTop").toFloat() + 66f
+                    val ax = if (pendantX.isFinite()) pendantX.toFloat() else layout.optDouble("anchorX").toFloat()
+                    val ay = if (pendantY.isFinite()) pendantY.toFloat() else layout.optDouble("panelTop").toFloat() + 66f
                     ownsGesture = playing || (x >= ax-38 && x <= ax+38 && y >= ay-38 && y <= ay+38)
                 }
                 if (!ownsGesture) return false
@@ -125,6 +138,9 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
             settings.mediaPlaybackRequiresUserGesture = false
             settings.blockNetworkLoads = true
             addJavascriptInterface(object {
+                @JavascriptInterface fun pendantPosition(x: Double, y: Double) { main.post {
+                    if (web === this@apply && x.isFinite() && y.isFinite()) { pendantX = x; pendantY = y }
+                } }
                 @JavascriptInterface fun ready() { main.post { if (web === this@apply && !disposed) { ready = true; show() } } }
                 @JavascriptInterface fun failed() { main.post { if (web === this@apply) destroyPage() } }
                 @JavascriptInterface fun heartbeat() { main.post { if (web === this@apply) lastHeartbeat = android.os.SystemClock.uptimeMillis() } }
@@ -132,7 +148,6 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
                 @JavascriptInterface fun requestStart() { main.post {
                     if (web !== this@apply || !enabled || !resumed || !ready) return@post
                     val request = ++epoch
-                    notifyPlaying(true)
                     main.removeCallbacks(timeout); main.postDelayed(timeout, 1800)
                     channel.invokeMethod("capture", null, object : MethodChannel.Result {
                         override fun success(result: Any?) {
@@ -164,6 +179,8 @@ class WordSliceHost(private val activity: FlutterActivity, engine: FlutterEngine
         view.loadDataWithBaseURL("https://word-slice.invalid/", html, "text/html", "UTF-8", null)
     }
     private fun destroyPage() {
+        motion?.setPendantListener(null)
+        pendantX = Double.NaN; pendantY = Double.NaN
         epoch++; main.removeCallbacks(timeout); main.removeCallbacks(watchdog)
         ready = false; notifyPlaying(false)
         val old = web; web = null

@@ -6,7 +6,7 @@
 
 <!-- CURRENT_SOURCE_IDENTITY -->
 ```json
-{"app_version": "0.42.205+449", "schema": 67}
+{"app_version": "0.42.206+450", "schema": 67}
 ```
 <!-- END_CURRENT_SOURCE_IDENTITY -->
 
@@ -737,3 +737,14 @@
 - [下载+449 APK压缩包](https://github.com/catkiss62/ai-companion-build/actions/runs/44236685381/artifacts/14399530826)，artifact14399530826，750121599字节，未过期；ZIP SHA256 b7f5c6db5ea3eeca19f9c0bcc95b2659be1a5ed261a5c2b98b11b90cacf1b5ea（这是ZIP摘要，不是APK摘要）。[构建证据](https://github.com/catkiss62/ai-companion-build/actions/runs/44236685381)。
 - 下一步优先真机：聊天框调高/调低时挂点跟随；键盘开合；下拉/切字/音效及退出后的聊天交互；返回键、弹层、切后台恢复；透明WebView与Live2D合成。陀螺仪按原决定暂缓，未实现。无App真机验收证据，不标记TRUE DEVICE PASSED。
 - 后续任务仍从本账「后续任务整理与梦境设计原则」及模块维护目录定点读取；小豆丁摸头未确认根因仍暂缓，梦境仍为设计储备。
+
+
+## 2026-11-18 · 切字正文抓取、对比度与挂件体感（开始）
+- 用户+449真机反馈：开场白字非正文且仅零散数字/方框，白天背景难辨；授权修复并加入陀螺仪试用。基线ee9b5bd8，目标+450/schema67不变。
+- 已定位：抓取器只遍历RenderParagraph，实际正文为SelectableText/RenderEditable，造成正文漏读、时间及图标误入；改为显式正文范围并支持实际可选择文字布局。不补造开场文字、不读取屏外历史。
+- 计划细深色描边+柔和投影；复用RoomDepthMotionBridge传感器所有者增加挂件消费者，挂点固定、绳端受限摆动，命中区随绳端位置更新；隐藏/后台取消订阅。保留背景体感消费者、原游戏物理与AI调用方式。
+- 验证：真实SelectableText.rich、时间/图标排除、裁剪与Unicode字素；宿主文字/摇摆/退出Node回归，现有体感回归和完整签名CI；实机观感仍待用户。
+
+- 实施：正文显式WordSliceText边界+RenderEditable/RenderParagraph字素布局；先捕获后隐藏；描边阴影；共享体感订阅、绳端命中区回传及后台解绑。原型测试原依赖未提交check.js，改为直接加载template/assets使回归可复现；宿主新增接口需同步测试桩，初次缺桩报错已补；摇摆测试需推进模拟时钟以触发限频坐标回传，已修正测试夹具。尚未宣称CI或实机通过。
+
+- 本地验证：宿主Node（正文坐标/左右体感/固定挂点/命中回传/后台复位/非法值）及v6原型6组回归通过；31项文档、23项发布身份通过。全量源码门禁本地在缺少完整桌宠资源的validate_v0331停止，未跳过；完整资源/Flutter/Android编译交CI。App帮助及维护卡/回归索引同步，Agent无新增工具，仅构建身份更新。

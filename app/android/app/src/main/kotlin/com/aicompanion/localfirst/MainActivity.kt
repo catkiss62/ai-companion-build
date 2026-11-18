@@ -60,7 +60,7 @@ class MainActivity : FlutterActivity() {
         live2DModelStorageBridge = Live2DModelStorageBridge(this, flutterEngine)
         caicaiLive2DBridge = CaicaiLive2DBridge(this, flutterEngine)
         roomDepthMotion = RoomDepthMotionBridge(this, flutterEngine)
-        wordSliceHost = WordSliceHost(this, flutterEngine)
+        wordSliceHost = WordSliceHost(this, flutterEngine, roomDepthMotion)
         nativeFateWheelChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "ai_companion/fate_wheel_native",

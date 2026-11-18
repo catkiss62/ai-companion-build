@@ -2992,10 +2992,10 @@ class _MessageBubble extends StatelessWidget {
                 onFinished: onAnimationFinished,
               )
             else if (displayLanguage == ChatLanguage.chinese)
-              ActionTintText(
+              WordSliceText(child: ActionTintText(
                 text: committedAssistantText,
                 style: const TextStyle(height: 1.45),
-              )
+              ))
             else
               _ForeignMessageProjection(
                 language: displayLanguage,
@@ -3003,10 +3003,10 @@ class _MessageBubble extends StatelessWidget {
                 chineseText: message.content,
               )
           else
-            SelectableText(
+            WordSliceText(child: SelectableText(
               message.content,
               style: const TextStyle(color: Colors.white, height: 1.45),
-            ),
+            )),
         ],
         const SizedBox(height: 4),
         _footer(context),
@@ -3210,10 +3210,10 @@ class _SingleBubbleTypewriterTextState
     final visible = String.fromCharCodes(
       widget.text.runes.take(_visibleCharacters),
     );
-    return ActionTintText(
+    return WordSliceText(child: ActionTintText(
       text: visible,
       style: const TextStyle(height: 1.45),
-    );
+    ));
   }
 }
 
@@ -3344,10 +3344,10 @@ class _AssistantSegmentSequenceState
         children: [
           for (var index = 0; index < visibleCount; index++) ...[
             if (index > 0) const _AssistantSegmentDivider(),
-            ActionTintText(
+            WordSliceText(child: ActionTintText(
               text: _visibleText(index),
               style: const TextStyle(height: 1.45),
-            ),
+            )),
             if (_completedChunks >= widget.chunks.length &&
                 index == widget.chunks.length - 1) ...[
               const SizedBox(height: 4),
@@ -3569,10 +3569,10 @@ class _StreamingBubble extends StatelessWidget {
                 if (content.isNotEmpty) ...[
                   for (var index = 0; index < blocks.length; index++) ...[
                     if (index > 0) const _AssistantSegmentDivider(),
-                    ActionTintText(
+                    WordSliceText(child: ActionTintText(
                       text: blocks[index],
                       style: const TextStyle(height: 1.45),
-                    ),
+                    )),
                   ],
                   SizedBox(key: bodyTailKey, height: 1),
                 ],
@@ -3843,10 +3843,10 @@ class _ForeignMessageProjection extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 5),
-          ActionTintText(
+          WordSliceText(child: ActionTintText(
             text: foreignText,
             style: const TextStyle(height: 1.48),
-          ),
+          )),
           const SizedBox(height: 8),
           Divider(
             height: 1,
@@ -3861,14 +3861,14 @@ class _ForeignMessageProjection extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 2),
-          ActionTintText(
+          WordSliceText(child: ActionTintText(
             text: chineseText,
             style: TextStyle(
               height: 1.38,
               fontSize: 11.5,
               color: scheme.onSurfaceVariant.withValues(alpha: 0.68),
             ),
-          ),
+          )),
         ],
       ),
     );

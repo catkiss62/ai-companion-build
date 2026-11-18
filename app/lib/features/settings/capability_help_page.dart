@@ -40,7 +40,7 @@ class CapabilityHelpPage extends StatelessWidget {
             icon: Icons.sports_esports_rounded,
             title: '聊天挂件与切字小游戏',
             children: [
-              _HelpParagraph('聊天立绘界面右侧的小鲸鱼挂件随聊天框顶部移动。向下拉一小段后松手开始切字，再次下拉退出。游戏中其他按钮暂不可操作，Live2D仍可跟随手指。切中粉色“爱”字可连切3秒，避开飞出的小鲸鱼。切到后台或离开聊天会结束本局；此功能不改聊天记录，不调用模型。'),
+              _HelpParagraph('聊天立绘界面右侧的小鲸鱼挂件随聊天框顶部移动，倾斜手机时会轻轻摆动。开场文字来自当前可见的聊天正文。向下拉一小段后松手开始切字，再次下拉退出。游戏中其他按钮暂不可操作，Live2D仍可跟随手指。切中粉色“爱”字可连切3秒，避开飞出的小鲸鱼。切到后台或离开聊天会结束本局；此功能不改聊天记录，不调用模型。'),
             ],
           ),
           const _HelpSection(

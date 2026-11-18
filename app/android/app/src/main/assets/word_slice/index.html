@@ -8,7 +8,7 @@ let W=0,H=0,dpr=1,mode='idle',time=0,last=0,acc=0,roundStart=0,spawnAt=0,wave=0,
 let glyphs=[],particles=[],labels=[],trail=[],bombs=[],victim=null,activePointer=null,pullPointer=null,pullStart=null,drag=null,rope=[],anchor={x:0,y:0},idleName='默认动作',idleSince=0,idleNext=3;
 let pending=null,transitionUntil=0,releaseGate=false,visible=true,ropeLength=settings.rope,ropeSpeed=0;
 let love=null,nextLoveScore=100,loveHits=0,lastLoveCut=-10;
-let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false;const images={}; let loaded=false;
+let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false;let tiltX=0,tiltY=0,targetTiltX=0,targetTiltY=0,lastPendantReport=-1;const images={}; let loaded=false;
 // Original procedural SFX: no external recordings or copied game audio.
 const sound={enabled:true,context:null,master:null,voices:new Set(),last:{},noise:null,
  status(){},
@@ -44,9 +44,9 @@ function resize(){const oldH=H,oldW=W;W=app.clientWidth;H=app.clientHeight;dpr=M
 function toast(msg){}
 function setScore(){ $('score').textContent=score; }
 function sprite(name,x,y,size,age=0,once=false,rotation=0){const a=images[name];if(!a)return;const n=once?Math.min(a.length-1,Math.floor(age*10)):Math.floor(Math.max(0,age)*10)%a.length;ctx.save();ctx.translate(x,y);ctx.rotate(rotation);ctx.imageSmoothingEnabled=false;ctx.drawImage(a[n],-size/2,-size/2,size,size);ctx.restore()}
-function stepRope(dt){if(drag){ropeLength=settings.rope+clamp(drag.y-(anchor.y+settings.rope),0,110);ropeSpeed=0;}else{ropeSpeed+=(-190*(ropeLength-settings.rope)-17*ropeSpeed)*dt;ropeLength=clamp(ropeLength+ropeSpeed*dt,settings.rope-12,settings.rope+115);}const seg=ropeLength/8;
+function stepRope(dt){const ease=1-Math.exp(-dt/0.12);tiltX+=(targetTiltX-tiltX)*ease;tiltY+=(targetTiltY-tiltY)*ease;if(drag){ropeLength=settings.rope+clamp(drag.y-(anchor.y+settings.rope),0,110);ropeSpeed=0;}else{ropeSpeed+=(-190*(ropeLength-settings.rope)-17*ropeSpeed)*dt;ropeLength=clamp(ropeLength+ropeSpeed*dt,settings.rope-12,settings.rope+115);}const seg=ropeLength/8;
  rope[0].x=anchor.x;rope[0].y=anchor.y;
- for(let i=1;i<rope.length;i++){let p=rope[i];let vx=(p.x-p.px)*.982,vy=(p.y-p.py)*.982;p.px=p.x;p.py=p.y;p.x+=vx;p.y+=vy+1200*dt*dt;}
+ for(let i=1;i<rope.length;i++){let p=rope[i];let vx=(p.x-p.px)*.982,vy=(p.y-p.py)*.982;p.px=p.x;p.py=p.y;p.x+=vx+tiltX*850*dt*dt;p.y+=vy+(1200+tiltY*160)*dt*dt;}
  if(drag){let p=rope[8];p.x=clamp(drag.x,anchor.x-55,anchor.x+25);p.y=clamp(drag.y,anchor.y+settings.rope,anchor.y+settings.rope+110);p.px=p.x;p.py=p.y;}
  for(let pass=0;pass<14;pass++){rope[0].x=anchor.x;rope[0].y=anchor.y;for(let i=0;i<8;i++){const a=rope[i],b=rope[i+1],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,err=(len-seg)/len;
  const aFree=i!==0,bFree=!(drag&&i===7);const weight=(aFree?1:0)+(bFree?1:0);if(!weight)continue;
@@ -55,7 +55,7 @@ function stepRope(dt){if(drag){ropeLength=settings.rope+clamp(drag.y-(anchor.y+s
 }
 function renderRope(){ctx.save();ctx.strokeStyle='#b3abd3';ctx.lineWidth=1.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(rope[0].x,rope[0].y);for(let i=1;i<rope.length-1;i++){let a=rope[i],b=rope[i+1];ctx.quadraticCurveTo(a.x,a.y,(a.x+b.x)/2,(a.y+b.y)/2)}const end=rope[8];ctx.lineTo(end.x,end.y);ctx.stroke();ctx.fillStyle='#ded4fa';ctx.beginPath();ctx.arc(anchor.x,anchor.y,2,0,7);ctx.fill();ctx.restore();
  let rot=clamp(Math.atan2(end.x-rope[6].x,end.y-rope[6].y)*-.28,-.25,.25);sprite(mode==='idle'?idleName:'忙碌',end.x,end.y+18,48,time-idleSince,false,rot);
- pendant.style.left=(end.x-32)+'px';pendant.style.top=(end.y-10)+'px';
+ pendant.style.left=(end.x-32)+'px';pendant.style.top=(end.y-10)+'px';if(time-lastPendantReport>.032){lastPendantReport=time;NativeSlice.pendantPosition(end.x,end.y+22);}
  if(drag){const t=clamp((drag.y-pullStart.baseY)/settings.pull,0,1);ctx.strokeStyle=t>=1?'#e9d5ff':'#8ca2cc';ctx.lineWidth=2;ctx.beginPath();ctx.arc(end.x,end.y+18,27,-Math.PI/2,-Math.PI/2+Math.PI*2*t);ctx.stroke();}}
 // Apex is measured from the actual visible glyph, keeping low chat text playable.
 function introVelocity(y){const apex=clamp(y-H*rand(.27,.38),110,H*.39);return -Math.sqrt(2*settings.gravity*Math.max(25,y-apex));}
@@ -73,7 +73,7 @@ function sliceLove(a,b){if(!love||love.y>floorY()-30||distanceToSegment(love,a,b
  if(!love.active){love.active=true;love.end=time+3;loveHits=0;lastLoveCut=-10;bombs=[];glyphs=[];sound.play('combo');}
  if(time-lastLoveCut>=.08){lastLoveCut=time;loveHits++;love.kickAt=time;love.kickSign=loveHits%2?1:-1;score++;setScore();loveBurst(love.x,love.y,7);sound.play('cut',loveHits);if(loveHits%10===0)sound.play('combo');}
  return true;}
-function drawLove(){if(!love)return;const l=love;ctx.save();ctx.translate(l.x,l.y);const age=Math.max(0,time-(l.kickAt??-10)),kick=l.active?Math.max(0,1-age/.24):0;ctx.save();ctx.translate(Math.cos(age*55)*9*kick*(l.kickSign||1),-Math.sin(age*43)*5*kick);ctx.rotate(l.r+Math.cos(age*48)*.28*kick*(l.kickSign||1));ctx.scale(1+kick*.12,1-kick*.06);ctx.shadowColor='#ff93b9';ctx.shadowBlur=14;ctx.font='800 '+(32+Math.sin(time*8))+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';const tint=ctx.createLinearGradient(0,-18,0,18);tint.addColorStop(0,'#ff929e');tint.addColorStop(.5,'#ffacc8');tint.addColorStop(1,'#ffd0ed');ctx.fillStyle=tint;ctx.fillText('爱',0,0);ctx.restore();ctx.shadowBlur=0;for(let i=0;i<12;i++){const a=time*(i%2?1:-1)+i*Math.PI/6,r=27+Math.sin(time*3+i)*3;ctx.fillStyle=i%3?'#ff94cd':'#ffe1a3';ctx.globalAlpha=.5+.4*Math.sin(time*4+i)**2;ctx.beginPath();ctx.arc(Math.cos(a)*r,Math.sin(a)*r,1.5+i%3*.6,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.fillStyle='#ffd2e8';ctx.font='600 12px system-ui';ctx.fillText(l.active?'连切 ×'+loveHits:'切我 · 爱意连击',0,-43);if(l.active){ctx.strokeStyle='#ff87c2';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,33,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,(l.end-time)/3));ctx.stroke();}ctx.restore();}
+function drawLove(){if(!love)return;const l=love;ctx.save();ctx.translate(l.x,l.y);const age=Math.max(0,time-(l.kickAt??-10)),kick=l.active?Math.max(0,1-age/.24):0;ctx.save();ctx.translate(Math.cos(age*55)*9*kick*(l.kickSign||1),-Math.sin(age*43)*5*kick);ctx.rotate(l.r+Math.cos(age*48)*.28*kick*(l.kickSign||1));ctx.scale(1+kick*.12,1-kick*.06);ctx.shadowColor='#ff93b9';ctx.shadowBlur=14;ctx.font='800 '+(32+Math.sin(time*8))+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';const tint=ctx.createLinearGradient(0,-18,0,18);tint.addColorStop(0,'#ff929e');tint.addColorStop(.5,'#ffacc8');tint.addColorStop(1,'#ffd0ed');ctx.strokeStyle='rgba(60,24,50,.8)';ctx.lineWidth=2;ctx.lineJoin='round';ctx.strokeText('爱',0,0);ctx.fillStyle=tint;ctx.fillText('爱',0,0);ctx.restore();ctx.shadowBlur=0;for(let i=0;i<12;i++){const a=time*(i%2?1:-1)+i*Math.PI/6,r=27+Math.sin(time*3+i)*3;ctx.fillStyle=i%3?'#ff94cd':'#ffe1a3';ctx.globalAlpha=.5+.4*Math.sin(time*4+i)**2;ctx.beginPath();ctx.arc(Math.cos(a)*r,Math.sin(a)*r,1.5+i%3*.6,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.fillStyle='#ffd2e8';ctx.font='600 12px system-ui';ctx.fillText(l.active?'连切 ×'+loveHits:'切我 · 爱意连击',0,-43);if(l.active){ctx.strokeStyle='#ff87c2';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,33,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,(l.end-time)/3));ctx.stroke();}ctx.restore();}
 function distanceToSegment(p,a,b){let dx=b.x-a.x,dy=b.y-a.y;let t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));}
 function cut(a,b){if(mode!=='playing'&&mode!=='intro')return;if(Math.hypot(b.x-a.x,b.y-a.y)<2)return;sound.play('swish');if(sliceLove(a,b)||love?.active)return;
  for(const bomb of bombs){if(time>=bomb.age&&bomb.y<=floorY()-24&&distanceToSegment(bomb,a,b)<23){hitBomb(bomb);return}}
@@ -97,7 +97,7 @@ function update(dt){time+=dt;$('damage').style.opacity=victim?String(Math.max(0,
  for(const p of particles){p.life-=dt;p.vy+=(p.gravity??settings.gravity*.65)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.r!==undefined)p.r+=p.vr*dt;}particles=particles.filter(p=>p.life>0);
  for(const l of labels){l.life-=dt;l.y-=24*dt;}labels=labels.filter(l=>l.life>0);trail=trail.filter(p=>time-p.t<.16);
 }
-function textGlyph(g){ctx.save();ctx.translate(g.x,g.y);ctx.rotate(g.r||0);ctx.font=`700 ${g.size}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=g.color;ctx.fillText(g.ch,0,0);ctx.restore()}
+function textGlyph(g){ctx.save();ctx.translate(g.x,g.y);ctx.rotate(g.r||0);ctx.font=`700 ${g.size}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=Math.max(1.6,g.size*.065);ctx.strokeStyle='rgba(24,22,42,.85)';ctx.shadowColor='rgba(10,12,28,.65)';ctx.shadowBlur=4;ctx.shadowOffsetY=2;ctx.strokeText(g.ch,0,0);ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.fillStyle=g.color;ctx.fillText(g.ch,0,0);ctx.restore()}
 function draw(){ctx.clearRect(0,0,W,H);
  for(const g of glyphs){const progress=g.intro?clamp((time-roundStart)/.18,0,1):1;textGlyph({...g,size:g.size*(g.intro?1+progress*.16:1)});}
  drawLove();
@@ -125,10 +125,11 @@ Promise.all(Object.entries(ASSETS).map(async([name,asset])=>{images[name]=await 
 
 function cancelHostPointers(){for(const [element,id] of [[pendant,pullPointer],[$('gesture'),activePointer]]){if(id!==null&&element.hasPointerCapture(id))element.releasePointerCapture(id);}drag=null;pullPointer=null;pullStart=null;activePointer=null;pending=null;trail=[];}
 window.sliceHost={
+ motion(x,y,reset=false){targetTiltX=Number.isFinite(x)?clamp(x,-1,1):0;targetTiltY=Number.isFinite(y)?clamp(y,-1,1):0;if(reset){tiltX=tiltY=targetTiltX=targetTiltY=0;}},
  configure(layout){hostLayout=layout;hostReady=true;$('hud').style.top=(layout.hudTop+8)+'px';resize();},
  start(snapshot){startWaiting=false;if(!hostReady||!visible)return;hostGlyphs=snapshot;startCapturedGame();},
  reset(){exitGame();sound.stop();},
- suspend(){exitGame();sound.stop();visible=false;last=0;acc=0;},
+ suspend(){tiltX=tiltY=targetTiltX=targetTiltY=0;exitGame();sound.stop();visible=false;last=0;acc=0;},
  resume(){visible=true;last=0;acc=0;},
 };
 window.addEventListener('error',()=>NativeSlice.failed());

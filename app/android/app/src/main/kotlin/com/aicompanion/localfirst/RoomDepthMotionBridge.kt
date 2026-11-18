@@ -18,6 +18,7 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
     private val manager = activity.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     private val sensor = manager?.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
         ?: manager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+    private var pendant: ((Float, Float, Boolean) -> Unit)? = null
     private var sink: EventChannel.EventSink? = null
     private var resumed = false
     private var registered = false
@@ -29,15 +30,19 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
 
     init { channel.setStreamHandler(this) }
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-        stop(); sink = events; start()
+        sink = events; filter.reset(); rotation = -1; start()
     }
-    override fun onCancel(arguments: Any?) { sink = null; stop() }
+    override fun onCancel(arguments: Any?) { CaicaiRuntime.backgroundMotion(0f, 0f, true); sink = null; if (pendant == null) stop() }
     fun onResume() { resumed = true; start() }
     fun onPause() { resumed = false; stop() }
-    fun dispose() { sink = null; stop(); channel.setStreamHandler(null) }
+    fun setPendantListener(listener: ((Float, Float, Boolean) -> Unit)?) {
+        pendant = listener
+        if (listener == null && sink == null) stop() else start()
+    }
+    fun dispose() { pendant = null; sink = null; stop(); channel.setStreamHandler(null) }
 
     private fun start() {
-        if (!resumed || sink == null || registered) return
+        if (!resumed || (sink == null && pendant == null) || registered) return
         filter.reset(); rotation = -1; lastEvent = 0
         registered = sensor != null && manager?.registerListener(this, sensor, 16667) == true
         if (!registered) emit(0f, 0f, reset = true)
@@ -48,13 +53,14 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
         emit(0f, 0f, reset = true)
     }
     private fun emit(x: Float, y: Float, reset: Boolean = false) {
-        CaicaiRuntime.backgroundMotion(x, y, reset)
+        if (sink != null) CaicaiRuntime.backgroundMotion(x, y, reset)
+        if (reset) pendant?.invoke(0f, 0f, true)
         sink?.success(mapOf("x" to x.toDouble(), "y" to y.toDouble(), "available" to registered, "reset" to reset))
     }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     @Suppress("DEPRECATION")
     override fun onSensorChanged(event: SensorEvent) {
-        if (!registered || !resumed || sink == null || event.timestamp-lastEvent < 15_000_000) return
+        if (!registered || !resumed || (sink == null && pendant == null) || event.timestamp-lastEvent < 15_000_000) return
         lastEvent = event.timestamp
         val nextRotation = activity.windowManager.defaultDisplay.rotation
         val recalibrated = rotation != nextRotation
@@ -67,6 +73,12 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
             else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
         }
         if (SensorManager.remapCoordinateSystem(raw, axes.first, axes.second, screen) &&
-            filter.update(screen, event.timestamp)) emit(filter.x, filter.y, reset = recalibrated)
+            filter.update(screen, event.timestamp)) {
+            emit(filter.x, filter.y, reset = recalibrated)
+            // Gravity projected into screen axes includes roll, which room parallax
+            // intentionally ignores. Near-flat phones smoothly approach zero sway.
+            pendant?.invoke((-screen[6] * 1.8f).coerceIn(-1f, 1f),
+                screen[8].coerceIn(-1f, 1f), false)
+        }
     }
 }

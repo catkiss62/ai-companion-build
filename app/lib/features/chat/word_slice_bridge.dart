@@ -75,37 +75,54 @@ class WordSliceBridge {
   }
 }
 
-/// Snapshot rendered paragraphs only; never read hidden history or log text.
-/// A visual cap bounds per-character layout work on unusually dense screens.
+/// Explicit message-body boundary: timestamps, icons and tool UI are not text.
+class WordSliceText extends SingleChildRenderObjectWidget {
+  const WordSliceText({super.key, required super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) => _WordSliceTextBox();
+}
+class _WordSliceTextBox extends RenderProxyBox {}
+
+/// Read the rendered glyph positions, including SelectableText's RenderEditable.
+/// No history lookup or mutation; grapheme clusters preserve emoji/combining text.
 List<Map<String, Object>> captureVisibleGlyphs(GlobalKey key) {
   final root = key.currentContext?.findRenderObject();
   if (root is! RenderBox || !root.hasSize || !root.attached) return [];
   final clip = root.localToGlobal(Offset.zero) & root.size;
   final result = <Map<String, Object>>[];
-  void visit(RenderObject object) {
+  void visit(RenderObject object, bool inBody) {
     if (result.length >= 500) return;
-    if (object is RenderParagraph && object.hasSize) {
-      final bounds = object.localToGlobal(Offset.zero) & object.size;
+    inBody = inBody || object is _WordSliceTextBox;
+    if (inBody && (object is RenderParagraph || object is RenderEditable)) {
+      final boxObject = object as RenderBox;
+      if (!boxObject.hasSize || !boxObject.attached) return;
+      final bounds = boxObject.localToGlobal(Offset.zero) & boxObject.size;
       if (!bounds.overlaps(clip)) return;
-      final text = object.text.toPlainText(includeSemanticsLabels: false);
+      final span = object is RenderParagraph ? object.text : (object as RenderEditable).text;
+      final text = span?.toPlainText(includeSemanticsLabels: false) ?? '';
       var offset = 0;
-      for (final rune in text.runes) {
+      for (final char in text.characters) {
         if (result.length >= 500) break;
-        final char = String.fromCharCode(rune), end = offset + (rune > 0xffff ? 2 : 1);
-        if (char.trim().isNotEmpty && rune != 0xfffc) {
-          final boxes = object.getBoxesForSelection(TextSelection(baseOffset: offset, extentOffset: end));
+        final end = offset + char.length;
+        if (char.trim().isNotEmpty && char != '\uFFFC') {
+          final selection = TextSelection(baseOffset: offset, extentOffset: end);
+          final boxes = object is RenderParagraph
+              ? object.getBoxesForSelection(selection)
+              : (object as RenderEditable).getBoxesForSelection(selection);
           if (boxes.isNotEmpty) {
-            final box = boxes.first.toRect();
-            final pos = object.localToGlobal(box.center);
-            if (box.width > 0 && clip.contains(pos) && pos.dy-box.height/2 >= clip.top && pos.dy+box.height/2 <= clip.bottom) {
-              result.add({'ch': char, 'x': pos.dx, 'y': pos.dy, 'size': (box.height*.8).clamp(12.0, 30.0)});
+            final box = boxes.map((b) => b.toRect()).reduce((a,b) => a.expandToInclude(b));
+            final pos = boxObject.localToGlobal(box.center);
+            if (box.width > 0 && clip.contains(pos) &&
+                pos.dy-box.height/2 >= clip.top && pos.dy+box.height/2 <= clip.bottom) {
+              result.add({'ch': char, 'x': pos.dx, 'y': pos.dy,
+                'size': (box.height*.8).clamp(12.0, 30.0)});
             }
           }
         }
         offset = end;
       }
-    } else { object.visitChildren(visit); }
+    } else { object.visitChildren((child) => visit(child, inBody)); }
   }
-  visit(root);
+  visit(root, false);
   return result;
 }

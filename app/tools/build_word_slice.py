@@ -8,7 +8,7 @@ SRC=ROOT/'tools/word_slice'
 s=(SRC/'template.html').read_text()
 script=s.split('<script>',1)[1].split('</script>',1)[0]
 script=script.replace('__ASSETS__',(SRC/'assets.json').read_text())
-script=script.replace("const images={};", "let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false;const images={};")
+script=script.replace("const images={};", "let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false;let tiltX=0,tiltY=0,targetTiltX=0,targetTiltY=0,lastPendantReport=-1;const images={};")
 script=script.replace("function floorY(){return rect($('input')).y}","function floorY(){return hostLayout.floor||H-100}")
 script=re.sub(r"const heat=rect\(document.querySelector\('\.heat'\)\),chat=rect\(\$\('conversation'\)\);anchor=\{x:heat.x\+heat.w/2,y:chat.y-54\};initRope\(\);\$\('hint'\).style.top=\(anchor.y\+35\)\+'px';", "anchor={x:hostLayout.anchorX,y:hostLayout.panelTop};initRope();",script)
 a=script.index('function captureText()');b=script.index('function lockUi',a)
@@ -25,14 +25,19 @@ script=re.sub(r"function toast\(msg\)\{.*?\}\n",'function toast(msg){}\n',script
 a=script.index(' status(message){');b=script.index('\n',a)
 script=script[:a]+ ' status(){},'+script[b:]
 script=re.sub(r"\$\('sound'\)\.onclick=.*?;\n",'',script)
+# Apply device tilt only to the rope, preserving the game's original gravity.
+script=script.replace('function stepRope(dt){', 'function stepRope(dt){const ease=1-Math.exp(-dt/0.12);tiltX+=(targetTiltX-tiltX)*ease;tiltY+=(targetTiltY-tiltY)*ease;')
+script=script.replace('p.x+=vx;p.y+=vy+1200*dt*dt;', 'p.x+=vx+tiltX*850*dt*dt;p.y+=vy+(1200+tiltY*160)*dt*dt;')
+script=script.replace("pendant.style.top=(end.y-10)+'px';", "pendant.style.top=(end.y-10)+'px';if(time-lastPendantReport>.032){lastPendantReport=time;NativeSlice.pendantPosition(end.x,end.y+22);}")
 # Native calls are JSON-encoded; text is never evaluated as code.
 script+='''
 function cancelHostPointers(){for(const [element,id] of [[pendant,pullPointer],[$('gesture'),activePointer]]){if(id!==null&&element.hasPointerCapture(id))element.releasePointerCapture(id);}drag=null;pullPointer=null;pullStart=null;activePointer=null;pending=null;trail=[];}
 window.sliceHost={
+ motion(x,y,reset=false){targetTiltX=Number.isFinite(x)?clamp(x,-1,1):0;targetTiltY=Number.isFinite(y)?clamp(y,-1,1):0;if(reset){tiltX=tiltY=targetTiltX=targetTiltY=0;}},
  configure(layout){hostLayout=layout;hostReady=true;$('hud').style.top=(layout.hudTop+8)+'px';resize();},
  start(snapshot){startWaiting=false;if(!hostReady||!visible)return;hostGlyphs=snapshot;startCapturedGame();},
  reset(){exitGame();sound.stop();},
- suspend(){exitGame();sound.stop();visible=false;last=0;acc=0;},
+ suspend(){tiltX=tiltY=targetTiltX=targetTiltY=0;exitGame();sound.stop();visible=false;last=0;acc=0;},
  resume(){visible=true;last=0;acc=0;},
 };
 window.addEventListener('error',()=>NativeSlice.failed());

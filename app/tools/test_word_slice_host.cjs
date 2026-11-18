@@ -4,7 +4,7 @@ const ids=new Set([...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1])),nodes=new Ma
 const context=new Proxy({},{get(t,k){if(k==='createLinearGradient')return()=>({addColorStop(){}});return()=>{}}});
 function el(id){assert.ok(ids.has(id),'No dangling DOM reference: '+id);if(!nodes.has(id))nodes.set(id,{style:{},textContent:'',classList:{add(){},remove(){}},clientWidth:390,clientHeight:844,events:{},addEventListener(k,f){this.events[k]=f},getBoundingClientRect(){return {left:0,top:0,width:390,height:844}},querySelectorAll(){return []},setPointerCapture(){},hasPointerCapture(){return false},releasePointerCapture(){},getContext(){return context}});return nodes.get(id)}
 let requests=0,busy=false,failures=0;
-const sandbox={console,Math,Promise,devicePixelRatio:2,Image:class{set src(v){queueMicrotask(()=>this.onload?.())}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},setInterval(){},document:{hidden:false,getElementById:el,querySelectorAll(){return[]},addEventListener(){}},window:{addEventListener(){}},NativeSlice:{ready(){},failed(){failures++},heartbeat(){},requestStart(){requests++},setPlaying(v){busy=v}}};
+const sandbox={console,Math,Promise,devicePixelRatio:2,Image:class{set src(v){queueMicrotask(()=>this.onload?.())}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},setInterval(){},document:{hidden:false,getElementById:el,querySelectorAll(){return[]},addEventListener(){}},window:{addEventListener(){}},NativeSlice:{ready(){},failed(){failures++},heartbeat(){},pendantPosition(x,y){sandbox.pendantXY=[x,y]},requestStart(){requests++},setPlaying(v){busy=v}}};
 vm.createContext(sandbox);vm.runInContext(html.split('<script>')[1].split('</script>')[0],sandbox);const run=x=>vm.runInContext(x,sandbox);
 run("loaded=true;window.sliceHost.configure({anchorX:358,panelTop:390,floor:700,hudTop:72})");
 assert.equal(run('anchor.y'),390);run('startGame()');assert.equal(requests,1);assert.equal(run('mode'),'idle');
@@ -14,3 +14,16 @@ run('window.sliceHost.suspend()');assert.equal(busy,false);assert.equal(run('vis
 run('window.sliceHost.configure({anchorX:358,panelTop:230,floor:700,hudTop:72});window.sliceHost.resume()');assert.equal(run('anchor.y'),230);assert.equal(run('visible'),true);
 assert.ok(!ids.has('sound')&&!ids.has('audioTest')&&!ids.has('hint')&&!ids.has('conversation'));assert.equal(failures,0);
 console.log('PASS: actual bundled HTML, all DOM refs, native capture handshake, real glyph origin, moving anchor, reward draw, pause cleanup and removed controls.');
+
+run('window.sliceHost.motion(1,0);for(let i=0;i<300;i++)stepRope(1/120);time+=.04;draw()');
+assert.ok(run('rope[8].x-anchor.x')>10);
+assert.equal(run('anchor.y'),230);
+assert.ok(Math.abs(sandbox.pendantXY[0]-run('rope[8].x'))<.01);
+run('window.sliceHost.motion(-1,0);for(let i=0;i<400;i++)stepRope(1/120)');
+assert.ok(run('rope[8].x-anchor.x')< -10);
+run('window.sliceHost.suspend();window.sliceHost.resume();for(let i=0;i<400;i++)stepRope(1/120)');
+assert.ok(run('Math.abs(rope[8].x-anchor.x)')<1);
+run('window.sliceHost.motion(NaN,Infinity);stepRope(.01)');
+assert.ok(run('Number.isFinite(rope[8].x)'));
+assert.ok(html.includes('ctx.strokeText(g.ch,0,0)'));
+console.log('PASS: tilt both directions, fixed anchor, moving hit target, suspend reset, invalid sensor values, glyph outline.');
