@@ -1,3 +1,9 @@
+import 'dart:io';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_illustration.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_reply_recovery.dart';
+import 'package:ai_companion_localfirst/core/illustration/illustration_client.dart';
+import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -7,6 +13,15 @@ import 'package:ai_companion_localfirst/core/qq/qq_message_material.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_archive_reader.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_reply_tasks.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
+
+class _Files extends PathProviderPlatform {
+  _Files(this.path);
+  final String path;
+  @override
+  Future<String?> getApplicationSupportPath() async => path;
+  @override
+  Future<String?> getTemporaryPath() async => path;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();sqfliteFfiInit();
@@ -20,6 +35,32 @@ void main() {
     observedAt:now,receivedAt:now,mentioned:mention,replyTo:reply,contextMeta:context,policy:'policy');
   Future<QqBatch> claim(int through) async => (await store.claim(await store.capture(conversationId:cid),cid,through,now,policy:'policy'))!;
 
+  test('reclaimed unsent illustration reads identical original; sending never replays', () async {
+    final dir=await Directory.systemTemp.createTemp('qq-paid-');
+    final before=PathProviderPlatform.instance;
+    PathProviderPlatform.instance=_Files(dir.path);
+    addTearDown(() async {PathProviderPlatform.instance=before;await dir.delete(recursive:true);});
+    final b=await claim((await add('paid',mention:true))!);
+    final tasks=QqReplyTasks(store);
+    const raw='<qq_illustration mode="only">小鲸鱼</qq_illustration>';
+    expect(await tasks.reserveIllustration(b,rawReply:raw,autonomous:false,now:now),isTrue);
+    final bytes=base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVR4nGNkYPjPAANMDEgANwcAMdMBB1sLEtoAAAAASUVORK5CYII=');
+    final storage=MessageAttachmentStorage(db:db);
+    final draft=await storage.prepareImageBytes(bytes:bytes,source:'assistant_illustration:qq',mimeType:'image/png');
+    final attachment=await storage.commitDraft(draft,messageId:'qq:${b.id}');
+    expect(await db.saveQqIllustration(operationId:b.id,attachment:attachment,description:'小鲸鱼',
+        depictsCompanion:true,fence:b.fence),isTrue);
+    await storage.discardDraft(draft);
+    final recovery=QqReplyRecovery(store);
+    expect(await recovery.due(b.fence,now,{}),contains(cid));
+    final resumed=(await recovery.claim(b.fence,cid,now,'policy'))!;
+    final illustrations=QqIllustrationService(store,IllustrationClient());
+    final saved=await illustrations.recoverUnsent(resumed,() async=>true);
+    expect(saved?.raw,raw); expect(saved?.picture.image.bytes,bytes);
+    await store.mark(b,'sending');
+    expect(await illustrations.recoverUnsent(resumed,() async=>true),isNull);
+    expect(await recovery.due(b.fence,now,{}),isEmpty);
+  });
   for(final whileActive in [false,true]) {
     test('late AT upgrades one logical source ${whileActive?'while judging':'after watch'} and is consumed once',() async {
       final seq=(await add('same'))!;final first=await claim(seq);

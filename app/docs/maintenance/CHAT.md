@@ -47,3 +47,5 @@
 - 验证：`node app/tools/word_slice/test.cjs`、`node app/tools/test_word_slice_host.cjs`、`app/test/word_slice_bridge_test.dart`；真机重点：面板调高调低、Live2D跟随、游戏结束/再次下拉/系统返回、打开侧栏/设置、前后台及输入法。
 
 第一组复查补充：手动重播缓存外语前，从当前存档重读已提交消息或待确认草稿的译文。旧气泡不能抢占新播放；识图取得租约后，准备阶段的失败也须释放。回归入口为 reply_revision_ownership_test.dart。
+
++456：四条操作提示出现四秒后独立清除；普通错误、第三通道和识图带关闭键的通知继续保留。

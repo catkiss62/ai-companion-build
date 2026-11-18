@@ -160,6 +160,19 @@ void main() {
     },
   );
 
+  test('temporary regenerate hint expires without clearing an important notice', () async {
+    final chat = ChatController(db:db);
+    addTearDown(chat.dispose);
+    chat.notice = '第三通道错误';
+    await chat.regenerateLatestReply(message('assistant','旧回复'));
+    expect(chat.temporaryHint, contains('只能重新生成'));
+    chat.error = 'API Key 已失效';
+    await Future<void>.delayed(const Duration(milliseconds:4200));
+    expect(chat.temporaryHint,isNull);
+    expect(chat.error,'API Key 已失效');
+    expect(chat.notice,'第三通道错误');
+  });
+
   for (final restore in [false, true]) {
     test(
       'out-of-order translations preserve the current bubble and database (restore=$restore)',

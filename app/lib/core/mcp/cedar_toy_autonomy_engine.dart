@@ -2313,17 +2313,16 @@ ${arrangements.prompt}''',
         params,
         cancellationToken: scope.cancellation,
       );
-    } catch (error) {
-      if (error is McpHttpException && error.code == 'network_or_timeout') {
-        await store.markWriteOutcomeUncertain(
-          gameId: session.gameId,
-          action: action,
-          params: params,
-          executionId: scope.executionId,
-        );
+    } on McpHttpException catch (error) {
+      if (error.knownToolRejection) {
+        outcome = error.rejection;
+      } else if (!CedarPlatformActionPolicy.isReadOnlyCall(action, params)) {
+        await store.markWriteOutcomeUncertain(gameId: session.gameId, action: action,
+            params: params, executionId: scope.executionId);
         return const CedarAutonomyProgress('write_outcome_sync');
+      } else {
+        rethrow;
       }
-      rethrow;
     }
     outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);
     if (!outcome.isError &&

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
+import '../ai/final_reply_route.dart';
+import '../diagnostics/third_channel_diagnostics.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../database/app_database.dart';
@@ -142,6 +144,8 @@ class CreativeDelivery {
           final config = SecureConfig.instance;
           final provider = await config.readChatProvider();
           final model = DeepSeekModelProfile.fromApiName(await db.getSetting('deepseek_model'));
+          final route = FinalReplyRoute(secondChannelEnabled: provider.isGeminiRelay,
+              onThirdDiagnostic: (await ThirdChannelDiagnostics.capture(db, lane: 'creative_completion'))?.record);
           String text = '';
           String modelName = model.apiName;
           Future<String> request(bool second) async {
@@ -158,6 +162,7 @@ class CreativeDelivery {
               // Delivery is visible dialogue, with provider-default output
               // limits like ordinary chat; the body-size safeguard stays below.
               model: model, effort: ReasoningEffort.high, thinking: second,
+              finalReplyRoute: route, thirdChannelSecure: config, thirdChannelCurrent: current,
               requestTimeout: const Duration(seconds: 60), messages: messages,
               usageLane: second ? 'creative_completion_final' : 'creative_completion', usageExecutionId: '${notice['request_id']}:${notice['attempts']}',
             )) {
@@ -173,15 +178,18 @@ class CreativeDelivery {
             if (body.isEmpty || body == 'WAIT') throw const EmptyFinalReplyException();
             return body;
           }
-          if (provider.isGeminiRelay) {
+          if (route.useSecondChannel) {
             try { text = await request(true); }
             on BrainWorkInvalidated { rethrow; }
             catch (error) {
               if (!await current()) throw const BrainWorkInvalidated();
+              if (route.thirdChannelIncomplete) rethrow;
+              route.recordFailure(error);
               await save({'provider_failure': FinalReplyFailurePolicy.userCategory(error)});
             }
           }
           if (text.isEmpty) text = await request(false);
+          if (route.usedThirdChannel) modelName = 'gemini-3.8-flash';
           // Persist the body before delivery. A restart can commit it without
           // buying another answer, provided the user's conversation is unchanged.
           await save({'text': text, 'model': modelName, 'phase': 'generated',

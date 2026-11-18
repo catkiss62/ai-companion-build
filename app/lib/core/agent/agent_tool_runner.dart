@@ -910,11 +910,13 @@ class AgentToolRunner {
           workFence:controlFence,attemptFence:attempt,
         );
       }
-      return const AgentToolResult(
+      return AgentToolResult(
         toolId: 'cedar_toy.play',
         status: AgentToolStatus.blocked,
         displayText: '已有游戏动作正在执行',
-        promptData: '本轮没有调用新的 Cedar play；请求已可靠排队。不得声称已经执行或进入房间。',
+        promptData: activityState.activeGameId == game
+            ? '当前游戏忙。本次动作未发送、未排队，请根据稍后的实际局面决定下一步。'
+            : '仅登记了切换游戏的目标。本次具体动作未发送、未排队，不得声称已执行。',
         errorCode: 'cedar_action_in_progress',
       );
     }
@@ -969,26 +971,20 @@ class AgentToolRunner {
           cancellationToken: cancellationToken,
         );
       } on McpHttpException catch (error) {
-        if (error.code == 'network_or_timeout') {
-          await activityStore.markWriteOutcomeUncertain(
-            gameId: game,
-            action: action,
-            params: params,
-            executionId: executionId,
+        if (error.knownToolRejection) {
+          outcome = error.rejection;
+        } else {
+          return AgentToolResult(
+            toolId: AgentToolRegistry.cedarToyPlay.id,
+            status: AgentToolStatus.failed,
+            displayText: isWrite ? 'Cedar 操作结果待核对' : '未取得游戏状态',
+            promptData: isWrite
+                ? 'Cedar $action 没有可验证的回执，写入结果未知。不得原样重发或宣称成功、失败；根据只读状态再决定下一步。'
+                : '本轮未取得可用的只读结果，不得据此推断游戏状态。',
+            errorCode: 'cedar_${error.code}',
+            continuationRecommended: isWrite,
           );
         }
-        return AgentToolResult(
-          toolId: AgentToolRegistry.cedarToyPlay.id,
-          status: AgentToolStatus.failed,
-          displayText: error.code == 'network_or_timeout'
-              ? 'Cedar 请求结果尚不确定'
-              : 'Cedar 请求失败',
-          promptData: error.code == 'network_or_timeout'
-              ? 'Cedar $action 的网络回包没有完整到达；该写操作可能已在远端发生，本轮绝不能原样重放。已有 next_call 时后台会先同步真实状态；否则如实说明结果未知。'
-              : 'Cedar $action 没有成功：${CedarToyClient.redactSecrets(error.toString())}。不得编造结果或原样重放写操作。',
-          errorCode: 'cedar_${error.code}',
-          continuationRecommended: error.code == 'network_or_timeout',
-        );
       }
       receivedOutcome = true;
       outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);

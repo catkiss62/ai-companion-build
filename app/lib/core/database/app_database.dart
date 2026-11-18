@@ -14477,6 +14477,18 @@ class AppDatabase {
         id: 'qq_illustration:$operationId', ownerId: operationId,
         description: description, depictsCompanion: depictsCompanion,
         reason: '她在 QQ 创作的插画');
+      // Album deduplication can reuse an existing row with another source ID.
+      // Bind this operation to its exact original in the same transaction.
+      final tasks = await txn.query('qq_reply_tasks', columns: ['draft'],
+          where: 'id=? AND valid=1', whereArgs: [operationId], limit: 1);
+      if (tasks.isNotEmpty) {
+        final raw = tasks.single['draft'] as String? ?? '';
+        final draft = raw.isEmpty ? <String,dynamic>{} : jsonDecode(raw) as Map<String,dynamic>;
+        draft['illustration_blob_id'] = attachment.blobId;
+        draft['illustration_description'] = _bounded(description, 180);
+        await txn.update('qq_reply_tasks', {'draft':jsonEncode(draft)},
+            where:'id=?', whereArgs:[operationId]);
+      }
       return true;
     });
   }

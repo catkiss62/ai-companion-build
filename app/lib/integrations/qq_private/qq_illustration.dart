@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import '../../core/storage/media_blob_storage.dart';
+import 'qq_reply_recovery.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/database/brain_work_fence.dart';
 import '../../core/illustration/illustration_client.dart';
@@ -101,6 +105,35 @@ class QqIllustrationService {
 
   final QqStore store;
   final IllustrationClient client;
+
+  Future<({String raw, QqIllustration picture})?> recoverUnsent(QqBatch batch,
+      Future<bool> Function() current) async {
+    if (!await current()) return null;
+    final sql = await store.db.database;
+    final tasks = await sql.query('qq_reply_tasks', where:'id=? AND conversation_id=? AND valid=1',
+        whereArgs:[batch.id,batch.cid], limit:1);
+    if (tasks.isEmpty || !QqReplyRecovery.unsent(tasks.single)) return null;
+    final rawDraft = tasks.single['draft'] as String? ?? '';
+    if (rawDraft.isEmpty) return null;
+    final draft = jsonDecode(rawDraft) as Map;
+    final raw = draft['raw'] as String? ?? '';
+    if (draft[QqReplyTasks.illustrationStartedKey] != true ||
+        QqIllustrationChoice.parse(raw) == null) return null;
+    final blobId = draft['illustration_blob_id'] as String?;
+    final album = await sql.query('companion_album_candidates', columns:['blob_id','title'],
+        where: "lifecycle_state='saved' AND " + (blobId == null
+          ? "source_kind='generated_illustration' AND id=? AND source_id=?" : 'blob_id=?'),
+        whereArgs:blobId == null ? ['qq_illustration:${batch.id}',batch.id] : [blobId], limit:1);
+    if (album.isEmpty) return null;
+    final blob = await store.db.mediaBlobById(album.single['blob_id'] as String);
+    if (blob == null || blob.byteSize <= 0 || blob.byteSize > IllustrationClient.maxBytes) return null;
+    final file = await MediaBlobStorage(db:store.db).fileFor(blob.originalPath);
+    if (!await file.exists() || await file.length() != blob.byteSize) return null;
+    final bytes = await file.readAsBytes();
+    if (sha256.convert(bytes).toString() != blob.originalSha256 || !await current()) return null;
+    return (raw:raw, picture:QqIllustration(IllustrationBytes(bytes,blob.mimeType),
+        draft['illustration_description'] as String? ?? album.single['title'] as String));
+  }
 
   Future<QqIllustration> generate({
     required QqBatch batch,

@@ -181,6 +181,17 @@ class ChatController extends ChangeNotifier {
   AgentToolActivity? agentActivity;
   List<AgentToolActivity> agentActivities = <AgentToolActivity>[];
   String? error;
+  String? temporaryHint;
+  Timer? _hintTimer;
+
+  void _showTemporaryHint(String text) {
+    _hintTimer?.cancel();
+    temporaryHint = text;
+    _hintTimer = Timer(const Duration(seconds: 4), () {
+      temporaryHint = null;
+      _safeNotify();
+    });
+  }
   String? notice;
   String? _visionFallbackMessageId;
   String? get visionFallbackNotice => _visionFallbackMessageId == null
@@ -253,7 +264,7 @@ class ChatController extends ChangeNotifier {
       final before = await db.generationJobById(jobId);
       if (wasFailed && !await db.retryFailedGenerationJob(jobId, useDeepSeek:true)) {
         _externalDeepSeekSelected = false;
-        error = '这条回复状态已变化，请稍后重试。';
+        _showTemporaryHint('这条回复状态已变化，请稍后重试。');
         _safeNotify();
         return;
       }
@@ -1367,7 +1378,7 @@ class ChatController extends ChangeNotifier {
       holdFor: const Duration(seconds: 30),
     );
     if (!chatLease) {
-      error = '另一处聊天窗口正在发送消息，请等她这一轮回复完成后再试。';
+      _showTemporaryHint('另一处聊天窗口正在发送消息，请等她这一轮回复完成后再试。');
       _safeNotify();
       return false;
     }
@@ -1776,7 +1787,7 @@ class ChatController extends ChangeNotifier {
     await _stopTurnAudio();
     final job = await db.restartLatestCompletedReply(assistant.id);
     if (job == null) {
-      error = '只能重新生成当前最新回复；如果后台仍在整理，请稍后再试。';
+      _showTemporaryHint('只能重新生成当前最新回复；如果后台仍在整理，请稍后再试。');
       _safeNotify();
       return;
     }
@@ -1795,7 +1806,7 @@ class ChatController extends ChangeNotifier {
       holdFor: const Duration(seconds: 30),
     );
     if (!ownsLease) {
-      error = '另一处聊天窗口正在使用回复通道，请稍后再确认。';
+      _showTemporaryHint('另一处聊天窗口正在使用回复通道，请稍后再确认。');
       _safeNotify();
       return;
     }
@@ -2321,6 +2332,7 @@ class ChatController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _hintTimer?.cancel();
     _disposed = true;
     _petSpeechHeartbeat?.cancel();
     _petSpeechHeartbeat = null;

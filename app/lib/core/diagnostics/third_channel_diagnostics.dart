@@ -13,7 +13,7 @@ class ThirdChannelDiagnostics {
   static const maxEvents = 40;
   static const lanes = {'final_reply', 'proactive_final_reply',
     'qq_private_reply', 'qq_group_reply', 'app_vision', 'qq_vision',
-    'connection_test', 'calendar_followup', 'cedar_live_share',
+    'connection_test', 'calendar_followup', 'creative_completion', 'cedar_live_share',
     'immersive_final_reply'};
   final AppDatabase db;
   final BrainWorkFence fence;

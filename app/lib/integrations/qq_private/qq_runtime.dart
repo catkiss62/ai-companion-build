@@ -300,7 +300,10 @@ class QqRuntime {
       if(b.group && !opts.groups.contains(b.target)) return false;
       final authority=await store.db.getSetting(QqShareStore.policyKey(c.namespace));
       if(authority!=null && authority!=QqStore.hash(o.toJson())) return false;
-      final reader=QqArchiveReader(await store.db.database);
+      final sql = await store.db.database;
+      if (pending.isEmpty && (await sql.query('qq_archive',columns:['seq'],
+          where:"conversation_id=? AND role='user' AND seq>?",whereArgs:[cid,b.through],limit:1)).isNotEmpty) return false;
+      final reader=QqArchiveReader(sql);
       if(!await reader.matches(batchStamp) || !await reader.matches(qqStamp) || !await reader.matches(echoStamp) || !await reader.matches(pendingStamp) || !await reader.matches(webStamp)) return false;
       if(mainStamp!=null && !(privateCurrent!=null?await privateCurrent!(mainStamp):await QqReadOnlyContext.readMain((ctx)=>ctx.matchesStamp(mainStamp)))) return false;
       if(styleStamp!=null && styleStamp!=(await QqGroupLearning(store).projection(cid)).stamp)return false;
@@ -607,8 +610,10 @@ class QqRuntime {
           requestedFormat!=QqDrawingFormat.sketch
           ? await secure.readIllustration()
           : const IllustrationConnection();
+      final recovered = pending.isEmpty && reusedDraft == null && illustrationConnection.configured
+          ? await illustrations.recoverUnsent(b,current) : null;
       final canIllustrate=illustrationConnection.configured &&
-          (drawingRequested || await QqDrawingPolicy.autonomousIllustrationOpportunity(store,b,drawingAt));
+          (recovered != null || drawingRequested || await QqDrawingPolicy.autonomousIllustrationOpportunity(store,b,drawingAt));
       await store.illustrationAudit(b,'eligibility',drawingAt,{
         'group':b.group,'enabled':o.illustrationEnabled,'busy':_drawingBusy,
         'cancelled':cancelledDrawing,'configured':illustrationConnection.configured,
@@ -649,9 +654,9 @@ class QqRuntime {
       final generator=QqReplyGenerator(client:client,secure:secure,current:current,diagnosticDb:store.db,onStatus:status,
         onFailure:(stage,error,attempt)=>store.recordFailure(fence,stage,error,attempt:attempt,operation:b.id,conversation:b.cid));
       final channel=c.replyChannel.isNotEmpty?c.replyChannel:(await secure.readChatProvider()).isGeminiRelay?'second':'first';
-      var raw=reusedDraft?['raw'] is String?reusedDraft!['raw'] as String:await generator.generate(channel:channel,firstModel:model,firstEffort:await FirstChannelModel.readEffort(store.db),
+      var raw=recovered?.raw ?? (reusedDraft?['raw'] is String?reusedDraft!['raw'] as String:await generator.generate(channel:channel,firstModel:model,firstEffort:await FirstChannelModel.readEffort(store.db),
         secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),
-        messages:[{'role':'system','content':prompt},{'role':'user','content':data}],usageLane:b.group?'qq_group_reply':'qq_private_reply');
+        messages:[{'role':'system','content':prompt},{'role':'user','content':data}],usageLane:b.group?'qq_group_reply':'qq_private_reply'));
       final collectCaption=QqCollectCandidate.caption(raw);
       raw=QqCollectCandidate.visible(raw);
       if(collectCaption!=null && collection!=null && reusedDraft==null && await current()) {
@@ -735,7 +740,7 @@ class QqRuntime {
           }
           _drawingBusy=true;ownsDrawing=true;releaseSlot?.call();
           status('illustrating');
-          illustration=await illustrations.generate(
+          illustration=recovered?.picture ?? await illustrations.generate(
             batch:b,choice:illustrationChoice,connection:illustrationConnection,secure:secure,
             planner:client,rawReply:raw,
             context:drawingRequest.length<=1200?drawingRequest:drawingRequest.substring(drawingRequest.length-1200),

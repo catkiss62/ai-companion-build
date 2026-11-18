@@ -1550,6 +1550,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                                 ),
                               ),
                             ),
+                          if (controller.temporaryHint case final hint?)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              child: Text(hint, style: Theme.of(context).textTheme.bodySmall),
+                            ),
                           if (controller.visionFallbackNotice case final notice?)
                             _chatNotice(
                               context,

@@ -61,6 +61,35 @@ void main() {
   }
   ChatMessage reply(String id,DateTime now) => ChatMessage(id:id,role:'assistant',content:'聊天',createdAt:now,isProactive:true);
 
+  test('WAIT ends only this reminder body across repeated wakes', () async {
+    var calls = 0;
+    final followup = CalendarReminderFollowup(db, generator: (_, __, ___) async {
+      calls++;
+      return (text:'<emotion>正常</emotion>WAIT',model:'fixture');
+    });
+    for (var i = 0; i < 4; i++) { await followup.deliverOne(); }
+    expect(calls, 1);
+    expect(event['delivery'], 'cancelled');
+    expect(notifications, 0);
+  });
+
+  test('temporary failures survive a restart and only retry when due', () async {
+    var calls = 0;
+    var clock = DateTime.now();
+    CalendarReminderFollowup worker() => CalendarReminderFollowup(db,now:()=>clock,
+        generator: (_, __, ___) async {
+          calls++;
+          return calls < 3 ? null : (text:'现在出发',model:'fixture');
+        });
+    await worker().deliverOne(); await worker().deliverOne();
+    expect(calls,1);
+    clock = clock.add(const Duration(minutes:1));
+    await worker().deliverOne(); await worker().deliverOne();
+    expect(calls,2);
+    clock = clock.add(const Duration(minutes:5));
+    await worker().deliverOne(); await worker().deliverOne();
+    expect(calls,3); expect(notifications,1);
+  });
   test('reminder uses provider output budget and diagnoses length before fallback', () async {
     FlutterSecureStorage.setMockInitialValues({'deepseek_api_key': 'test-deepseek'});
     await SecureConfig.instance.writeChatProvider(ChatApiProvider.aiWangYouGemini);

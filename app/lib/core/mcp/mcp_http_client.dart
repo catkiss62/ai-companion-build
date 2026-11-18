@@ -13,6 +13,22 @@ class McpHttpException implements Exception {
   final String code;
   final String detail;
 
+  bool get knownToolRejection {
+    if (code == 'tool_not_dispatched') return true;
+    if (code != 'remote_error') return false;
+    try {
+      final error = jsonDecode(detail);
+      return error is Map && const {-32700, -32600, -32601, -32602}.contains(error['code']);
+    } on FormatException {
+      return false;
+    }
+  }
+
+  McpToolOutcome get rejection => McpToolOutcome(isError: true, content: [
+    McpContentBlock(kind: McpContentKind.text, text: code == 'tool_not_dispatched'
+        ? 'Cedar 尚未发送本次操作：$detail' : 'Cedar 拒绝本次调用：$code'),
+  ]);
+
   @override
   String toString() => detail.isEmpty ? code : '$code:$detail';
 }
@@ -57,7 +73,11 @@ class McpHttpClient {
     Map<String, Object?> arguments, {
     GenerationCancellationToken? cancellationToken,
   }) async {
-    await _initialize(cancellationToken);
+    try {
+      await _initialize(cancellationToken);
+    } on McpHttpException catch (error) {
+      throw McpHttpException('tool_not_dispatched', error.code);
+    }
     final result = await _request(
       'tools/call',
       <String, Object?>{'name': name, 'arguments': arguments},
@@ -67,6 +87,9 @@ class McpHttpClient {
       throw const McpHttpException('invalid_response');
     }
     final rawContent = result['content'];
+    if (rawContent is! List && result['structuredContent'] == null) {
+      throw const McpHttpException('invalid_response');
+    }
     final content = rawContent is List
         ? rawContent
             .whereType<Map>()

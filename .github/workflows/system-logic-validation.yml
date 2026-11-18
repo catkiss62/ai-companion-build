@@ -30,6 +30,9 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
+      - name: External action receipts, original image recovery and reminder retries
+        working-directory: app
+        run: flutter test --timeout 90s --reporter expanded test/mcp_transport_boundary_test.dart test/qq_recovery_v042148_test.dart test/creative_delivery_test.dart test/calendar_reminder_delivery_test.dart
       - name: Reply revision, vision and translation ownership
         working-directory: app
         run: flutter test --timeout 60s --reporter expanded test/reply_revision_ownership_test.dart test/message_language_variant_service_test.dart test/conversation_source_store_test.dart

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:ai_companion_localfirst/core/ai/third_channel_config.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -16,6 +18,8 @@ import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 http.Response answer([String text = '小灯做好了，点一下就能亮起来。']) => http.Response(
   'data: ${jsonEncode({'choices': [{'delta': {'content': text}, 'finish_reason': 'stop'}]})}\n\n'
   'data: [DONE]\n\n', 200, headers: {'content-type': 'text/event-stream; charset=utf-8'});
+
+class _LocalHttp extends HttpOverrides {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +58,32 @@ void main() {
       where: "proactive_intent = 'creative_ready'");
   Future<Map<String, dynamic>> notice() => CreativeDelivery(db).read(id);
   Future<void> tick(CreativeDelivery runtime) async { clock = clock.add(const Duration(minutes: 5)); await runtime.runOnce(); }
+
+  test('completion uses enabled third channel before the relay', () async {
+    await HttpOverrides.runWithHttpOverrides(() async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4,0);
+      var posts = 0;
+      server.listen((request) async {
+        await request.drain<void>();
+        if (request.uri.path == '/health') {
+          request.response.headers.contentType=ContentType.json;
+          request.response.write('{"status":"ok","version":"fixture"}');
+        } else {
+          posts++;
+          request.response.headers.set('content-type','text/event-stream; charset=utf-8');
+          request.response.write(answer('第三通道完成通知').body);
+        }
+        await request.response.close();
+      });
+      try {
+        await SecureConfig.instance.writeThirdChannel(ThirdChannelConfig(enabled:true,
+            baseUrl:'http://127.0.0.1:${server.port}/v1',apiKey:'synthetic-third'));
+        await tick(runner((_) async => answer('第二通道')));
+        expect((await delivered()).single['content'],'第三通道完成通知');
+        expect(posts,1); expect(calls,0);
+      } finally { await server.close(force:true); }
+    }, _LocalHttp());
+  });
 
   test('one direct second-channel body, no planner, real card identity and no proactive quota', () async {
     final runtime = runner((request) async {

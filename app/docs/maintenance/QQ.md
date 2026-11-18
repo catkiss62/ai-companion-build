@@ -40,3 +40,5 @@ QQ专用结构化观察入口：[qq_vision_observation.dart](../../lib/core/ai/q
 [qq_illustration_audit.dart](../../lib/integrations/qq_private/qq_illustration_audit.dart)保留20次资格/选择/生成/图片实际回执阶段，诊断导出不含正文、凭据或群号；与既有错误记录结合，判断未选择或被语音/复读/SVG优先替代。未修改生图概率/冷却/媒体优先级，未新增模型请求。
 
 回归：[qq_observation_v2_test.dart](../../test/qq_observation_v2_test.dart)、[qq_connection_preference_test.dart](../../test/qq_connection_preference_test.dart)、[QqPrivateServiceTest.kt](../../android/app/src/test/kotlin/com/aicompanion/localfirst/qq/QqPrivateServiceTest.kt)。真实偶发取消根因仍需新诊断，不将薄弱处修补写成现场根因确认。
+
++456：同操作确定未发送并且来源、群与原图仍有效时，恢复后直接使用已保存的原图；部分投递及未知送达均不整批重发。

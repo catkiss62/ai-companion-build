@@ -37,6 +37,24 @@ McpHttpClient _transport(_Client client, {Duration timeout = const Duration(seco
         client: client, timeout: timeout);
 
 void main() {
+  for (final failure in ['http','invalid','empty','rejected']) {
+    test('a single dispatched call classifies its receipt: $failure', () async {
+      var writes = 0;
+      final client = _Client((request) async {
+        final payload = _payload(request);
+        if (payload['method'] != 'tools/call') return _setup(request);
+        writes++;
+        if (failure == 'http') return http.StreamedResponse(const Stream.empty(),502);
+        if (failure == 'invalid') return http.StreamedResponse(Stream.value(utf8.encode('bad')),200);
+        return _json({'jsonrpc':'2.0','id':payload['id'],
+          if (failure == 'empty') 'result':{} else 'error':{'code':-32602,'message':'wrong argument'}});
+      });
+      await expectLater(_transport(client).callTool('play',{}),throwsA(isA<McpHttpException>()
+          .having((e)=>e.knownToolRejection,'confirmed rejection',failure == 'rejected')));
+      expect(writes,1);
+    });
+  }
+
   test('SSE ignores notifications and wrong ids, joins data lines, and closes at result', () async {
     var cancelled = false;
     final body = StreamController<List<int>>(onCancel: () { cancelled = true; });
