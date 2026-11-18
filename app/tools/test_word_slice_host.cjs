@@ -90,3 +90,49 @@ assert.equal(strokeCalls.length-strokeStart,3,'busy frame rasterizes one new lab
 run('for(let i=0;i<40;i++)draw()');
 assert.ok(run('labelBitmaps.size')<=32,'label bitmap cache stays bounded');
 console.log('PASS: red impact text, existing upward fade, gradual scale, outlines reused, and bounded warmup/cache.');
+
+
+// A touch unlocks audio, but system Back, activity hide and resume are silent.
+let playedVoices=0;
+const audioParameter=()=>({value:0,setValueAtTime(){},exponentialRampToValueAtTime(){}});
+const audioNode=()=>({gain:audioParameter(),frequency:audioParameter(),Q:audioParameter(),
+ connect(){},disconnect(){},start(){playedVoices++;},stop(){}});
+sandbox.window.AudioContext=class {
+ constructor(){this.state='running';this.currentTime=1;this.sampleRate=48000;this.destination={};}
+ createGain(){return audioNode();}
+ createOscillator(){return audioNode();}
+ createBufferSource(){return audioNode();}
+ createBiquadFilter(){return audioNode();}
+ createBuffer(){return {getChannelData(){return new Float32Array(14400);}};}
+};
+run('window.sliceHost.reset()');
+const pullEvent=y=>({pointerId:23,clientX:358,clientY:y,preventDefault(){},stopPropagation(){}});
+const pendant=el('pendant');
+let pendantY=run('pendantPose().y');
+pendant.events.pointerdown(pullEvent(pendantY));
+pendant.events.pointerup(pullEvent(pendantY));
+assert.equal(run('sound.context.state'),'running');
+assert.equal(playedVoices,0);
+run('window.sliceHost.reset();window.sliceHost.suspend();window.sliceHost.resume();draw()');
+assert.equal(playedVoices,0,'system keys and foreground restore must be silent when idle');
+run('window.sliceHost.start([])');
+let beforeReset=playedVoices;
+assert.ok(beforeReset>0,'the game start remains audible');
+run('window.sliceHost.reset();draw()');
+assert.equal(playedVoices,beforeReset,'Android Back is silent even in a game');
+assert.equal(run('sound.voices.size'),0);
+run('window.sliceHost.start([])');
+beforeReset=playedVoices;
+run('window.sliceHost.suspend();window.sliceHost.resume();draw()');
+assert.equal(playedVoices,beforeReset,'leaving and restoring an active game never plays a cue');
+assert.equal(run('sound.voices.size'),0);
+run('window.sliceHost.start([])');
+const beforePull=playedVoices;
+pendantY=run('pendantPose().y');
+pendant.events.pointerdown(pullEvent(pendantY));
+pendant.events.pointermove(pullEvent(pendantY+90));
+pendant.events.pointerup(pullEvent(pendantY+90));
+run('for(let i=0;i<20;i++)update(1/120);draw()');
+assert.equal(run('mode'),'idle');
+assert.equal(playedVoices,beforePull+1,'explicit pendant exit still plays exactly one cue');
+console.log('PASS: silent system Back, suspension and return after touch, explicit pendant exit stays audible.');

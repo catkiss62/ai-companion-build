@@ -43,8 +43,8 @@ window.sliceHost={
  },
  configure(layout){hostLayout=layout;hostReady=true;$('hud').style.top=(layout.hudTop+8)+'px';resize();},
  start(snapshot){startWaiting=false;if(!hostReady||!visible)return;hostGlyphs=snapshot;startCapturedGame();},
- reset(){exitGame();sound.stop();},
- suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;exitGame();sound.stop();visible=false;last=0;acc=0;},
+ reset(){exitGame();},
+ suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;visible=false;exitGame();last=0;acc=0;},
  resume(){visible=true;last=0;acc=0;},
 };
 window.addEventListener('error',()=>NativeSlice.failed());

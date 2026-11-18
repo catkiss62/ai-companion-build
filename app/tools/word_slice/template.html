@@ -32,7 +32,7 @@ const sound={enabled:true,context:null,master:null,voices:new Set(),last:{},nois
  }catch(_){this.status('音频初始化失败');return Promise.resolve(false);}},
  stop(){for(const n of this.voices){try{n.stop();}catch(_){}}this.voices.clear();this.last={};},
  note(freq,end,duration,volume,type='sine',delay=0){const c=this.context;if(!c||c.state!=='running'||this.voices.size>=12)return;const t=c.currentTime+delay,g=c.createGain();let n,filter;if(type==='noise'){n=c.createBufferSource();n.buffer=this.noise;filter=c.createBiquadFilter();filter.type='bandpass';filter.Q.value=.7;filter.frequency.setValueAtTime(freq,t);filter.frequency.exponentialRampToValueAtTime(end,t+duration);n.connect(filter);filter.connect(g);}else{n=c.createOscillator();n.type=type;n.frequency.setValueAtTime(freq,t);n.frequency.exponentialRampToValueAtTime(end,t+duration);n.connect(g);}g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume*(this.effectGain||2),t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+duration);g.connect(this.master);this.voices.add(n);n.onended=()=>{this.voices.delete(n);n.disconnect();g.disconnect();if(filter)filter.disconnect();};n.start(t);n.stop(t+duration+.02);},
- play(kind,count=1){if(!this.enabled||!this.context||this.context.state!=='running')return false;const now=this.context.currentTime,gap=kind==='swish'?.13:.06;if(now-(this.last[kind]??-100)<gap)return false;this.last[kind]=now;this.effectGain=kind==='hit'?2.5:2;
+ play(kind,count=1){if(!visible||!this.enabled||!this.context||this.context.state!=='running')return false;const now=this.context.currentTime,gap=kind==='swish'?.13:.06;if(now-(this.last[kind]??-100)<gap)return false;this.last[kind]=now;this.effectGain=kind==='hit'?2.5:2;
  switch(kind){case 'start':this.note(230,720,.18,.17,'triangle');this.note(800,1600,.16,.08,'noise');break;
  case 'swish':this.note(1800,650,.1,.09,'noise');break;
  case 'cut':this.note(2400,950,.075,.22,'noise');this.note(640+Math.min(count,12)*28,380,.075,.13,'triangle');break;
@@ -129,7 +129,13 @@ function beginIntro(){
  roundStart=time;spawnAt=time+2.2;lockUi(true);sound.play('start');
  $('subscore').textContent='切开文字 · 避开小鲸鱼';app.classList.add('playing');setScore();
 }
-function exitGame(){love=null;loveHits=0;$('damage').style.opacity='0';sound.stop();sound.play('exit');mode='idle';lockUi(false);app.classList.remove('playing');$('result').style.display='none';glyphs=[];bombs=[];particles=[];labels=[];trail=[];victim=null;activePointer=null;swipeSound.reset();introCacheJob=null;pending=null;releaseGate=false;idleName='默认动作';idleSince=time;idleNext=time+3;}
+function exitGame(){love=null;loveHits=0;$('damage').style.opacity='0';sound.stop();mode='idle';lockUi(false);app.classList.remove('playing');$('result').style.display='none';glyphs=[];bombs=[];particles=[];labels=[];trail=[];victim=null;activePointer=null;swipeSound.reset();introCacheJob=null;pending=null;releaseGate=false;idleName='默认动作';idleSince=time;idleNext=time+3;}
+// Lifecycle and Back reset silently. The cue belongs to an explicit pendant exit.
+function exitByPendant(){
+ if(mode==='idle')return;
+ exitGame();
+ sound.play('exit');
+}
 const rowPhrases=["今晚月色好", "星星眨眨眼", "月亮偷偷笑", "晚风轻轻吹", "云朵慢慢飘", "银河装口袋", "一起数星星", "偷偷许个愿", "把梦藏枕边", "明天也晴天", "小鲸鱼来了", "尾巴摇一摇", "鱼鱼想摸鱼", "今天不加班", "摸鱼最开心", "快乐冒个泡", "烦恼都切掉", "坏心情飞走", "好运接住啦", "今天也很棒", "主人看这里", "再陪我一会", "给你比个心", "想要摸摸头", "抱抱就好了", "靠近一点点", "心跳漏一拍", "喜欢藏不住", "偷偷看着你", "陪你到天亮", "奶茶加点甜", "饼干分你半", "糖果藏袖口", "草莓有点甜", "想吃小蛋糕", "热茶暖手心", "火锅咕嘟嘟", "早餐要吃饱", "今天吃什么", "留口给我嘛", "手速快一点", "刀光闪一下", "连击别停下", "这波稳稳的", "小心别切我", "爱意接住啦", "再来一局嘛", "赢了夸夸你", "输了也抱抱", "快乐不打烊"];
 function spawnWave(){if(love)return;wave++;const row=Math.random()<.18,n=row?5:Math.floor(rand(3,6));let x=rand(W*.23,W*.67);const phrase=row?[...pick(rowPhrases)]:null,rowGap=Math.min(54,(W-100)/4),rowCenter=W/2+rand(-10,10);const rowVelocity=-Math.sqrt(2*settings.gravity*H*.43);const pool='小鲸鱼主人晚安喜欢星星月亮尾巴摸鱼开心今天陪你玩游戏';for(let i=0;i<n;i++){let start=row?rowCenter+(i-2)*rowGap:clamp(x+(i-n/2)*32,35,W-55);glyphs.push({ch:row?phrase[i]:pick([...pool]),x:start,y:floorY()+55,size:row?32:rand(28,39),vx:row?0:rand(-65,65),vy:row?rowVelocity:-Math.sqrt(2*settings.gravity*rand(H*.34,H*.55)),r:row?0:rand(-.35,.35),vr:row?0:rand(-1.8,1.8),color:pick(settings.palette),intro:false,cut:false});}
  if(wave%settings.bombEvery===0){const count=Math.random()<.24?3:1;const center=rand(W*.3,W*.65);for(let i=0;i<count;i++)bombs.push({x:clamp(center+(i-(count-1)/2)*65,35,W-35),y:floorY()+50,vx:rand(-15,15),vy:-Math.sqrt(2*settings.gravity*H*.42),r:rand(-.22,.22),vr:rand(.40,.85)*(Math.random()<.5?-1:1),age:time+i*.16});}}
@@ -188,7 +194,7 @@ function update(dt){time+=dt;$('damage').style.opacity=victim?String(Math.max(0,
  if(mode==='playing'&&!love&&score>=nextLoveScore){love={x:rand(W*.23,W*.67),y:floorY()+45,vx:rand(-65,65)*2/3,vy:-Math.sqrt(2*settings.gravity*rand(H*.34,H*.55))*2/3,gravity:settings.gravity*4/9,r:rand(-.35,.35),vr:rand(-1.8,1.8),trailAt:time,active:false};nextLoveScore+=100;}
  if(love){if(love.active){$('subscore').textContent='爱意连切 · '+Math.max(0,love.end-time).toFixed(1)+' 秒 · 暂无炸弹';if(time>=love.end)finishLove();}else{love.r+=love.vr*dt;if(time>=love.trailAt){particles.push({kind:'spark',x:love.x+rand(-8,8),y:love.y+rand(-8,8),vx:rand(-10,10),vy:rand(-8,8),gravity:18,size:rand(1,2.2),color:pick(['#ffb5d3','#ffd6e9','#ffe7b8']),alpha:.45,life:.48,max:.48});love.trailAt=time+.045;}love.vy+=love.gravity*dt;love.y+=love.vy*dt;love.x+=love.vx*dt;if(love.x<32||love.x>W-32){love.x=clamp(love.x,32,W-32);love.vx*=-1;}if(love.y>H+75){love=null;spawnAt=time+.4;}}}
  if(mode==='playing'&&!love&&time>=spawnAt){spawnWave();spawnAt=time+settings.spawn+rand(0,.35)}
- if(pending&&time>transitionUntil){let p=pending;pending=null;p==='start'?startGame():exitGame()}
+ if(pending&&time>transitionUntil){let p=pending;pending=null;p==='start'?startGame():exitByPendant()}
  for(const g of glyphs){if(g.intro&&(introCacheJob||time-roundStart<.20+g.delay))continue;g.vy+=settings.gravity*dt;g.x+=g.vx*dt;g.y+=g.vy*dt;g.r+=g.vr*dt;}
  glyphs=glyphs.filter(g=>!g.cut&&g.y<H+70);
  for(const b of bombs){
@@ -341,7 +347,7 @@ pendant.addEventListener('pointermove',e=>{if(e.pointerId!==pullPointer)return;c
 function releasePull(e,cancel=false){if(e.pointerId!==pullPointer)return;const distance=drag.y-pullStart.baseY;drag=null;pullPointer=null;if(pendant.hasPointerCapture(e.pointerId))pendant.releasePointerCapture(e.pointerId);if(!cancel&&distance>=settings.pull){pending=mode==='idle'?'start':'exit';transitionUntil=time+.12}else if(!cancel&&distance<8)toast(mode==='idle'?'向下拉一小段，松手开始':'下拉小鲸鱼，松手退出');}
 pendant.addEventListener('lostpointercapture',e=>releasePull(e,true));
 pendant.addEventListener('pointerup',e=>releasePull(e));pendant.addEventListener('pointercancel',e=>releasePull(e,true));
-pendant.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){sound.unlock();e.preventDefault();mode==='idle'?startGame():exitGame()}});
+pendant.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){sound.unlock();e.preventDefault();mode==='idle'?startGame():exitByPendant()}});
 // Track motion independently of the collision samples and fading trail.
 const swipeSound={
  anchor:null, direction:null,
