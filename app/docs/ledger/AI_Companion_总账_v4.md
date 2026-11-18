@@ -2,9 +2,9 @@
 
 ## 当前接班快照
 
-- **+454 任务开工（2026-11-18）。** 用户实机反馈三处提示字去描边更舒服。按反馈收尾切字提示字和爱意连切状态文案。
+- **当前交付 v0.42.210+454 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `f359f367a2bfef7956a86076de860ca8ef868879`。** 普通连切、受击「痛！」和爱字连切提示改为纯色，爱意连切左上角状态保留标题和倒计时。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227409)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227111)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126/artifacts/14440537198)（登录 GitHub 后下载 ZIP，内含 APK）。真机观感待确认。
 
-- **当前交付 v0.42.209+453 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `4bda2c051eef00a54edc95abbaaf5f94aebb9494`。** 切字受击红字渐大、连切与受击字细描边、音量 1.5 倍和结算卡精简；触碰挂件后系统按键切出、返回或恢复的退出音已从清理流程移除。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024197)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024226)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194/artifacts/14435775293)（登录 GitHub 下 ZIP，内含 APK）。下一步从末尾 +453 条目收集系统键、音量和密集连切的真机反馈。
+- **上一版交付 v0.42.209+453 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `4bda2c051eef00a54edc95abbaaf5f94aebb9494`。** 切字受击红字渐大、连切与受击字细描边、音量 1.5 倍和结算卡精简；触碰挂件后系统按键切出、返回或恢复的退出音已从清理流程移除。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024197)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024226)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194/artifacts/14435775293)（登录 GitHub 下 ZIP，内含 APK）。下一步从末尾 +453 条目收集系统键、音量和密集连切的真机反馈。
 
 - **上一版交付 v0.42.208+452 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `5b3a6255f289b21d182f21781e8a127e3a593793`。** 主动话题按需核对旧进度、白天近况最多 6 条原话；切字开场分帧缓存、原刀声随转向触发、炸弹落地结算、侧栏返回重新测挂点。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189779)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44294192039)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189732)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189779/artifacts/14424952524)（登录 GitHub 下载 ZIP，内含 APK）。下一步从本账末尾 +452 项收集真机反馈。
 - **小模型使用原则。** 按需使用已接入的本地 BGE 语义模型，零 API 费用，受本地时延、电量和候选范围约束。JEV 适合短分类与轻量选择，仍是独立外部调用并按其线路计费。优先复用这些能力和既有正文调用。
@@ -813,3 +813,5 @@
 - 用户在 +453 后希望将普通连切、受击「痛！」和爱字连切三处提示换回无描边，去掉左上角「· 暂无炸弹」。基线 `ea0c92a`，源码身份 v0.42.210+454 / schema67。
 - 提示字使用 Canvas 纯色绘制，移除仅供 +453 提示字描边使用的贴图缓存。受击红色、上浮、淡出和渐大沿用 +453，爱字本体的原有样式及奖励倒计时保留。
 - 待真机确认三处提示字观感和爱意连切状态栏。
+- 两套切字回归通过。验证普通连切、爱意连切及受击提示使用纯色，受击红字仍可上浮、渐大和淡出，爱字倒计时文案正确。最终签名构建 44328227126 通过全量 Flutter、原生回归、资源及既有签名核验。独立回归 44328227409、文档 CI 44328227111 通过。
+- 测试包 artifact 14440537198，APK SHA-256 `a4df4d1973cd3d2fae111caed5de5f7e062ee807182e9024b4a9cdd09e2623e8`。原签名 arm64 测试包已上传，+454 真机待验。
