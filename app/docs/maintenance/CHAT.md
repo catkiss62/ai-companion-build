@@ -33,13 +33,13 @@
 人工/真机重点：多轮长资料尾部问题、停止/重生成、服务商截断与第三通道失败提示。
 
 
-## 聊天挂件与切字（+452）
+## 聊天挂件与切字（+453）
 
 - [word_slice_bridge.dart](../../lib/features/chat/word_slice_bridge.dart)：聊天框顶部/气焰值中心/输入区边界的实际布局坐标，仅在WordSliceText正文边界内读取可见RenderEditable/RenderParagraph，按字素复制实际坐标，排除时间/图标/工具详情；不写入聊天数据，不调用AI。
 - [WordSliceHost.kt](../../android/app/src/main/kotlin/com/aicompanion/localfirst/WordSliceHost.kt)：本地透明WebView；空闲只拥有挂件手势，游戏时拦截底层操作。沿用MainActivity窗口观察保持两套Live2D注视，不派发摸头事件。
 - 源码：`app/tools/word_slice/template.html`与`assets.json`为已实测v6原型；`app/tools/build_word_slice.py`生成Android bundle。改游戏后重跑构建器及两套Node回归，不直接修改生成HTML。
-- 挂点=聊天面板上边缘，横向=气焰值中心；下拉66逻辑像素切换。正式版无下拉常驻文字、音效开关、试听按钮。奖励3秒，50条五字横排，音量保留v6。
+- 挂点=聊天面板上边缘，横向=气焰值中心；下拉66逻辑像素切换。正式版无下拉常驻文字、音效开关、试听按钮。奖励3秒，50条五字横排，游戏音效总线增益为 0.975（+452 的 1.5 倍）。
 - 后台/路由离开/键盘展开结束当前局并清理声音、显示真实聊天；不会自动恢复一局。渲染器退出/捕获超时/心跳丢失释放交互，避免透明层锁屏。复用 RoomDepthMotionBridge 传感器，挂点随聊天框，挂件响应屏幕平面重力并可整圈旋转及摆出画面，命中区跟随挂件中心。隐藏时解绑，独立于背景立体开关。未接悬浮窗、Agent工具、存档新字段。
-- 开场和游戏中的字采用细描边，左上角 HUD 无文字阴影。炸弹飞出时轻转，沿划动方向受击弹飞，首次落地即结算，哭泣继续播。结算卡才提示下拉退出。
+- 开场和游戏中的字采用细描边，左上角 HUD 无文字阴影。炸弹飞出时轻转，沿划动方向受击弹飞，首次落地即结算，哭泣继续播，结算卡保留分数和再来一次。受击红字保留上浮与淡出并平滑放大，连切和受击的细描边按 32 项、每帧最多一项缓存。
 - 开场为有界分帧字形贴图预热及约 0.2 秒原位放大，准备期间原聊天可见，飞行复用贴图；原刀声仅起划及明显转向时播放。返回聊天时等路由位移动画结束后再配置原生挂点。
 - 验证：`node app/tools/word_slice/test.cjs`、`node app/tools/test_word_slice_host.cjs`、`app/test/word_slice_bridge_test.dart`；真机重点：面板调高调低、Live2D跟随、游戏结束/再次下拉/系统返回、打开侧栏/设置、前后台及输入法。

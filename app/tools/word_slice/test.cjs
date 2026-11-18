@@ -32,6 +32,7 @@ const param=()=>({value:0,setValueAtTime(){},exponentialRampToValueAtTime(){}});
 const node=()=>({gain:param(),frequency:param(),Q:param(),connect(){},disconnect(){},start(){starts++},stop(){stops++}});
 sandbox.window.AudioContext=class {constructor(){this.currentTime=1;this.sampleRate=48000;this.state='running';this.destination={}}createGain(){return node()}createOscillator(){return node()}createBufferSource(){return node()}createBiquadFilter(){return node()}createBuffer(){return{getChannelData(){return new Float32Array(14400)}}}resume(){return Promise.resolve()}};
 run("sound.unlock();sound.play('cut',1)");assert.equal(starts,2);
+assert.ok(Math.abs(run('sound.master.gain.value')-.975)<1e-12,'overall gain is 1.5× the previous .65');
 run("sound.play('cut',1)");assert.equal(starts,2);
 run("sound.context.currentTime+=1;sound.play('hit')");assert.equal(starts,5);
 run("for(let i=0;i<30;i++)sound.note(200,100,.1,.1)");assert.equal(run('sound.voices.size'),12);
