@@ -2,6 +2,8 @@
 
 ## 当前接班快照
 
+- +454 最近一次切字文字微调用户反馈正常。大审查 G3/G4 新增普通聊天相对日期与说话人归属案例，见本账末尾 11 月 19 日记录。
+
 - **当前交付 v0.42.210+454 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `f359f367a2bfef7956a86076de860ca8ef868879`。** 普通连切、受击「痛！」和爱字连切提示改为纯色，爱意连切左上角状态保留标题和倒计时。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227409)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227111)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44328227126/artifacts/14440537198)（登录 GitHub 后下载 ZIP，内含 APK）。真机观感待确认。
 
 - **上一版交付 v0.42.209+453 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `4bda2c051eef00a54edc95abbaaf5f94aebb9494`。** 切字受击红字渐大、连切与受击字细描边、音量 1.5 倍和结算卡精简；触碰挂件后系统按键切出、返回或恢复的退出音已从清理流程移除。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024197)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024226)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194/artifacts/14435775293)（登录 GitHub 下 ZIP，内含 APK）。下一步从末尾 +453 条目收集系统键、音量和密集连切的真机反馈。
@@ -815,3 +817,9 @@
 - 待真机确认三处提示字观感和爱意连切状态栏。
 - 两套切字回归通过。验证普通连切、爱意连切及受击提示使用纯色，受击红字仍可上浮、渐大和淡出，爱字倒计时文案正确。最终签名构建 44328227126 通过全量 Flutter、原生回归、资源及既有签名核验。独立回归 44328227409、文档 CI 44328227111 通过。
 - 测试包 artifact 14440537198，APK SHA-256 `a4df4d1973cd3d2fae111caed5de5f7e062ee807182e9024b4a9cdd09e2623e8`。原签名 arm64 测试包已上传，+454 真机待验。
+
+## 2026-11-19 · 普通聊天相对日期与承诺归属（已核对样本，待大审查后处理）
+
+- 以 +454 为基线，定点对照检查导出的 600 条聊天和该轮诊断。跨午夜一轮中，正文把用户过去的作息表述写成上一晚的明确承诺。覆盖范围内可核实的是用户当时准备休息，以及助手此前对作息的评价，未找到支持这项承诺的用户原话。
+- 诊断仅保留最终请求结构和哈希。回合后的判断及记忆提取不能证明写正文时曾召回某条旧记忆。事件发生时间、消息记录时间、说话人及提取内容如何进入最终请求仍待查。未证实日期计算或设备时区错误。
+- 大审查第一批 G3/G4：用合成样本分别覆盖当晚告别、助手劝休息、用户明确承诺、数天后重提及跨午夜，核对三通道最终输入。已确认输出归属缺乏原话支持，具体来源待定位；本轮仅记录，修复在大审查后统一安排。
