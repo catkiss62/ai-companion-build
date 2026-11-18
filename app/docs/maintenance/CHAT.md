@@ -31,3 +31,13 @@
 上述为定位起点，不代表覆盖全部调用者。历史教训及证据见 [回归索引](REGRESSIONS.md)；执行方式见 [验证导航](VERIFICATION.md)。
 
 人工/真机重点：多轮长资料尾部问题、停止/重生成、服务商截断与第三通道失败提示。
+
+
+## 聊天挂件与切字（+449）
+
+- [word_slice_bridge.dart](../../lib/features/chat/word_slice_bridge.dart)：聊天框顶部/气焰值中心/输入区边界的实际布局坐标，读取可见RenderParagraph作为动画副本；不写入聊天数据，不调用AI。
+- [WordSliceHost.kt](../../android/app/src/main/kotlin/com/aicompanion/localfirst/WordSliceHost.kt)：本地透明WebView；空闲只拥有挂件手势，游戏时拦截底层操作。沿用MainActivity窗口观察保持两套Live2D注视，不派发摸头事件。
+- 源码：`app/tools/word_slice/template.html`与`assets.json`为已实测v6原型；`app/tools/build_word_slice.py`生成Android bundle。改游戏后重跑构建器及两套Node回归，不直接修改生成HTML。
+- 挂点=聊天面板上边缘，横向=气焰值中心；下拉66逻辑像素切换。正式版无下拉常驻文字、音效开关、试听按钮。奖励3秒，50条五字横排，音量保留v6。
+- 后台/路由离开/键盘展开结束当前局并清理声音、显示真实聊天；不会自动恢复一局。渲染器退出/捕获超时/心跳丢失释放交互，避免透明层锁屏。未接陀螺仪、悬浮窗、Agent工具、存档新字段。
+- 验证：`node app/tools/test_word_slice_host.cjs`、`app/test/word_slice_bridge_test.dart`；真机重点：面板调高调低、Live2D跟随、游戏结束/再次下拉/系统返回、打开侧栏/设置、前后台及输入法。

@@ -7,6 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var wordSliceHost: WordSliceHost? = null
     private var reminderCardHost: CalendarReminderCardHost? = null
     private val reminderChanged: () -> Unit = { reminderCardHost?.refresh() }
     private var bridge: SystemBridge? = null
@@ -59,6 +60,7 @@ class MainActivity : FlutterActivity() {
         live2DModelStorageBridge = Live2DModelStorageBridge(this, flutterEngine)
         caicaiLive2DBridge = CaicaiLive2DBridge(this, flutterEngine)
         roomDepthMotion = RoomDepthMotionBridge(this, flutterEngine)
+        wordSliceHost = WordSliceHost(this, flutterEngine)
         nativeFateWheelChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "ai_companion/fate_wheel_native",
@@ -122,6 +124,7 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         com.aicompanion.localfirst.qq.QqPrivateService.maybeRecover(this)
         roomDepthMotion?.onResume()
+        wordSliceHost?.onResume()
         val reminderHost = reminderCardHost ?: CalendarReminderCardHost(this, {
             CalendarReminderAlarm.state(this)
             CalendarReminderRingingService.unconfirmed(this)
@@ -162,6 +165,7 @@ class MainActivity : FlutterActivity() {
         CalendarReminderAlarm.removeListener(reminderChanged)
         reminderCardHost?.stop()
         CalendarReminderRingingService.refreshIfRunning(this)
+        wordSliceHost?.onPause()
         roomDepthMotion?.onPause()
         traceCaicaiLifecycle("activity_pause")
         super.onPause()
@@ -176,7 +180,15 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (wordSliceHost?.onBack() == true) return
+        super.onBackPressed()
+    }
+
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        wordSliceHost?.dispose()
+        wordSliceHost = null
         CompanionRuntimeState.setImmersiveChatPageVisible(false)
         roomDepthMotion?.dispose()
         roomDepthMotion = null

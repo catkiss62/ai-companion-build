@@ -1,3 +1,4 @@
+import 'word_slice_bridge.dart';
 import '../../core/illustration/illustration_job.dart';
 import '../illustration/illustration_result_view.dart';
 import '../creative/creative_pages.dart';
@@ -92,6 +93,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   bool _refreshingPlayfulForm = false;
   bool _appResumed = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
   ModalRoute<dynamic>? _observedRoute;
+  bool _wordSlicePlaying = false;
+  late final _wordSlice = WordSliceBridge(onPlaying: (value) {
+    if (mounted && value != _wordSlicePlaying) setState(() => _wordSlicePlaying = value);
+  });
   bool _routeVisible = true;
   int _chatOpenEpoch = 0;
   bool get _chatVisible => widget.active && _appResumed && _routeVisible;
@@ -212,6 +217,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   @override
   void didPushNext() {
     _routeVisible = false;
+    _wordSlice.hide();
     _chatOpenEpoch++;
     unawaited(_caicaiMotion.stop());
   }
@@ -219,13 +225,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   @override
   void didPop() {
     _routeVisible = false;
+    _wordSlice.hide();
     _chatOpenEpoch++;
     unawaited(_caicaiMotion.stop());
   }
 
   @override
   void didPopNext() {
-    _routeVisible = true;
+    setState(() => _routeVisible = true);
     unawaited(_onChatOpened());
   }
 
@@ -298,6 +305,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.active && !widget.active) {
+      _wordSlice.hide();
       _chatOpenEpoch++;
       unawaited(_caicaiMotion.stop());
     }
@@ -708,6 +716,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
+    if (!_appResumed) _wordSlice.hide();
+    if (mounted) setState(() {});
     if (!_appResumed) {
       _chatOpenEpoch++;
       unawaited(_caicaiMotion.stop());
@@ -727,6 +737,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
   @override
   void dispose() {
+    _wordSlice.dispose();
     _chatOpenEpoch++;
     chatRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
@@ -1404,7 +1415,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
               final panelHeight = constraints.maxHeight * fraction;
               return ValueListenableBuilder<Map<String, Object?>?>(
                 valueListenable: CaicaiLive2DService.editor,
-                builder: (context, edit, _) => Stack(
+                builder: (context, edit, _) {
+                  _wordSlice.schedule(enabled: _chatVisible && _visualStageEnabled &&
+                      keyboardInset == 0 && !_showCedarActivityWindow && edit == null,
+                      fraction: fraction);
+                  return Stack(
+                key: _wordSlice.areaKey,
                 fit: StackFit.expand,
                 children: [
                   if (_visualStageEnabled) ...[
@@ -1457,6 +1473,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       top: 10,
                       right: 10,
                       child: PlayfulHeatGauge(
+                        key: _wordSlice.gaugeKey,
                         heat: _playfulForm.heat,
                         qForm: visualQForm,
                         locked: _playfulForm.locked,
@@ -1497,7 +1514,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                                 onNotification: _onUserScroll,
                                 child: NotificationListener<ScrollMetricsNotification>(
                                   onNotification: _onTimelineMetrics,
-                                  child: timelineList,
+                                  child: Opacity(opacity: _wordSlicePlaying ? 0 : 1,
+                                    child: KeyedSubtree(key: _wordSlice.timelineKey, child: timelineList)),
                                 ),
                               ),
                             ),
@@ -1528,7 +1546,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                               notice,
                               onDismiss: controller.dismissNotice,
                             ),
-                          _composer(context),
+                          KeyedSubtree(key: _wordSlice.composerKey, child: _composer(context)),
                         ],
                       ),
                     ),
@@ -1580,7 +1598,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       key: ValueKey(edit), mode: edit['mode']! as String,
                       initial: edit['state']! as Map<Object?, Object?>)),
                 ],
-              ));
+              );
+                },
+              );
             },
           ),
         ),

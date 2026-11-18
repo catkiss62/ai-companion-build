@@ -446,7 +446,7 @@
 # Historical +323: Build AI Companion v0.42.79+323 APK (Wish Chat Fixes) | AI-Companion-v0.42.79-323-Wish-Chat-Fixes-APK | v0.42.79-wish-chat-fixes-test | .ci/v04279-monitor.txt
 # Historical +396: Build AI Companion v0.42.152+396 APK (Third Channel Public Gateway) | AI-Companion-v0.42.152-396-Third-Channel-Public-Gateway-APK | v0.42.152-third-channel-public-gateway-test | .ci/v042152-monitor.txt
 # Historical +435: Build AI Companion v0.42.191+435 APK (QQ Mature Art) | AI-Companion-v0.42.191-435-QQ-Mature-Art-APK | v0.42.191-qq-mature-art-test
-name: Build AI Companion v0.42.204+448 APK (Album Sticker Picker)
+name: Build AI Companion v0.42.205+449 APK (Chat Word Slice)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -606,6 +606,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify offline word slice bundle and host logic
+        run: |
+          python3 app/tools/build_word_slice.py
+          git diff --exit-code -- app/android/app/src/main/assets/word_slice/index.html
+          node app/tools/test_word_slice_host.cjs
 
       - name: Reconcile oversized project ledger when requested
         if: ${{ hashFiles('app/tools/reconcile_v04155_build199_ledger.py') != '' }}
@@ -1107,7 +1113,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.204+448' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.205+449' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 67;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1121,7 +1127,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.204+448 Album Sticker Picker after focused regression verification.'
+          echo 'Building v0.42.205+449 Chat Word Slice after focused regression verification.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1815,26 +1821,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.204+448 APK as workflow artifact
+      - name: Upload v0.42.205+449 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.204-448-Album-Sticker-Picker-APK
+          name: AI-Companion-v0.42.205-449-Chat-Word-Slice-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.204+448 APK to draft release
+      - name: Upload v0.42.205+449 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.204-album-sticker-picker-test'
-          APK_NAME='AI-Companion-v0.42.204-448-Album-Sticker-Picker-APK.apk'
+          TAG='v0.42.205-chat-word-slice-test'
+          APK_NAME='AI-Companion-v0.42.205-449-Chat-Word-Slice-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.204-448-Album-Sticker-Picker-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.205-449-Chat-Word-Slice-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1851,14 +1857,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.204+448 Album Sticker Picker' \
+              --title 'AI Companion v0.42.205+449 Chat Word Slice' \
               --notes 'Album sticker-tag picker with shared previews, pagination and duplicate markers. Original signer. Unpublished test build.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.204+448 Album Sticker Picker' \
+              --title 'AI Companion v0.42.205+449 Chat Word Slice' \
               --notes 'Album sticker-tag picker with shared previews, pagination and duplicate markers. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
@@ -1915,8 +1921,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.204-album-sticker-picker-test'
-          CI_NAME='AI-Companion-v0.42.204-448-Album-Sticker-Picker-CI-Monitor.txt'
+          TAG='v0.42.205-chat-word-slice-test'
+          CI_NAME='AI-Companion-v0.42.205-449-Chat-Word-Slice-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1957,7 +1963,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.204+448 Album Sticker Picker' \
+              --title 'AI Companion v0.42.205+449 Chat Word Slice' \
               --notes 'Album sticker-tag picker with shared previews, pagination and duplicate markers. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
