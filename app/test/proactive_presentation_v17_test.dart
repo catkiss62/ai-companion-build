@@ -38,7 +38,8 @@ void main() {
         ChatMessage(id: id, role: role, content: content,
           createdAt: at.subtract(Duration(minutes: minutesAgo)));
     final recent = [
-      message('old', 'user', '昨晚在家', 70),
+      message('old', 'user', '昨晚在家', 250),
+      message('background', 'user', '之前吃过午饭', 70),
       message('u', 'user', '下班咯', 21),
       message('a', 'assistant', '应该到家了', 20),
     ];
@@ -47,6 +48,11 @@ void main() {
         ProactivePresentationPolicy.recentCheckInContext(kind: kind, action: action,
           sourceType: source, nightContact: night, now: at, recent: recent);
     expect(context(), contains('下班咯'));
+    expect(context(), contains('"historical_only":true,"said":"之前吃过午饭"'));
+    expect(context(), contains('"historical_only":false,"said":"下班咯"'));
+    expect(ProactivePresentationPolicy.recentCheckInMessages(at, [
+      for (var i = 9; i >= 1; i--) message('quote-$i', 'user', '经历 $i', i),
+    ]).map((m) => m.id), ['quote-6', 'quote-5', 'quote-4', 'quote-3', 'quote-2', 'quote-1']);
     expect(context(), contains('18:33'));
     expect(context(), contains('CURRENT_USER_TURN 仍为 NONE'));
     expect(context(), isNot(contains('应该到家了')));

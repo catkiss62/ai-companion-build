@@ -209,9 +209,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     final route = ModalRoute.of(context);
     if (route == _observedRoute) return;
     chatRouteObserver.unsubscribe(this);
+    _observedRoute?.secondaryAnimation?.removeStatusListener(_wordSliceRouteStatus);
     _observedRoute = route;
+    route?.secondaryAnimation?.addStatusListener(_wordSliceRouteStatus);
     _routeVisible = route?.isCurrent ?? true;
     if (route != null) chatRouteObserver.subscribe(this, route);
+  }
+
+  // RouteAware is notified before the previous route finishes sliding back.
+  // Native coordinates must come from the settled Flutter frame.
+  void _wordSliceRouteStatus(AnimationStatus status) {
+    if (mounted && _routeVisible && status == AnimationStatus.dismissed) {
+      setState(() {});
+    }
   }
 
   @override
@@ -737,6 +747,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
   @override
   void dispose() {
+    _observedRoute?.secondaryAnimation?.removeStatusListener(_wordSliceRouteStatus);
     _wordSlice.dispose();
     _chatOpenEpoch++;
     chatRouteObserver.unsubscribe(this);
@@ -1420,6 +1431,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                 valueListenable: CaicaiLive2DService.editor,
                 builder: (context, edit, _) {
                   _wordSlice.schedule(enabled: _chatVisible && _visualStageEnabled &&
+                      (_observedRoute?.secondaryAnimation?.isDismissed ?? true) &&
                       keyboardInset == 0 && !_showCedarActivityWindow &&
                       _composerToolsOverlay == null && edit == null,
                       fraction: fraction);

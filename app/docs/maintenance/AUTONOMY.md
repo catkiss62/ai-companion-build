@@ -18,6 +18,8 @@
 
 驱动、Thought、Intent、Outcome 与实际发送须分开看。手机活动是证据，不能把长期闲置累计直接当作刚拿起手机的强刺激。普通主动额度、夜间约束、游戏分享各有规则。历史欲望备份不能替代当前策略。
 
+白天近况核对近 4 小时最多 6 条合格用户原话，超过 1 小时的原话只作历史。[话题证据读取](../../lib/core/desire/proactive_topic_evidence.dart) 在三通道共同上下文组装前核对所选话题的真实更新时间。本地向量只提名候选，按对象、角色及关系验证。没证据时状态标为最后已知。游戏、公开网页、夜间和独立 QQ 分享沿用自己的资料。
+
 ## 小改动如何落点
 
 调整频率先查资格、冷却、配额、去重及当前上下文，避免只改一个概率。新的感知字段需检查来源时间及是否意外触发新想法。
@@ -26,6 +28,7 @@
 
 - [desire_core_policy_v031_test.dart](../../test/desire_core_policy_v031_test.dart)
 - [perception_snapshot_test.dart](../../test/perception_snapshot_test.dart)
+- [proactive_topic_evidence_test.dart](../../test/proactive_topic_evidence_test.dart)
 - [proactive_final_reply_retry_test.dart](../../test/proactive_final_reply_retry_test.dart)
 
 上述为定位起点，不代表覆盖全部调用者。历史教训及证据见 [回归索引](REGRESSIONS.md)；执行方式见 [验证导航](VERIFICATION.md)。

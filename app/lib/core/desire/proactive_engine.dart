@@ -59,6 +59,8 @@ import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/message_attachment.dart';
+import '../models/memory_item.dart';
+import 'proactive_topic_evidence.dart';
 import '../models/proactive_intent.dart';
 import '../models/proactive_frequency.dart';
 import '../models/proactive_notification_settings.dart';
@@ -1336,17 +1338,15 @@ class ProactiveEngine {
     final intentThought = intent.thoughtId == null
         ? null
         : await db.thoughtById(intent.thoughtId!);
-    DateTime? intentMemoryEvidenceAt;
-    if (intentThought?.provenance == ThoughtProvenance.memory) {
-      const prefix = 'self_drive/memory:';
-      if (intentThought!.source.startsWith(prefix)) {
-        final sourceMemory = await db.memoryById(
-          intentThought.source.substring(prefix.length),
-        );
-        intentMemoryEvidenceAt = sourceMemory?.evidenceTimeKnown == true
-            ? sourceMemory!.lastEvidenceAt : null;
-      }
+    MemoryItem? intentMemory;
+    const memoryPrefix = 'self_drive/memory:';
+    if (intentThought?.provenance == ThoughtProvenance.memory &&
+        intentThought!.source.startsWith(memoryPrefix)) {
+      final memory = await db.memoryById(intentThought.source.substring(memoryPrefix.length));
+      if (memory?.sourceValid == true) intentMemory = memory;
     }
+    final intentMemoryEvidenceAt = intentMemory?.evidenceTimeKnown == true
+        ? intentMemory!.lastEvidenceAt : null;
     final selectedSourceType = selection?.sourceType ??
         ProactiveSelectionPolicy.sourceTypeFor(
           thought: intentThought,
@@ -1633,6 +1633,7 @@ class ProactiveEngine {
     }
     final wishDeliveryFence = await db.extendBrainWorkFence(
           evaluationFence, settingKeys: [
+            'conversation_context_reset_at',
             if (creativeShare != null) ...creativeShare.expected.keys,
             if (selectedWishId.isNotEmpty) ...[WishStore.stateKey, WishStore.enabledKey],
             if (reflectionInvitation != null) ...[DeepReflectionStore.stateKey, DeepReflectionStore.enabledKey, DeepReflectionStore.resetKey],
@@ -1672,12 +1673,48 @@ class ProactiveEngine {
       context.add({'role': 'system', 'content': IllustrationCue.instruction(requested: false)});
     }
     context.add({'role':'system','content':QqHistoryContextPolicy.proactiveBoundary});
+    final usesCheckIn = ProactivePresentationPolicy.usesRecentCheckIn(
+      kind: intentKind, action: intent.wantAction,
+      sourceType: selectedSourceType, nightContact: nightContact,
+    );
+    final topicReader = ProactiveTopicEvidence(db);
+    final checkInRecent = usesCheckIn
+        ? await topicReader.recentUserQuotes(
+            fence: wishDeliveryFence, now: evaluationStartedAt)
+        : const <ChatMessage>[];
     final checkInContext = ProactivePresentationPolicy.recentCheckInContext(
       kind: intentKind, action: intent.wantAction, sourceType: selectedSourceType,
-      nightContact: nightContact, now: evaluationStartedAt, recent: recent,
+      nightContact: nightContact, now: evaluationStartedAt, recent: checkInRecent,
     );
     if (checkInContext.isNotEmpty) {
       context.add({'role': 'system', 'content': checkInContext});
+    }
+    final allowTopicEvidence = !nightContact && creativeShare == null &&
+        !isCedarGameShare && webShareCandidateId == null && qqShare == null &&
+        reflectionInvitation == null && selectedWishId.isEmpty &&
+        const {ProactiveIntentKind.followup, ProactiveIntentKind.curiosity,
+          ProactiveIntentKind.shareThought, ProactiveIntentKind.missYou,
+          ProactiveIntentKind.emotionalReach}.contains(intentKind);
+    final topicCue = [intentThought?.text, linkedThread?.title, linkedThread?.detail]
+        .nonNulls.join(' ');
+    final alreadyInPrompt = <String>{
+      for (final message in promptHistory) message.id,
+      if (usesCheckIn)
+        for (final message in ProactivePresentationPolicy.recentCheckInMessages(
+          evaluationStartedAt, checkInRecent)) message.id,
+    };
+    if (allowTopicEvidence && topicCue.isNotEmpty) {
+      final sourceId = RegExp(r'^(?:user_message|conversation_turn):([^@|]+)')
+          .firstMatch(intentThought?.source ?? '')?.group(1);
+      final evidence = await topicReader.read(
+        fence: wishDeliveryFence, cue: topicCue, now: evaluationStartedAt,
+        seed: intentMemory, sourceId: linkedThread?.sourceMessageId ?? sourceId ?? '',
+        topicKey: intentThought?.topicKey ?? linkedThread?.topicKey ?? '',
+        alreadyInPrompt: alreadyInPrompt,
+      );
+      if (evidence.prompt.isNotEmpty) {
+        context.add({'role': 'system', 'content': evidence.prompt});
+      }
     }
     if (startsFreshTopic) {
       final closed = await (await db.database).query('unfinished_threads',
@@ -1731,7 +1768,9 @@ ${jsonEncode({
             'source_type': selectedSourceType,
             'temporal_grounding': MemoryGroundingPolicy.thoughtTemporalNote(
               provenance: intentThought.provenance.key,
-              sourceTime: cedarOutcomeAt ?? intentThought.updatedAt,
+              sourceTime: cedarOutcomeAt ??
+                  (intentThought.provenance == ThoughtProvenance.memory
+                      ? intentMemoryEvidenceAt : intentThought.updatedAt),
               now: evaluationStartedAt,
             ),
             if (isCedarGameShare) ...<String, Object?>{
@@ -1802,7 +1841,7 @@ ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动�
 真实时间间隔：距离最近用户消息约 $idleMinutes 分钟；距离上一条主动消息${proactiveGap == null ? '没有可用记录' : '约 ${max(0, proactiveGap.inMinutes)} 分钟'}。这是程序计算的事实：不得把 2 分钟说成睡醒、把 10 分钟说成半小时，也不得用文学夸张改写短时间间隔。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 想联系是动机，不等于已经有具体话题。优先从本轮真实念头、兴趣或资料找一个此刻在意的着眼点；有好奇心但没有具体对象时，不必用“你在干嘛/刷到什么/忙不忙”假装已经有新问题。也可以直接表达想念、轻问近况或等待，不为凑话题编造见闻，不按介绍—解释—提问的步骤表演。
-${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已从写作上下文移除；旧 Memory、关系事件、近日连续性和既有知识正文也不注入。不要自行召回旧事填空，只使用本轮选中来源或此刻自己的新问题。若有【用户近期已说过的话】，仅用来核对问近况时的已知事实。没有具体内容就输出 WAIT。' : ''}
+${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已从写作上下文移除；旧 Memory、关系事件、近日连续性和既有知识正文也不注入。不要自行召回旧事填空，只使用本轮选中来源或此刻自己的新问题。若有【用户近期已说过的话】或【所选话题的历史证据】，用于核对近况和选中主题的已知事实。没有具体内容就输出 WAIT。' : ''}
 严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
     });
@@ -2196,12 +2235,29 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       );
     }
 
+    // The title can first appear in the draft. A confirmed completed work
+    // can use the existing single correction, alongside the other evidence.
+    String lateTopicEvidence = '';
+    if (allowTopicEvidence && !replyRepairUsed) {
+      final title = ProactiveTopicEvidence.namedStatusQuestion(candidate.content);
+      final checkedTitles = ProactiveTopicEvidence.titlesIn(
+        '$topicCue ${intentMemory?.content ?? ''}');
+      if (title != null && !checkedTitles.contains(title)) {
+        final evidence = await topicReader.read(
+          fence: wishDeliveryFence, cue: '《$title》观看状态',
+          now: evaluationStartedAt, namedQuestion: true,
+          alreadyInPrompt: alreadyInPrompt,
+        );
+        if (evidence.completed) lateTopicEvidence = evidence.prompt;
+      }
+    }
+
     if (!replyRepairUsed &&
         (!textGuard.allowed ||
             !reasoningGuard.allowed ||
             !memoryTemporalGuard.allowed ||
             !operationGuard.allowed ||
-            !repetitionGuard.allowed)) {
+            !repetitionGuard.allowed || lateTopicEvidence.isNotEmpty)) {
       replyRepairUsed = true;
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
@@ -2211,10 +2267,14 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
                   ? memoryTemporalGuard.reason
                   : !operationGuard.allowed
                       ? operationGuard.reason
-                      : repetitionGuard.reason;
+                      : !repetitionGuard.allowed
+                          ? repetitionGuard.reason
+                          : '旧观看问题已有用户明确回答';
       await noteGroundingRetry(retryReason);
       final retryContext = <Map<String, Object?>>[
         ...context,
+        if (lateTopicEvidence.isNotEmpty)
+          {'role': 'system', 'content': lateTopicEvidence},
         {
           'role': 'system',
           'content': '''

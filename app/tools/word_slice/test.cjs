@@ -10,8 +10,8 @@ run('for(let i=0;i<240;i++)update(1/120)');assert.equal(run('mode'),'playing');
 run("glyphs=[{ch:'鲸',x:150,y:300,size:35,color:'#fff',cut:false,vx:0,vy:0,r:0,vr:0}];bombs=[];cut({x:100,y:300},{x:200,y:300})");assert.equal(run('score'),1);assert.equal(run('particles.length'),8);
 run('cut({x:100,y:300},{x:200,y:300})');assert.equal(run('score'),1);
 run("bombs=[{x:150,y:300,vx:40,vy:-500,age:time}];cut({x:100,y:300},{x:200,y:300});");assert.equal(run('mode'),'ending');
-run('for(let i=0;i<180;i++)update(1/120)');assert.equal(run('victim.landed'),true);assert.equal(run('victim.y'),676);assert.equal(run('mode'),'ending');
-run('for(let i=0;i<240;i++)update(1/120)');assert.equal(run('mode'),'over');assert.ok(run('time-victim.hit')>=3.3);assert.equal(element('result').style.display,'block');
+run('for(let i=0;i<180;i++)update(1/120)');assert.equal(run('victim.landed'),true);assert.equal(run('victim.y'),676);assert.equal(run('mode'),'over');assert.ok(run('time-victim.hit')<3.3);assert.equal(element('result').style.display,'block');
+run('for(let i=0;i<240;i++)update(1/120)');assert.equal(run('mode'),'over');assert.ok(run('time-victim.hit')>=3.3);
 run('exitGame()');assert.equal(run('glyphs.length+bombs.length+particles.length'),0);assert.equal(run('victim'),null);
 run('drag={x:anchor.x-40,y:anchor.y+140};for(let i=0;i<120;i++)stepRope(1/120);drag=null;for(let i=0;i<2400;i++)stepRope(1/120)');assert.ok(run('Math.abs(rope[8].x-anchor.x)')<1);assert.ok(run('Math.abs(rope[8].y-anchor.y-settings.rope)')<2);
 function event(y){return{pointerId:1,clientX:358,clientY:y,preventDefault(){},stopPropagation(){}}}
@@ -83,6 +83,29 @@ for (const direction of [1,-1]) {
  assert.equal(run('mode'),'over');
 }
 console.log('PASS: randomized bomb rotation, opposite swipe trajectories, air rotation, and landing.');
+// Actual pointer samples drive the original one-shot swish, not collisions.
+run("exitGame();mode='playing';sound.context.state='running';sound.enabled=true;sound.context.currentTime=100");
+const gesture=element('gesture');
+const sample=(x,y)=>({pointerId:1,clientX:x,clientY:y,preventDefault(){}});
+const move=(x,y,dt=.2)=>{run(`sound.context.currentTime+=${dt}`);gesture.events.pointermove(sample(x,y));};
+const before=starts;
+gesture.events.pointerdown(sample(20,100));
+move(33,100);assert.equal(starts,before+1);
+for(let x=55;x<175;x+=24)move(x,101);
+assert.equal(starts,before+1);
+move(172,112); // Small bend from the last sounded direction.
+assert.equal(starts,before+1);
+move(174,116); // Short jitter is not a turn.
+assert.equal(starts,before+1);
+move(129,122);assert.equal(starts,before+2);
+move(98,122,.03);assert.equal(starts,before+2);
+move(126,122,.01);assert.equal(starts,before+2); // Audio cooldown still applies.
+move(149,122);assert.equal(starts,before+3);
+gesture.events.pointercancel(sample(149,122));
+gesture.events.pointerdown(sample(149,122));move(168,122);
+assert.equal(starts,before+4);gesture.events.lostpointercapture(sample(168,122));
+assert.equal(run('activePointer'),null);
+console.log('PASS: straight stroke, small bend, reversal, cooldown, and pointer reset.');
 // A suspended context resumes asynchronously; the explicit test must wait.
 (async()=>{
  for(const el of nodes.values())el.setAttribute=()=>{};

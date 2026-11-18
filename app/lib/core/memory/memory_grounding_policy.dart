@@ -194,14 +194,16 @@ class MemoryGroundingPolicy {
 
   static String thoughtTemporalNote({
     required String provenance,
-    required DateTime sourceTime,
+    required DateTime? sourceTime,
     DateTime? now,
   }) {
     final memoryBoundary = provenance == 'memory'
         ? '; memory_recall=true; 想起发生在现在不代表被想起的事件发生在刚才'
         : '';
-    return '[THOUGHT_GROUNDING provenance=$provenance; '
-        '${_evidenceAge(sourceTime, now ?? DateTime.now())}$memoryBoundary]';
+    final age = sourceTime == null
+        ? 'last_evidence=unknown'
+        : _evidenceAge(sourceTime, now ?? DateTime.now());
+    return '[THOUGHT_GROUNDING provenance=$provenance; $age$memoryBoundary]';
   }
 
   static String _evidenceAge(DateTime source, DateTime now) {

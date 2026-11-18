@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -28,7 +29,11 @@ class WordSliceBridge {
       _channel.setMethodCallHandler((call) async {
         if (_disposed) return null;
         if (call.method == 'playing') onPlaying(call.arguments == true);
-        if (call.method == 'capture') return _enabled ? captureVisibleGlyphs(timelineKey) : <Object>[];
+        if (call.method == 'capture') {
+          return _enabled ? Timeline.timeSync(
+            'WordSlice.captureVisibleGlyphs', () => captureVisibleGlyphs(timelineKey),
+          ) : <Object>[];
+        }
         return null;
       });
     }

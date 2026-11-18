@@ -74,6 +74,28 @@ class ProactivePresentationPolicy {
         _ => false,
       };
 
+  static bool usesRecentCheckIn({
+    required ProactiveIntentKind kind,
+    required String action,
+    required String sourceType,
+    required bool nightContact,
+  }) =>
+      !nightContact && kind == ProactiveIntentKind.curiosity &&
+      action == 'check_in' &&
+      const {'drive_state', 'awareness', 'internal', 'inference',
+        'screen_observation'}.contains(sourceType);
+
+  static List<ChatMessage> recentCheckInMessages(
+    DateTime now, List<ChatMessage> recent,
+  ) {
+    final since = now.subtract(const Duration(hours: 4));
+    return recent.reversed.where((message) =>
+        message.isUser && !message.isProactive &&
+        message.content.trim().isNotEmpty &&
+        !message.createdAt.isBefore(since) && !message.createdAt.isAfter(now))
+        .take(6).toList().reversed.toList(growable: false);
+  }
+
   static String recentCheckInContext({
     required ProactiveIntentKind kind,
     required String action,
@@ -82,26 +104,19 @@ class ProactivePresentationPolicy {
     required DateTime now,
     required List<ChatMessage> recent,
   }) {
-    if (nightContact || kind != ProactiveIntentKind.curiosity ||
-        action != 'check_in' ||
-        !const {'drive_state', 'awareness', 'internal', 'inference', 'screen_observation'}.contains(sourceType)) {
-      return '';
-    }
-    final since = now.subtract(const Duration(hours: 1));
-    final quotes = recent.reversed
-        .where((message) => message.isUser && !message.isProactive &&
-            message.content.trim().isNotEmpty &&
-            !message.createdAt.isBefore(since) && !message.createdAt.isAfter(now))
-        .take(3)
-        .map((message) => {
-              'at': message.createdAt.toLocal().toIso8601String(),
-              'said': String.fromCharCodes(message.content.trim().runes.take(220)),
-            })
-        .toList();
-    if (quotes.isEmpty) return '';
-    return '【用户近期已说过的话·仅用于核对近况】${jsonEncode(quotes.reversed.toList())}\n'
+    if (!usesRecentCheckIn(kind: kind, action: action,
+        sourceType: sourceType, nightContact: nightContact)) return '';
+    final messages = recentCheckInMessages(now, recent);
+    if (messages.isEmpty) return '';
+    final quotes = messages.map((message) => {
+      'at': message.createdAt.toLocal().toIso8601String(),
+      'historical_only': now.difference(message.createdAt) > const Duration(hours: 1),
+      'said': String.fromCharCodes(message.content.trim().runes.take(220)),
+    }).toList();
+    return '【用户近期已说过的话·仅用于核对近况】${jsonEncode(quotes)}\n'
         '这些是已回答的历史发言，CURRENT_USER_TURN 仍为 NONE。'
         '确认近况时，以最近的明确更新为准，别把已经确定的事重新问成选择题。'
+        'historical_only 的片段供理解过去，不能据此判断现在正做什么。'
         '只使用原话足以支持的事实，后续动向仍未知。';
   }
 
