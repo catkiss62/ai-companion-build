@@ -2,9 +2,9 @@
 
 ## 当前接班快照
 
-- **+453 任务开工（2026-11-18）。** 用户实机反馈 +452 切字已基本不卡。按这次反馈微调受击文字、音效总体增益和结算卡文案。用户追加检查触碰挂件之后切出、返回及回到 App 时的误响。
+- **当前交付 v0.42.209+453 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `4bda2c051eef00a54edc95abbaaf5f94aebb9494`。** 切字受击红字渐大、连切与受击字细描边、音量 1.5 倍和结算卡精简；触碰挂件后系统按键切出、返回或恢复的退出音已从清理流程移除。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024197)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024226)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44315024194/artifacts/14435775293)（登录 GitHub 下 ZIP，内含 APK）。下一步从末尾 +453 条目收集系统键、音量和密集连切的真机反馈。
 
-- **当前交付 v0.42.208+452 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `5b3a6255f289b21d182f21781e8a127e3a593793`。** 主动话题按需核对旧进度、白天近况最多 6 条原话；切字开场分帧缓存、原刀声随转向触发、炸弹落地结算、侧栏返回重新测挂点。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189779)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44294192039)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189732)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189779/artifacts/14424952524)（登录 GitHub 下载 ZIP，内含 APK）。下一步从本账末尾 +452 项收集真机反馈。
+- **上一版交付 v0.42.208+452 / schema67，分支 `agent/v042107-review-recovery`，构建源码 `5b3a6255f289b21d182f21781e8a127e3a593793`。** 主动话题按需核对旧进度、白天近况最多 6 条原话；切字开场分帧缓存、原刀声随转向触发、炸弹落地结算、侧栏返回重新测挂点。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189779)、[独立回归](https://github.com/catkiss62/ai-companion-build/actions/runs/44294192039)及[文档 CI](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189732)均通过。[下载 APK 测试包](https://github.com/catkiss62/ai-companion-build/actions/runs/44294189779/artifacts/14424952524)（登录 GitHub 下载 ZIP，内含 APK）。下一步从本账末尾 +452 项收集真机反馈。
 - **小模型使用原则。** 按需使用已接入的本地 BGE 语义模型，零 API 费用，受本地时延、电量和候选范围约束。JEV 适合短分类与轻量选择，仍是独立外部调用并按其线路计费。优先复用这些能力和既有正文调用。
 
 - **上一版交付 v0.42.207+451 / schema67。** 切字去文字阴影、换细描边，炸弹出场轻转并按划动方向弹飞落地，挂件随设备整圈摆动并可出画面。[签名构建](https://github.com/catkiss62/ai-companion-build/actions/runs/44263663088)及独立、文档 CI 通过。[下载 APK](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-9b426480c717ffd58c88/AI-Companion-v0.42.207-451-Chat-Word-Slice-APK.apk)。真机待验，详见末尾 +451 条目。
@@ -802,3 +802,5 @@
 - 切字音效总线增益由 0.65 调至 0.975，保留各音效比例和触发。结算卡移除下拉提示，继续保留分数和再来一次。
 - 真机待验音量、命中文字在亮色背景上的可读性、密集连切的帧率及结算卡。+452 改善首飞的反馈不代表 +453 已实机验证。
 - 音效根因位于生成 WebView 的统一退出函数。触屏会先解锁 Web Audio，Android Back 的 `reset` 与离开页面的 `reset/suspend` 随后调用退出清理，旧清理无条件播放退出音。后台暂停与回到前台的执行时序可让误音在两侧听到。退出清理现在只停音并收状态，明确下拉挂件（含可访问性确认键）才调用独立的退出声音入口。后台与返回的宿主回归含已解锁、游戏中和正常下拉三种情形；系统键真机表现待验。
+- 最终源码 `4bda2c051eef00a54edc95abbaaf5f94aebb9494`。初次构建 44314082413 尚未出包时用户追加系统键误响，已由同分支最终构建取代。最终签名构建 44315024194 通过 167 项源码校验、完整 Flutter、原生回归、资源与既有签名验证。独立回归 44315024197、文档 CI 44315024226 通过。两套切字 Node 回归覆盖增长和缓存上限、全局增益、结果文案、触碰解锁后的静默清理和正常主动退出声。
+- artifact 14435775293，APK SHA-256 `f5b79edadd691319850949d3620bd6260fdb302c783669abb165f3f65a842447`。原签名 arm64 测试包已交付。+453 真机仍待验。
