@@ -13,12 +13,14 @@ class IllustrationResultView extends StatefulWidget {
     required this.source,
     required this.ownerId,
     this.attachmentVisible = false,
+    this.sourceRevision = 0,
     super.key,
   });
 
   final IllustrationSource source;
   final String ownerId;
   final bool attachmentVisible;
+  final int sourceRevision;
 
   @override
   State<IllustrationResultView> createState() => _IllustrationResultViewState();
@@ -39,17 +41,19 @@ class _IllustrationResultViewState extends State<IllustrationResultView> {
   void didUpdateWidget(covariant IllustrationResultView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source != widget.source ||
-        oldWidget.ownerId != widget.ownerId) {
+        oldWidget.ownerId != widget.ownerId || oldWidget.sourceRevision != widget.sourceRevision) {
       _state = _watch();
     }
   }
 
   Stream<Map<String, dynamic>?> _watch() async* {
     final key = IllustrationJob.keyFor(widget.source, widget.ownerId);
+    final revision = widget.sourceRevision;
     final db = AppDatabase.instance;
     try {
       while (mounted) {
         final state = IllustrationJob.decode(await db.getSetting(key));
+        if ((state?['source_revision'] ?? 0) != revision) { yield null; return; }
         yield state;
         if (state?['state'] != 'queued') return;
         await Future<void>.delayed(const Duration(seconds: 2));
@@ -82,6 +86,7 @@ class _IllustrationResultViewState extends State<IllustrationResultView> {
   Widget build(BuildContext context) {
     if (widget.attachmentVisible) return const SizedBox.shrink();
     return StreamBuilder<Map<String, dynamic>?>(
+      key: ObjectKey(_state),
       stream: _state,
       builder: (context, snapshot) {
         final state = snapshot.data;

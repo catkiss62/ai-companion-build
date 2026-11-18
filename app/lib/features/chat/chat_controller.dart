@@ -20,6 +20,7 @@ import '../../core/ai/model_profile.dart';
 import '../../core/ai/nsfw_context_router.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/brain_work_fence.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
 import '../../core/diagnostics/model_usage_telemetry.dart';
 import '../../core/diagnostics/provider_health.dart';
@@ -159,7 +160,7 @@ class ChatController extends ChangeNotifier {
   late final Phase2BConsolidationEngine phase2bConsolidation;
   late final LongRunningMaintenanceEngine longMaintenance;
   final Uuid _uuid = Uuid();
-  final Set<String> _preparingLanguageVariants = <String>{};
+  final Map<String, int> _preparingLanguageVariants = {};
   final Set<String> _discardedImageMessageIds = <String>{};
 
   List<ChatMessage> messages = [];
@@ -340,7 +341,7 @@ class ChatController extends ChangeNotifier {
   }
 
   bool languageVariantPreparing(String messageId, ChatLanguage language) =>
-      _preparingLanguageVariants.contains('$messageId:${language.key}');
+      _preparingLanguageVariants.containsKey('$messageId:${language.key}');
 
   TtsPlaybackPhase get activeGenerationTtsPhase {
     final messageId = _activeGenerationAssistantMessageId;
@@ -859,6 +860,11 @@ class ChatController extends ChangeNotifier {
       );
       return;
     }
+    final visionFence = await db.captureBrainWorkFence(leaseKey: 'image_vision_lease');
+    if (visionFence == null) {
+      await db.releaseLocalLease('image_vision_lease');
+      return;
+    }
     final message = await db.messageById(messageId);
     if (message == null || !message.isUser || message.attachments.isEmpty) {
       await db.releaseLocalLease('image_vision_lease');
@@ -899,8 +905,14 @@ class ChatController extends ChangeNotifier {
     var visionRecorded = false;
     final visionStarted = DateTime.now();
     GenerationJob? trustedGeneration;
+    // Vision providers can legitimately take longer than the short recovery lease.
+    final heartbeat = Timer.periodic(const Duration(seconds: 10), (_) {
+      unawaited(db.renewLocalLease('image_vision_lease',
+        holdFor: const Duration(seconds: 30), workFence: visionFence).then<void>((_) {},
+          onError: (Object _) {}));
+    });
     try {
-      marked = await db.markAttachmentVisionAnalyzing(attachment.id);
+      marked = await db.markAttachmentVisionAnalyzing(attachment.id, fence: visionFence);
       if (!marked) {
         await AttachmentPipelineTelemetry.record(
           db,
@@ -960,7 +972,8 @@ class ChatController extends ChangeNotifier {
       // request may already be on the wire and cannot always be cancelled, so
       // fence its late result before it can recreate a reply or surface an
       // error for a message the user has already removed.
-      if (_discardedImageMessageIds.contains(messageId)) return;
+      if (_discardedImageMessageIds.contains(messageId) ||
+          !await db.brainWorkFenceCurrent(visionFence)) return;
       await CompanionAlbumStorage(db: db).requireContentSha256(
         thumbnail,
         observation.inputContentSha256,
@@ -985,6 +998,7 @@ class ChatController extends ChangeNotifier {
         throw StateError('另一处聊天窗口正在发送消息，请稍后重试这张图片。');
       }
       trustedGeneration = await db.completeAttachmentVisionAndCreateGeneration(
+        visionFence: visionFence,
         attachmentId: attachment.id,
         summary: observation.summary,
         visionModel: observation.model,
@@ -1005,6 +1019,7 @@ class ChatController extends ChangeNotifier {
             attachment: attachment,
             thumbnail: thumbnail,
             observation: observation,
+            visionFence: visionFence,
           );
         } catch (albumError) {
           await db.recordProviderHealthEvent(ProviderHealthEvent(
@@ -1033,7 +1048,10 @@ class ChatController extends ChangeNotifier {
         width: attachment.width,
         height: attachment.height,
       );
+    } on BrainWorkInvalidated {
+      return;
     } catch (exception) {
+      if (!await db.brainWorkFenceCurrent(visionFence)) return;
       final discarded = _discardedImageMessageIds.contains(messageId);
       await AttachmentPipelineTelemetry.record(
         db,
@@ -1061,12 +1079,13 @@ class ChatController extends ChangeNotifier {
           ));
         }
         if (marked && trustedGeneration == null) {
-          await db.failAttachmentVision(attachment.id, exception.toString());
+          await db.failAttachmentVision(attachment.id, exception.toString(), fence: visionFence);
         }
         messages = await db.recentMessages(limit: 160);
         error = VisionFailurePresentation.message(exception);
       }
     } finally {
+      heartbeat.cancel();
       if (_analyzingImageMessageId == messageId) {
         analyzingImage = false;
         _analyzingImageMessageId = null;
@@ -1098,7 +1117,9 @@ class ChatController extends ChangeNotifier {
     required MessageAttachment attachment,
     required File thumbnail,
     required QwenVisionObservation observation,
+    required BrainWorkFence visionFence,
   }) => SharedMediaLock.run(() async {
+    if (!await db.brainWorkFenceCurrent(visionFence)) return;
     final started = DateTime.now();
     final candidateId = _uuid.v4();
     final begun = await db.beginCompanionAlbumCandidate(
@@ -1633,6 +1654,9 @@ class ChatController extends ChangeNotifier {
             projectedAssistant,
             latestSpeechLanguage,
           );
+        } on BrainWorkInvalidated {
+          if (playbackIntent?.valid == true) await ttsPlayback.stop();
+          return;
         } catch (translationError) {
           error = '外语版本生成失败，已保留中文正文：$translationError';
         }
@@ -2081,6 +2105,13 @@ class ChatController extends ChangeNotifier {
         !_hasPlausibleLanguageVariant(message, language)) {
       try {
         if (message.id == incompleteReplyDraft?.id) {
+          final draftJob = incompleteReplyJobId;
+          final draftFence = await db.captureBrainWorkFence();
+          final originalJob = draftJob == null ? null : await db.generationJobById(draftJob);
+          if (draftFence == null || originalJob == null || originalJob.status != 'awaiting_confirmation' ||
+              EmotionEnvelope.streamingVisible(originalJob.partialContent) != message.content) {
+            throw const BrainWorkInvalidated();
+          }
           final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
           if (apiKey.isEmpty) {
             throw const MessageLanguageVariantException(
@@ -2094,9 +2125,19 @@ class ChatController extends ChangeNotifier {
             source: message.displaySegments,
             target: language,
           );
-          projected = message.copyWith(
+          final currentJob = await db.generationJobById(originalJob.id);
+          final currentEpoch = await db.brainWorkFenceCurrent(draftFence);
+          final draft = incompleteReplyDraft;
+          if (!playbackIntent.valid || !currentEpoch || draft == null ||
+              incompleteReplyJobId != draftJob || currentJob == null || currentJob.status != 'awaiting_confirmation' ||
+              currentJob.attempts != originalJob.attempts || currentJob.updatedAt != originalJob.updatedAt ||
+              !draft.hasSameTranslationSource(message) ||
+              EmotionEnvelope.streamingVisible(currentJob.partialContent) != message.content) {
+            throw const BrainWorkInvalidated();
+          }
+          projected = draft.copyWith(
             languageVariants: <ChatLanguage, ChatLanguageVariant>{
-              ...message.languageVariants,
+              ...draft.languageVariants,
               language: ChatLanguageVariant(
                 messageId: message.id,
                 language: language,
@@ -2110,7 +2151,11 @@ class ChatController extends ChangeNotifier {
         } else {
           projected = await ensureLanguageVariant(message, language);
         }
+      } on BrainWorkInvalidated {
+        if (playbackIntent.valid) await ttsPlayback.stop();
+        return;
       } catch (error) {
+        if (playbackIntent.valid) await ttsPlayback.stop();
         final detail = 'language_variant_${language.key}: $error';
         await db.setSetting(
           'last_tts_error',
@@ -2147,24 +2192,29 @@ class ChatController extends ChangeNotifier {
       return message;
     }
     final key = '${message.id}:${language.key}';
-    _preparingLanguageVariants.add(key);
+    _preparingLanguageVariants.update(key, (count) => count + 1, ifAbsent: () => 1);
     _safeNotify();
     try {
+      final fence = await db.captureBrainWorkFence();
+      if (fence == null) throw const BrainWorkInvalidated();
       final variant = await languageVariantService.ensure(
-        message: message,
-        language: language,
+        message: message, language: language, workFence: fence,
       );
-      final variants = <ChatLanguage, ChatLanguageVariant>{
-        ...message.languageVariants,
-        language: variant,
-      };
-      final updated = message.copyWith(languageVariants: variants);
-      messages = messages
-          .map((item) => item.id == message.id ? updated : item)
-          .toList(growable: false);
+      final stored = await db.messageById(message.id);
+      if (stored == null || !stored.hasSameTranslationSource(message) ||
+          !await db.brainWorkFenceCurrent(fence)) throw const BrainWorkInvalidated();
+      final index = messages.indexWhere((item) => item.id == message.id);
+      if (_disposed || (index >= 0 && !messages[index].hasSameTranslationSource(message))) {
+        throw const BrainWorkInvalidated();
+      }
+      final current = index < 0 ? stored : messages[index];
+      final updated = current.copyWith(languageVariants: {...current.languageVariants, language: variant});
+      if (index >= 0) messages = [...messages]..[index] = updated;
       return updated;
     } finally {
-      _preparingLanguageVariants.remove(key);
+      if (_preparingLanguageVariants.update(key, (count) => count - 1) == 0) {
+        _preparingLanguageVariants.remove(key);
+      }
       _safeNotify();
     }
   }

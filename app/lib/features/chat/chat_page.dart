@@ -2959,7 +2959,7 @@ class _MessageBubble extends StatelessWidget {
             onFinished: onAnimationFinished,
             footer: _footer(context),
           ),
-          IllustrationResultView(source: IllustrationSource.chat, ownerId: message.id),
+          IllustrationResultView(source: IllustrationSource.chat, ownerId: message.id, sourceRevision: message.sourceRevision),
         ],
       );
     }
@@ -2989,6 +2989,7 @@ class _MessageBubble extends StatelessWidget {
           IllustrationResultView(
             source: message.isProactive ? IllustrationSource.proactive : IllustrationSource.chat,
             ownerId: message.id,
+            sourceRevision: message.sourceRevision,
             attachmentVisible: message.attachments.any(
               (a) => a.source.startsWith('assistant_illustration:')),
           ),

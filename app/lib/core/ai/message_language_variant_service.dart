@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../database/app_database.dart';
+import '../database/brain_work_fence.dart';
 import '../models/chat_language_variant.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
@@ -30,7 +31,8 @@ abstract interface class MessageLanguageVariantGateway {
 
 abstract interface class MessageLanguageVariantStore {
   Future<ChatMessage?> loadMessage(String messageId);
-  Future<void> saveVariant(ChatLanguageVariant variant);
+  Future<BrainWorkFence?> captureFence();
+  Future<void> saveVariant(ChatLanguageVariant variant, ChatMessage source, BrainWorkFence fence);
 }
 
 class DatabaseMessageLanguageVariantStore
@@ -43,8 +45,11 @@ class DatabaseMessageLanguageVariantStore
       db.messageById(messageId);
 
   @override
-  Future<void> saveVariant(ChatLanguageVariant variant) =>
-      db.upsertMessageLanguageVariant(variant);
+  Future<BrainWorkFence?> captureFence() => db.captureBrainWorkFence();
+
+  @override
+  Future<void> saveVariant(ChatLanguageVariant variant, ChatMessage source, BrainWorkFence fence) =>
+      db.upsertMessageLanguageVariant(variant, source: source, fence: fence);
 }
 
 class DeepSeekMessageLanguageVariantGateway
@@ -195,19 +200,18 @@ class MessageLanguageVariantService {
   Future<ChatLanguageVariant> ensure({
     required ChatMessage message,
     required ChatLanguage language,
-  }) {
+    BrainWorkFence? workFence,
+  }) async {
     if (!message.isAssistant || language == ChatLanguage.chinese) {
       throw const MessageLanguageVariantException('只能为助手消息生成外语版本。');
     }
-    final cached = message.languageVariants[language];
-    if (cached != null &&
-        MessageLanguageVariantDecoder.isPlausibleVariant(cached, language)) {
-      return Future<ChatLanguageVariant>.value(cached);
-    }
-    final key = '${message.id}:${language.key}';
+    final fence = workFence ?? await store.captureFence();
+    if (fence == null) throw const BrainWorkInvalidated();
+    final key = jsonEncode([fence.identity, message.id, message.sourceRevision,
+      message.content, ChatSegmentCodec.encode(message.displaySegments), language.key]);
     return _inFlight.putIfAbsent(
       key,
-      () => _generate(message: message, language: language)
+      () => _generate(message: message, language: language, fence: fence)
           .whenComplete(() {
         _inFlight.remove(key);
       }),
@@ -217,15 +221,16 @@ class MessageLanguageVariantService {
   Future<ChatLanguageVariant> _generate({
     required ChatMessage message,
     required ChatLanguage language,
+    required BrainWorkFence fence,
   }) async {
     final latest = await store.loadMessage(message.id);
+    if (latest == null || !latest.hasSameTranslationSource(message)) {
+      throw const BrainWorkInvalidated();
+    }
     final existing = latest?.languageVariants[language];
     if (existing != null &&
         MessageLanguageVariantDecoder.isPlausibleVariant(existing, language)) {
       return existing;
-    }
-    if (latest == null || !latest.isAssistant) {
-      throw const MessageLanguageVariantException('原消息已不存在。');
     }
     final source = latest.displaySegments;
     if (source.isEmpty) {
@@ -250,7 +255,7 @@ class MessageLanguageVariantService {
       content: ChatSegmentCodec.displayText(translated),
       segments: translated,
     );
-    await store.saveVariant(variant);
+    await store.saveVariant(variant, latest, fence);
     return variant;
   }
 }

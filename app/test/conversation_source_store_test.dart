@@ -228,7 +228,7 @@ void main() {
       'thumbnail_path': 'moved-small.jpg'}, where: 'id = ?', whereArgs: ['image']);
     expect(await before.matches(sql), isTrue);
     expect(await db.markAttachmentVisionAnalyzing('image'), isTrue);
-    await db.failAttachmentVision('image', 'offline');
+    await db.failAttachmentVision('image', 'offline', fence: (await db.captureBrainWorkFence())!);
     final failed = await capture('u');
     expect(failed.ingestSeq, greaterThan(before.ingestSeq));
     expect(await before.matches(sql), isFalse);

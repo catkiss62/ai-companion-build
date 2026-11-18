@@ -5455,8 +5455,10 @@ class AppDatabase {
   /// Adds one lazily generated foreign projection without rewriting the
   /// authoritative Chinese message or rerunning its original generation.
   Future<void> upsertMessageLanguageVariant(
-    ChatLanguageVariant variant,
-  ) async {
+    ChatLanguageVariant variant, {
+    required ChatMessage source,
+    required BrainWorkFence fence,
+  }) async {
     if (variant.language == ChatLanguage.chinese ||
         variant.messageId.trim().isEmpty ||
         variant.content.trim().isEmpty ||
@@ -5465,15 +5467,12 @@ class AppDatabase {
     }
     final db = await database;
     await db.transaction((txn) async {
-      final owner = await txn.query(
-        'messages',
-        columns: const ['role'],
-        where: 'id = ?',
-        whereArgs: [variant.messageId],
-        limit: 1,
-      );
-      if (owner.isEmpty || owner.first['role'] != 'assistant') {
-        throw StateError('language_variant_owner_missing');
+      if (!await fence.matches(txn)) throw const BrainWorkInvalidated();
+      final owner = await txn.query('messages',
+        columns: const ['id', 'role', 'content', 'segments_json', 'source_revision', 'created_at'],
+        where: 'id = ? AND role = ?', whereArgs: [variant.messageId, 'assistant'], limit: 1);
+      if (owner.isEmpty || !ChatMessage.fromDb(owner.single).hasSameTranslationSource(source)) {
+        throw const BrainWorkInvalidated();
       }
       await txn.insert(
         'message_language_variants',
@@ -5562,10 +5561,11 @@ class AppDatabase {
     return rows.isEmpty ? null : rows.first['message_id'] as String;
   }
 
-  Future<bool> markAttachmentVisionAnalyzing(String attachmentId) async {
+  Future<bool> markAttachmentVisionAnalyzing(String attachmentId, {BrainWorkFence? fence}) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction((txn) async {
+    if (fence != null && !await fence.matches(txn)) throw const BrainWorkInvalidated();
     final changed = await txn.rawUpdate(
       '''
       UPDATE message_attachments
@@ -5592,11 +5592,13 @@ class AppDatabase {
 
   Future<void> failAttachmentVision(
     String attachmentId,
-    String error,
-  ) async {
+    String error, {
+    required BrainWorkFence fence,
+  }) async {
     final db = await database;
     final safeError = error.trim();
     await db.transaction((txn) async {
+    if (!await fence.matches(txn)) return;
     final changed = await txn.update(
       'message_attachments',
       {
@@ -6283,6 +6285,7 @@ class AppDatabase {
     required String model,
     required String reasoningEffort,
     bool thinking = true,
+    BrainWorkFence? visionFence,
   }) async {
     final normalized = summary.trim();
     if (normalized.isEmpty) {
@@ -6292,6 +6295,7 @@ class AppDatabase {
     final now = DateTime.now().millisecondsSinceEpoch;
     final jobId = _uuid.v4();
     await db.transaction((txn) async {
+      if (visionFence != null && !await visionFence.matches(txn)) throw const BrainWorkInvalidated();
       final settingsRows = await txn.query(
         'settings',
         columns: ['key', 'value'],
@@ -8217,6 +8221,12 @@ class AppDatabase {
           );
         }
       }
+      // Revoke both the pending work and the result card in the same transaction
+      // that retires the reply. The independent album owner remains valid.
+      await txn.delete('settings', where: 'key IN (?, ?)', whereArgs: [
+        IllustrationJob.keyFor(IllustrationSource.chat, assistantMessageId),
+        IllustrationJob.keyFor(IllustrationSource.proactive, assistantMessageId),
+      ]);
       final oldSource = await ConversationSourceStore.captureMessage(txn, assistantMessageId);
       if (oldSource != null) {
         final affected = await DerivedSourceStore.revoke(txn, assistantMessageId, oldSource.revision);
@@ -8256,7 +8266,7 @@ class AppDatabase {
           'next_retry_at': null,
           'last_error': '',
           'resume_reason': 'user_regenerated_completed_reply',
-          'assistant_source_revision': ((jobs.first['assistant_source_revision'] as num?)?.toInt() ?? oldSource?.revision ?? 0) + 1,
+          'assistant_source_revision': (oldSource?.revision ?? job.assistantSourceRevision) + 1,
           'updated_at': now,
         },
         where: 'id = ? AND status = ?',
@@ -14407,6 +14417,7 @@ class AppDatabase {
     required String description,
     required bool depictsCompanion,
     required String terminal,
+    required String expectedState,
     required BrainWorkFence fence,
   }) async {
     final db = await database;
@@ -14414,15 +14425,17 @@ class AppDatabase {
     final jobKey = IllustrationJob.keyFor(source, ownerId);
     return db.transaction((txn) async {
       if (!await fence.matches(txn)) return false;
-      final state = IllustrationJob.decode(await BrainWorkFence.value(txn, jobKey));
+      if (await BrainWorkFence.value(txn, jobKey) != expectedState) return false;
+      final state = IllustrationJob.decode(expectedState);
       if (state?['state'] != 'queued') return false;
+      final revision = state?['source_revision'] as int? ?? 0;
       if (diary) {
         final entries = await BrainWorkFence.value(txn, IllustrationJob.diaryEntriesKey);
         if (!IllustrationJob.diaryContains(entries, ownerId) &&
             !await PhoneHistoryStore.contains(txn, 'diary', ownerId)) return false;
       } else {
         final owner = await txn.query('messages', columns: ['role'],
-            where: 'id = ?', whereArgs: [ownerId], limit: 1);
+            where: 'id = ? AND source_revision = ?', whereArgs: [ownerId, revision], limit: 1);
         if (owner.isEmpty || owner.single['role'] != 'assistant' ||
             attachment.messageId != ownerId) return false;
       }
@@ -14430,7 +14443,8 @@ class AppDatabase {
           whereArgs: [attachment.blobId], limit: 1);
       if (blobs.isEmpty) return false;
       final blob = MediaBlob.fromDb(blobs.single);
-      await _saveGeneratedAlbumImage(txn, blob, id: jobKey, ownerId: ownerId,
+      final suffix = diary || revision == 0 ? '' : ':revision:$revision';
+      await _saveGeneratedAlbumImage(txn, blob, id: '$jobKey$suffix', ownerId: '$ownerId$suffix',
         description: description, depictsCompanion: depictsCompanion,
         reason: diary ? '她为日记绘制的插画' : '她为这次聊天绘制的插画', diary: diary);
       if (diary) {

@@ -74,6 +74,11 @@ class ChatMessage {
   bool get isUser => role == 'user';
   bool get isAssistant => role == 'assistant';
   bool get hasAttachments => attachments.isNotEmpty;
+  bool hasSameTranslationSource(ChatMessage other) =>
+      id == other.id && role == other.role && sourceRevision == other.sourceRevision &&
+      content == other.content &&
+      ChatSegmentCodec.encode(displaySegments) == ChatSegmentCodec.encode(other.displaySegments);
+
   bool hasLanguage(ChatLanguage language) =>
       language == ChatLanguage.chinese || languageVariants.containsKey(language);
   List<ChatSegment> segmentsFor(ChatLanguage language) =>

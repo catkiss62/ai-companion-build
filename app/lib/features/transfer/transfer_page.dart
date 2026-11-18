@@ -101,6 +101,7 @@ class _TransferPageState extends State<TransferPage> {
     final deadline = DateTime.now().add(const Duration(seconds: 90));
     const keys = <String>[
       'chat_turn_lease',
+      'image_vision_lease',
       'immersive_room_lease',
       'calendar_reminder_followup_lease_until',
       'immersive_archive_lease_until',

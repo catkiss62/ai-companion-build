@@ -47,9 +47,16 @@ class IllustrationJob {
   };
 
   Future<void> admit(DatabaseExecutor db) async {
+    final state = initial();
+    if (source != IllustrationSource.diary) {
+      final rows = await db.query('messages', columns: ['source_revision'],
+        where: "id = ? AND role = 'assistant'", whereArgs: [ownerId], limit: 1);
+      if (rows.isEmpty) return;
+      state['source_revision'] = rows.single['source_revision'];
+    }
     await db.insert('settings', {
       'key': key,
-      'value': jsonEncode(initial()),
+      'value': jsonEncode(state),
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
@@ -68,6 +75,7 @@ class IllustrationJob {
         'error': 'restore',
         'source': job['source'],
         'owner_id': job['owner_id'],
+        if (job.containsKey('source_revision')) 'source_revision': job['source_revision'],
         'at': job['at'],
         'attempts': job['attempts'],
       }),

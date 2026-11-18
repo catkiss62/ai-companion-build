@@ -30,6 +30,9 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
+      - name: Reply revision, vision and translation ownership
+        working-directory: app
+        run: flutter test --timeout 60s --reporter expanded test/reply_revision_ownership_test.dart test/message_language_variant_service_test.dart test/conversation_source_store_test.dart
       - name: Proactive topic evidence and visible chat glyphs
         working-directory: app
         run: flutter test --timeout 60s --reporter expanded test/proactive_topic_evidence_test.dart test/proactive_presentation_v17_test.dart test/memory_grounding_policy_test.dart test/word_slice_bridge_test.dart

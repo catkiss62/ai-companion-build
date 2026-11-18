@@ -67,9 +67,10 @@ class IllustrationWorker {
         ],
       );
       if (fence == null) return;
-      final state = IllustrationJob.decode(await db.getSetting(key));
+      final raw = await db.getSetting(key);
+      final state = IllustrationJob.decode(raw);
       if (state == null || state['state'] != 'queued') return;
-      await _process(key, state, fence);
+      await _process(key, state, raw!, fence);
     } finally {
       await db.releaseLocalLease(_lease);
     }
@@ -78,6 +79,7 @@ class IllustrationWorker {
   Future<void> _process(
     String key,
     Map<String, dynamic> state,
+    String expectedState,
     BrainWorkFence fence,
   ) async {
     final source = IllustrationSource.values
@@ -90,9 +92,17 @@ class IllustrationWorker {
         key != IllustrationJob.keyFor(source, ownerId))
       return;
     final diary = source == IllustrationSource.diary;
-    Future<bool> current() => db.brainWorkFenceCurrent(fence);
-    Future<bool> write() =>
-        db.setSettingsAtomically({key: jsonEncode(state)}, workFence: fence);
+    Future<bool> current() async =>
+        await db.brainWorkFenceCurrent(fence) && await db.getSetting(key) == expectedState;
+    Future<bool> write() async {
+      final next = jsonEncode(state);
+      if (!await db.setSettingsAtomically({key: next}, guardKey: key,
+          expectedGuardValue: expectedState, workFence: fence)) return false;
+      expectedState = next;
+      return true;
+    }
+    final revision = state['source_revision'] as int? ?? 0;
+    final stageKey = revision == 0 ? key : '$key:revision:$revision';
     Future<void> fail(String error) async {
       state['state'] = 'failed';
       state['error'] = error;
@@ -100,7 +110,7 @@ class IllustrationWorker {
       state.remove('context');
       if (await write() && state['received'] == true) {
         try {
-          await _discardFile(await _stageFile(key, state['at']));
+          await _discardFile(await _stageFile(stageKey, state['at']));
         } catch (_) {
           /* A failure report does not depend on temp cleanup. */
         }
@@ -130,7 +140,7 @@ class IllustrationWorker {
         await fail('source_missing');
         return;
       }
-    } else if (await db.messageById(ownerId) == null) {
+    } else if ((await db.messageById(ownerId))?.sourceRevision != revision) {
       await fail('source_missing');
       return;
     }
@@ -162,7 +172,7 @@ class IllustrationWorker {
     final prompt = IllustrationPrompt.compose(chosenPlan);
     final File stage;
     try {
-      stage = await _stageFile(key, state['at']);
+      stage = await _stageFile(stageKey, state['at']);
       await stage.parent.create(recursive: true);
     } catch (_) {
       await fail('storage_unavailable');
@@ -231,6 +241,7 @@ class IllustrationWorker {
           final terminal = <String, Object?>{
             'state': 'completed',
             'source': source.name,
+            if (!diary) 'source_revision': revision,
             'owner_id': ownerId,
             'at': state['at'],
             'attempts': attempts,
@@ -249,6 +260,7 @@ class IllustrationWorker {
             description: chosenPlan.description,
             depictsCompanion: chosenPlan.depictsCompanion,
             terminal: jsonEncode(terminal),
+            expectedState: expectedState,
             fence: fence,
           );
         }, db: db);

@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/database/brain_work_fence.dart';
 import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 
@@ -225,7 +226,10 @@ class _MemoryVariantStore implements MessageLanguageVariantStore {
       message.id == messageId ? message : null;
 
   @override
-  Future<void> saveVariant(ChatLanguageVariant variant) async {
+  Future<BrainWorkFence?> captureFence() async => const BrainWorkFence(identity: {});
+  @override
+  Future<void> saveVariant(ChatLanguageVariant variant, ChatMessage source, BrainWorkFence fence) async {
+    if (!message.hasSameTranslationSource(source)) throw const BrainWorkInvalidated();
     saves++;
     message = message.copyWith(
       languageVariants: <ChatLanguage, ChatLanguageVariant>{
