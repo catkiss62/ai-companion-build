@@ -792,6 +792,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   void _closeComposerTools() {
     _composerToolsOverlay?.remove();
     _composerToolsOverlay = null;
+    if (mounted) setState(() {});
   }
 
   void _toggleComposerTools() {
@@ -861,6 +862,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
       ),
     );
     overlay.insert(_composerToolsOverlay!);
+    _wordSlice.hide();
+    setState(() {});
   }
 
   Future<void> _openStickerPicker() async {
@@ -1417,7 +1420,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                 valueListenable: CaicaiLive2DService.editor,
                 builder: (context, edit, _) {
                   _wordSlice.schedule(enabled: _chatVisible && _visualStageEnabled &&
-                      keyboardInset == 0 && !_showCedarActivityWindow && edit == null,
+                      keyboardInset == 0 && !_showCedarActivityWindow &&
+                      _composerToolsOverlay == null && edit == null,
                       fraction: fraction);
                   return Stack(
                 key: _wordSlice.areaKey,
@@ -1546,7 +1550,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                               notice,
                               onDismiss: controller.dismissNotice,
                             ),
-                          KeyedSubtree(key: _wordSlice.composerKey, child: _composer(context)),
+                          _composer(context),
                         ],
                       ),
                     ),
@@ -2605,6 +2609,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
             const SizedBox(width: 6),
             Expanded(
               child: TextField(
+                key: _wordSlice.composerKey,
                 controller: input,
                 focusNode: inputFocus,
                 minLines: 1,

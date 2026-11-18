@@ -47,7 +47,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ai_companion/task_navigation")
             .setMethodCallHandler { call, result ->
                 if (call.method == "background") {
-                    moveTaskToBack(true)
+                    if (wordSliceHost?.onBack() != true) moveTaskToBack(true)
                     result.success(null)
                 } else result.notImplemented()
             }
