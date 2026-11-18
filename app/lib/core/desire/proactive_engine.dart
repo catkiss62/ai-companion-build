@@ -1673,7 +1673,13 @@ class ProactiveEngine {
       context.add({'role': 'system', 'content': IllustrationCue.instruction(requested: false)});
     }
     context.add({'role':'system','content':QqHistoryContextPolicy.proactiveBoundary});
-    final usesCheckIn = ProactivePresentationPolicy.usesRecentCheckIn(
+    final allowTopicEvidence = !nightContact && creativeShare == null &&
+        !isCedarGameShare && webShareCandidateId == null && qqShare == null &&
+        reflectionInvitation == null && selectedWishId.isEmpty &&
+        const {ProactiveIntentKind.followup, ProactiveIntentKind.curiosity,
+          ProactiveIntentKind.shareThought, ProactiveIntentKind.missYou,
+          ProactiveIntentKind.emotionalReach}.contains(intentKind);
+    final usesCheckIn = allowTopicEvidence && ProactivePresentationPolicy.usesRecentCheckIn(
       kind: intentKind, action: intent.wantAction,
       sourceType: selectedSourceType, nightContact: nightContact,
     );
@@ -1689,12 +1695,6 @@ class ProactiveEngine {
     if (checkInContext.isNotEmpty) {
       context.add({'role': 'system', 'content': checkInContext});
     }
-    final allowTopicEvidence = !nightContact && creativeShare == null &&
-        !isCedarGameShare && webShareCandidateId == null && qqShare == null &&
-        reflectionInvitation == null && selectedWishId.isEmpty &&
-        const {ProactiveIntentKind.followup, ProactiveIntentKind.curiosity,
-          ProactiveIntentKind.shareThought, ProactiveIntentKind.missYou,
-          ProactiveIntentKind.emotionalReach}.contains(intentKind);
     final topicCue = [intentThought?.text, linkedThread?.title, linkedThread?.detail]
         .nonNulls.join(' ');
     final alreadyInPrompt = <String>{
