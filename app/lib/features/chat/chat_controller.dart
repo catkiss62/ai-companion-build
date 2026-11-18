@@ -876,232 +876,232 @@ class ChatController extends ChangeNotifier {
       );
       return;
     }
-    final visionFence = await db.captureBrainWorkFence(leaseKey: 'image_vision_lease');
-    if (visionFence == null) {
-      await db.releaseLocalLease('image_vision_lease');
-      return;
-    }
-    final message = await db.messageById(messageId);
-    if (message == null || !message.isUser || message.attachments.isEmpty) {
-      await db.releaseLocalLease('image_vision_lease');
-      return;
-    }
-    final attachment = message.attachments.firstWhere(
-      (item) => item.isImage && const {'pending', 'analyzing'}.contains(item.visionStatus),
-      orElse: () => message.attachments.firstWhere((item) => item.isImage && !item.visionCompleted, orElse: () => message.attachments.first),
-    );
-    if (attachment.visionCompleted) {
-      await db.releaseLocalLease('image_vision_lease');
-      return;
-    }
-
-    final visionTelemetrySource = telemetrySource == 'retry'
-        ? 'retry'
-        : const {'gallery', 'camera'}.contains(attachment.source)
-            ? attachment.source
-            : 'recovery';
-    final visionTelemetryStarted = DateTime.now();
-    await AttachmentPipelineTelemetry.record(
-      db,
-      stage: 'vision',
-      outcome: 'started',
-      source: visionTelemetrySource,
-      byteSize: attachment.byteSize,
-      width: attachment.width,
-      height: attachment.height,
-      now: visionTelemetryStarted,
-    );
-
-    analyzingImage = true;
-    _analyzingImageMessageId = messageId;
-    error = null;
-    _safeNotify();
-    var marked = false;
     var chatLeaseHeld = false;
-    var visionRecorded = false;
-    final visionStarted = DateTime.now();
     GenerationJob? trustedGeneration;
-    // Vision providers can legitimately take longer than the short recovery lease.
-    final heartbeat = Timer.periodic(const Duration(seconds: 10), (_) {
-      unawaited(db.renewLocalLease('image_vision_lease',
-        holdFor: const Duration(seconds: 30), workFence: visionFence).then<void>((_) {},
-          onError: (Object _) {}));
-    });
+    Timer? heartbeat;
     try {
-      marked = await db.markAttachmentVisionAnalyzing(attachment.id, fence: visionFence);
-      if (!marked) {
+      final visionFence = await db.captureBrainWorkFence(leaseKey: 'image_vision_lease');
+      if (visionFence == null) {
+        return;
+      }
+      final message = await db.messageById(messageId);
+      if (message == null || !message.isUser || message.attachments.isEmpty) {
+        return;
+      }
+      final attachment = message.attachments.firstWhere(
+        (item) => item.isImage && const {'pending', 'analyzing'}.contains(item.visionStatus),
+        orElse: () => message.attachments.firstWhere((item) => item.isImage && !item.visionCompleted, orElse: () => message.attachments.first),
+      );
+      if (attachment.visionCompleted) {
+        return;
+      }
+
+      final visionTelemetrySource = telemetrySource == 'retry'
+          ? 'retry'
+          : const {'gallery', 'camera'}.contains(attachment.source)
+              ? attachment.source
+              : 'recovery';
+      final visionTelemetryStarted = DateTime.now();
+      await AttachmentPipelineTelemetry.record(
+        db,
+        stage: 'vision',
+        outcome: 'started',
+        source: visionTelemetrySource,
+        byteSize: attachment.byteSize,
+        width: attachment.width,
+        height: attachment.height,
+        now: visionTelemetryStarted,
+      );
+
+      analyzingImage = true;
+      _analyzingImageMessageId = messageId;
+      error = null;
+      _safeNotify();
+      var marked = false;
+      var visionRecorded = false;
+      final visionStarted = DateTime.now();
+      // Vision providers can legitimately take longer than the short recovery lease.
+      heartbeat = Timer.periodic(const Duration(seconds: 10), (_) {
+        unawaited(db.renewLocalLease('image_vision_lease',
+          holdFor: const Duration(seconds: 30), workFence: visionFence).then<void>((_) {},
+            onError: (Object _) {}));
+      });
+      try {
+        marked = await db.markAttachmentVisionAnalyzing(attachment.id, fence: visionFence);
+        if (!marked) {
+          await AttachmentPipelineTelemetry.record(
+            db,
+            stage: 'vision',
+            outcome: 'busy',
+            source: visionTelemetrySource,
+            duration: DateTime.now().difference(visionTelemetryStarted),
+            byteSize: attachment.byteSize,
+            width: attachment.width,
+            height: attachment.height,
+          );
+          return;
+        }
+        final visionKey = await secureConfig.readVisionApiKey() ?? '';
+        final deepSeekKey = await secureConfig.readApiKey();
+        if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
+          throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
+        }
+        await _refreshChatRoutingSettings();
+        messages = await db.recentMessages(limit: 160);
+        _safeNotify();
+
+        // The original remains local. Vision receives only the already-generated
+        // 1000 px max-edge PNG thumbnail, which bounds upload size and removes EXIF data.
+        final thumbnail = await attachmentStorage.fileFor(
+          attachment.thumbnailPath,
+        );
+        final albumEnabled =
+            (await db.getSetting('simulated_phone_enabled')) != '0';
+        final route = await db.imageVisionRouteForMessage(messageId);
+        final baseVision = visionClient;
+        final requestVision = baseVision is RoutedVisionClient
+            ? baseVision.forAttachment(
+                route: route,
+                current: () async => !_disposed &&
+                    !_discardedImageMessageIds.contains(messageId) &&
+                    await db.hasMessage(messageId),
+              )
+            : baseVision;
+        final QwenVisionObservation observation;
+        try {
+          observation = await requestVision.observe(
+            apiKey: visionKey,
+            endpoint: await secureConfig.readVisionEndpoint(),
+            model: await secureConfig.readVisionModel(),
+            imageFile: thumbnail,
+            caption: message.attachments.length == 1 ? message.content :
+              '同一条消息的第 ${message.attachments.indexOf(attachment)+1}/${message.attachments.length} 张图片。用户附言：${message.content}。仅描述当前图片，最终回复将结合全部图片。',
+            assessForAlbum: albumEnabled,
+            albumPreferenceHint:
+                albumEnabled ? await db.companionAlbumPreferenceHint() : '',
+          );
+        } finally {
+          if (!identical(requestVision, baseVision)) requestVision.close();
+        }
+        // Deleting an image message is a local, immediate action. The provider
+        // request may already be on the wire and cannot always be cancelled, so
+        // fence its late result before it can recreate a reply or surface an
+        // error for a message the user has already removed.
+        if (_discardedImageMessageIds.contains(messageId) ||
+            !await db.brainWorkFenceCurrent(visionFence)) return;
+        await CompanionAlbumStorage(db: db).requireContentSha256(
+          thumbnail,
+          observation.inputContentSha256,
+        );
+        await db.recordProviderHealthEvent(ProviderHealthEvent(
+          lane: 'vision',
+          context: 'chat_image',
+          primaryProvider: 'vision_route',
+          primaryOutcome: 'success',
+          finalProvider: observation.provider,
+          finalOutcome: 'success',
+          resultCount: 1,
+          latencyBucket:
+              ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
+        ));
+        visionRecorded = true;
+        chatLeaseHeld = await db.tryAcquireLocalLease(
+          'chat_turn_lease',
+          holdFor: const Duration(seconds: 30),
+        );
+        if (!chatLeaseHeld) {
+          throw StateError('另一处聊天窗口正在发送消息，请稍后重试这张图片。');
+        }
+        trustedGeneration = await db.completeAttachmentVisionAndCreateGeneration(
+          visionFence: visionFence,
+          attachmentId: attachment.id,
+          summary: observation.summary,
+          visionModel: observation.model,
+          assistantMessageId: _uuid.v4(),
+          model: model.apiName,
+          reasoningEffort: effort.apiName,
+          thinking: true,
+        );
+        if (!_discardedImageMessageIds.contains(messageId) &&
+            route == ImageVisionRoute.qwen &&
+            observation.provider == 'deepseek') {
+          _visionFallbackMessageId = messageId;
+        }
+        if (albumEnabled) {
+          try {
+            await _recordUserImageAlbumDecision(
+              message: message,
+              attachment: attachment,
+              thumbnail: thumbnail,
+              observation: observation,
+              visionFence: visionFence,
+            );
+          } catch (albumError) {
+            await db.recordProviderHealthEvent(ProviderHealthEvent(
+              lane: 'album',
+              context: 'user_image_album',
+              primaryProvider: 'local_album',
+              primaryOutcome: 'failed',
+              primaryErrorCategory: ProviderHealth.errorCategory(albumError),
+              finalOutcome: 'failed',
+            ));
+            await db.setSetting(
+              'companion_album_last_error',
+              albumError.toString().length <= 360
+                  ? albumError.toString()
+                  : albumError.toString().substring(0, 360),
+            );
+          }
+        }
         await AttachmentPipelineTelemetry.record(
           db,
           stage: 'vision',
-          outcome: 'busy',
+          outcome: 'completed',
           source: visionTelemetrySource,
           duration: DateTime.now().difference(visionTelemetryStarted),
           byteSize: attachment.byteSize,
           width: attachment.width,
           height: attachment.height,
         );
+      } on BrainWorkInvalidated {
         return;
-      }
-      final visionKey = await secureConfig.readVisionApiKey() ?? '';
-      final deepSeekKey = await secureConfig.readApiKey();
-      if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
-        throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
-      }
-      await _refreshChatRoutingSettings();
-      messages = await db.recentMessages(limit: 160);
-      _safeNotify();
-
-      // The original remains local. Vision receives only the already-generated
-      // 1000 px max-edge PNG thumbnail, which bounds upload size and removes EXIF data.
-      final thumbnail = await attachmentStorage.fileFor(
-        attachment.thumbnailPath,
-      );
-      final albumEnabled =
-          (await db.getSetting('simulated_phone_enabled')) != '0';
-      final route = await db.imageVisionRouteForMessage(messageId);
-      final baseVision = visionClient;
-      final requestVision = baseVision is RoutedVisionClient
-          ? baseVision.forAttachment(
-              route: route,
-              current: () async => !_disposed &&
-                  !_discardedImageMessageIds.contains(messageId) &&
-                  await db.hasMessage(messageId),
-            )
-          : baseVision;
-      final QwenVisionObservation observation;
-      try {
-        observation = await requestVision.observe(
-          apiKey: visionKey,
-          endpoint: await secureConfig.readVisionEndpoint(),
-          model: await secureConfig.readVisionModel(),
-          imageFile: thumbnail,
-          caption: message.attachments.length == 1 ? message.content :
-            '同一条消息的第 ${message.attachments.indexOf(attachment)+1}/${message.attachments.length} 张图片。用户附言：${message.content}。仅描述当前图片，最终回复将结合全部图片。',
-          assessForAlbum: albumEnabled,
-          albumPreferenceHint:
-              albumEnabled ? await db.companionAlbumPreferenceHint() : '',
+      } catch (exception) {
+        if (!await db.brainWorkFenceCurrent(visionFence)) return;
+        final discarded = _discardedImageMessageIds.contains(messageId);
+        await AttachmentPipelineTelemetry.record(
+          db,
+          stage: 'vision',
+          outcome: discarded ? 'cancelled' : 'failed',
+          source: visionTelemetrySource,
+          duration: DateTime.now().difference(visionTelemetryStarted),
+          byteSize: attachment.byteSize,
+          width: attachment.width,
+          height: attachment.height,
+          error: discarded ? null : exception,
         );
-      } finally {
-        if (!identical(requestVision, baseVision)) requestVision.close();
-      }
-      // Deleting an image message is a local, immediate action. The provider
-      // request may already be on the wire and cannot always be cancelled, so
-      // fence its late result before it can recreate a reply or surface an
-      // error for a message the user has already removed.
-      if (_discardedImageMessageIds.contains(messageId) ||
-          !await db.brainWorkFenceCurrent(visionFence)) return;
-      await CompanionAlbumStorage(db: db).requireContentSha256(
-        thumbnail,
-        observation.inputContentSha256,
-      );
-      await db.recordProviderHealthEvent(ProviderHealthEvent(
-        lane: 'vision',
-        context: 'chat_image',
-        primaryProvider: 'vision_route',
-        primaryOutcome: 'success',
-        finalProvider: observation.provider,
-        finalOutcome: 'success',
-        resultCount: 1,
-        latencyBucket:
-            ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
-      ));
-      visionRecorded = true;
-      chatLeaseHeld = await db.tryAcquireLocalLease(
-        'chat_turn_lease',
-        holdFor: const Duration(seconds: 30),
-      );
-      if (!chatLeaseHeld) {
-        throw StateError('另一处聊天窗口正在发送消息，请稍后重试这张图片。');
-      }
-      trustedGeneration = await db.completeAttachmentVisionAndCreateGeneration(
-        visionFence: visionFence,
-        attachmentId: attachment.id,
-        summary: observation.summary,
-        visionModel: observation.model,
-        assistantMessageId: _uuid.v4(),
-        model: model.apiName,
-        reasoningEffort: effort.apiName,
-        thinking: true,
-      );
-      if (!_discardedImageMessageIds.contains(messageId) &&
-          route == ImageVisionRoute.qwen &&
-          observation.provider == 'deepseek') {
-        _visionFallbackMessageId = messageId;
-      }
-      if (albumEnabled) {
-        try {
-          await _recordUserImageAlbumDecision(
-            message: message,
-            attachment: attachment,
-            thumbnail: thumbnail,
-            observation: observation,
-            visionFence: visionFence,
-          );
-        } catch (albumError) {
-          await db.recordProviderHealthEvent(ProviderHealthEvent(
-            lane: 'album',
-            context: 'user_image_album',
-            primaryProvider: 'local_album',
-            primaryOutcome: 'failed',
-            primaryErrorCategory: ProviderHealth.errorCategory(albumError),
-            finalOutcome: 'failed',
-          ));
-          await db.setSetting(
-            'companion_album_last_error',
-            albumError.toString().length <= 360
-                ? albumError.toString()
-                : albumError.toString().substring(0, 360),
-          );
+        if (!discarded) {
+          if (!visionRecorded) {
+            await db.recordProviderHealthEvent(ProviderHealthEvent(
+              lane: 'vision',
+              context: 'chat_image',
+              primaryProvider: 'vision_route',
+              primaryOutcome: marked ? 'failed' : 'not_called',
+              primaryErrorCategory: ProviderHealth.errorCategory(exception),
+              finalOutcome: 'failed',
+              latencyBucket: ProviderHealth.latencyBucket(
+                DateTime.now().difference(visionStarted),
+              ),
+            ));
+          }
+          if (marked && trustedGeneration == null) {
+            await db.failAttachmentVision(attachment.id, exception.toString(), fence: visionFence);
+          }
+          messages = await db.recentMessages(limit: 160);
+          error = VisionFailurePresentation.message(exception);
         }
-      }
-      await AttachmentPipelineTelemetry.record(
-        db,
-        stage: 'vision',
-        outcome: 'completed',
-        source: visionTelemetrySource,
-        duration: DateTime.now().difference(visionTelemetryStarted),
-        byteSize: attachment.byteSize,
-        width: attachment.width,
-        height: attachment.height,
-      );
-    } on BrainWorkInvalidated {
-      return;
-    } catch (exception) {
-      if (!await db.brainWorkFenceCurrent(visionFence)) return;
-      final discarded = _discardedImageMessageIds.contains(messageId);
-      await AttachmentPipelineTelemetry.record(
-        db,
-        stage: 'vision',
-        outcome: discarded ? 'cancelled' : 'failed',
-        source: visionTelemetrySource,
-        duration: DateTime.now().difference(visionTelemetryStarted),
-        byteSize: attachment.byteSize,
-        width: attachment.width,
-        height: attachment.height,
-        error: discarded ? null : exception,
-      );
-      if (!discarded) {
-        if (!visionRecorded) {
-          await db.recordProviderHealthEvent(ProviderHealthEvent(
-            lane: 'vision',
-            context: 'chat_image',
-            primaryProvider: 'vision_route',
-            primaryOutcome: marked ? 'failed' : 'not_called',
-            primaryErrorCategory: ProviderHealth.errorCategory(exception),
-            finalOutcome: 'failed',
-            latencyBucket: ProviderHealth.latencyBucket(
-              DateTime.now().difference(visionStarted),
-            ),
-          ));
-        }
-        if (marked && trustedGeneration == null) {
-          await db.failAttachmentVision(attachment.id, exception.toString(), fence: visionFence);
-        }
-        messages = await db.recentMessages(limit: 160);
-        error = VisionFailurePresentation.message(exception);
       }
     } finally {
-      heartbeat.cancel();
+      heartbeat?.cancel();
       if (_analyzingImageMessageId == messageId) {
         analyzingImage = false;
         _analyzingImageMessageId = null;
@@ -1113,7 +1113,7 @@ class ChatController extends ChangeNotifier {
       }
       _discardedImageMessageIds.remove(messageId);
       _safeNotify();
-      _resumeUnfinishedVisionWhenIdle();
+      if (heartbeat != null) _resumeUnfinishedVisionWhenIdle();
     }
     final generation = trustedGeneration;
     if (generation != null && chatLeaseHeld) {
@@ -2110,13 +2110,23 @@ class ChatController extends ChangeNotifier {
     );
   }
 
+  int _manualSpeechRequest = 0;
+
   Future<void> speakMessage(
     ChatMessage message, {
     ChatLanguage language = ChatLanguage.chinese,
   }) async {
     if (!message.isAssistant) return;
-    final playbackIntent = ttsPlayback.createIntent(ownerId: message.id);
+    final request = ++_manualSpeechRequest;
     var projected = message;
+    if (language != ChatLanguage.chinese && _hasPlausibleLanguageVariant(message, language)) {
+      final generation = ttsPlayback.generation;
+      final cached = await _currentCachedSpeech(message, language);
+      if (_disposed || cached == null || request != _manualSpeechRequest ||
+          generation != ttsPlayback.generation) return;
+      projected = cached;
+    }
+    final playbackIntent = ttsPlayback.createIntent(ownerId: message.id);
     if (language != ChatLanguage.chinese &&
         !_hasPlausibleLanguageVariant(message, language)) {
       try {
@@ -2199,6 +2209,29 @@ class ChatController extends ChangeNotifier {
       emotion: _ttsEmotionCue(message),
       language: language,
     );
+  }
+
+  Future<ChatMessage?> _currentCachedSpeech(ChatMessage message, ChatLanguage language) async {
+    final ChatMessage? current;
+    if (message.id == incompleteReplyDraft?.id) {
+      final owner = _translatedDraftOwner;
+      if (owner == null || incompleteReplyJobId != owner.jobId) return null;
+      final job = await db.generationJobById(owner.jobId);
+      if (job == null || job.status != 'awaiting_confirmation' ||
+          job.attempts != owner.attempts || job.updatedAt != owner.updatedAt ||
+          job.assistantSourceRevision != message.sourceRevision ||
+          EmotionEnvelope.streamingVisible(job.partialContent) != message.content ||
+          !await db.brainWorkFenceCurrent(owner.fence) || _translatedDraftOwner != owner) return null;
+      current = incompleteReplyDraft;
+    } else {
+      final fence = await db.captureBrainWorkFence();
+      if (fence == null) return null;
+      current = await db.messageById(message.id);
+      if (!await db.brainWorkFenceCurrent(fence)) return null;
+    }
+    if (current == null || !current.hasSameTranslationSource(message) ||
+        !_hasPlausibleLanguageVariant(current, language)) return null;
+    return current;
   }
 
   Future<ChatMessage> ensureLanguageVariant(

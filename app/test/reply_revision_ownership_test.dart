@@ -216,6 +216,30 @@ void main() {
     );
   }
 
+  test('cached foreign speech cannot replay a superseded reply', () async {
+    final id = await start();
+    final old = await complete(id, '「旧正文」');
+    var calls = 0;
+    final chat = ChatController(
+      db: db,
+      client: DeepSeekClient(
+        client: MockClient((_) async {
+          calls++;
+          return translation('Old wording.');
+        }),
+      ),
+    );
+    addTearDown(chat.dispose);
+    final cached = await chat.ensureLanguageVariant(old, ChatLanguage.english);
+    expect(await db.restartLatestCompletedReply(old.id), isNotNull);
+    await complete(id, '「新正文」');
+    final active = chat.ttsPlayback.createIntent(ownerId: 'new-reply');
+    await chat.speakMessage(cached, language: ChatLanguage.english);
+    expect(active.valid, isTrue);
+    expect(await db.getSetting('tts_language'), isNot('en'));
+    expect(calls, 1);
+  });
+
   test(
     'current draft keeps its translation across refresh and drops it on restore',
     () async {
@@ -277,6 +301,10 @@ void main() {
       expect(
         chat.incompleteReplyDraft!.contentFor(ChatLanguage.english),
         contains('Current draft.'),
+      );
+      await chat.speakMessage(
+        chat.incompleteReplyDraft!,
+        language: ChatLanguage.english,
       );
       expect(translations, 1);
       expect(await db.messageById(draft.id), isNull);

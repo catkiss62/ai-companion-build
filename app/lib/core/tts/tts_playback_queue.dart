@@ -64,6 +64,7 @@ class TtsPlaybackQueue {
   final void Function(TtsQueueState state)? onStateChanged;
 
   int _generation = 0;
+  int get generation => _generation;
   PlaybackIntent? _intent;
   PlaybackIntent createIntent({bool? formForPlayback, String? ownerId,
       Future<bool> Function()? canContinue}) {
