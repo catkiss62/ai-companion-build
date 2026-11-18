@@ -28,6 +28,7 @@ script=re.sub(r"\$\('sound'\)\.onclick=.*?;\n",'',script)
 # Apply device tilt only to the rope, preserving the game's original gravity.
 script=script.replace('function stepRope(dt){', 'function stepRope(dt){const ease=1-Math.exp(-dt/0.12);tiltX+=(targetTiltX-tiltX)*ease;tiltY+=(targetTiltY-tiltY)*ease;')
 script=script.replace('p.x+=vx;p.y+=vy+1200*dt*dt;', 'p.x+=vx+tiltX*850*dt*dt;p.y+=vy+(1200+tiltY*160)*dt*dt;')
+script=script.replace('\n}\nfunction renderRope()', '\n const end=rope[8],boundedX=clamp(end.x,28,W-28);if(boundedX!==end.x){end.x=boundedX;end.px=boundedX;}\n}\nfunction renderRope()')
 script=script.replace("pendant.style.top=(end.y-10)+'px';", "pendant.style.top=(end.y-10)+'px';if(time-lastPendantReport>.032){lastPendantReport=time;NativeSlice.pendantPosition(end.x,end.y+22);}")
 # Native calls are JSON-encoded; text is never evaluated as code.
 script+='''

@@ -15,7 +15,7 @@ run('window.sliceHost.configure({anchorX:358,panelTop:230,floor:700,hudTop:72});
 assert.ok(!ids.has('sound')&&!ids.has('audioTest')&&!ids.has('hint')&&!ids.has('conversation'));assert.equal(failures,0);
 console.log('PASS: actual bundled HTML, all DOM refs, native capture handshake, real glyph origin, moving anchor, reward draw, pause cleanup and removed controls.');
 
-run('window.sliceHost.motion(1,0);for(let i=0;i<300;i++)stepRope(1/120);time+=.04;draw()');
+run('window.sliceHost.configure({anchorX:195,panelTop:230,floor:700,hudTop:72});window.sliceHost.motion(1,0);for(let i=0;i<300;i++)stepRope(1/120);time+=.04;draw()');
 assert.ok(run('rope[8].x-anchor.x')>10);
 assert.equal(run('anchor.y'),230);
 assert.ok(Math.abs(sandbox.pendantXY[0]-run('rope[8].x'))<.01);
@@ -27,3 +27,8 @@ run('window.sliceHost.motion(NaN,Infinity);stepRope(.01)');
 assert.ok(run('Number.isFinite(rope[8].x)'));
 assert.ok(html.includes('ctx.strokeText(g.ch,0,0)'));
 console.log('PASS: tilt both directions, fixed anchor, moving hit target, suspend reset, invalid sensor values, glyph outline.');
+
+run('window.sliceHost.configure({anchorX:358,panelTop:230,floor:700,hudTop:72});window.sliceHost.motion(1,0);for(let i=0;i<400;i++)stepRope(1/120)');
+assert.ok(run('rope[8].x')<=run('W-28'));
+assert.equal(run('anchor.x'),358);
+console.log('PASS: screen-edge pendant limit preserves anchor and visible sprite.');

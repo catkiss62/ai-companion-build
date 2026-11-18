@@ -52,6 +52,7 @@ function stepRope(dt){const ease=1-Math.exp(-dt/0.12);tiltX+=(targetTiltX-tiltX)
  const aFree=i!==0,bFree=!(drag&&i===7);const weight=(aFree?1:0)+(bFree?1:0);if(!weight)continue;
  if(aFree){a.x+=dx*err/weight;a.y+=dy*err/weight}if(bFree){b.x-=dx*err/weight;b.y-=dy*err/weight}}
  }
+ const end=rope[8],boundedX=clamp(end.x,28,W-28);if(boundedX!==end.x){end.x=boundedX;end.px=boundedX;}
 }
 function renderRope(){ctx.save();ctx.strokeStyle='#b3abd3';ctx.lineWidth=1.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(rope[0].x,rope[0].y);for(let i=1;i<rope.length-1;i++){let a=rope[i],b=rope[i+1];ctx.quadraticCurveTo(a.x,a.y,(a.x+b.x)/2,(a.y+b.y)/2)}const end=rope[8];ctx.lineTo(end.x,end.y);ctx.stroke();ctx.fillStyle='#ded4fa';ctx.beginPath();ctx.arc(anchor.x,anchor.y,2,0,7);ctx.fill();ctx.restore();
  let rot=clamp(Math.atan2(end.x-rope[6].x,end.y-rope[6].y)*-.28,-.25,.25);sprite(mode==='idle'?idleName:'忙碌',end.x,end.y+18,48,time-idleSince,false,rot);
