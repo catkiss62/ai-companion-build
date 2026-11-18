@@ -15,6 +15,7 @@ import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
 import 'package:ai_companion_localfirst/features/chat/chat_controller.dart';
 import 'package:archive/archive.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -214,6 +215,77 @@ void main() {
       },
     );
   }
+
+  test(
+    'current draft keeps its translation across refresh and drops it on restore',
+    () async {
+      const channel = MethodChannel('ai_companion/tts');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      var claims = 0;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'claimPlayback') return ++claims;
+        if (call.method == 'generate') return Uint8List.fromList([1, 2, 3]);
+        if (const {
+          'initialize',
+          'prepareLanguage',
+          'configureAutoAffinity',
+          'status',
+        }.contains(call.method)) {
+          return {
+            'available': true,
+            'initialized': true,
+            'autoAffinityEnabled': true,
+          };
+        }
+        if (const {
+          'beginAudioStream',
+          'enqueueAudio',
+          'finishAudioStream',
+        }.contains(call.method))
+          return true;
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final id = await start();
+      await complete(id, '「上一版」');
+      final reopened = (await db.restartLatestCompletedReply('reply'))!;
+      final job = (await db.claimGenerationJob(reopened.id))!;
+      await db.holdGenerationJobForUserDecision(
+        id,
+        runToken: job.runToken,
+        partialReasoning: '',
+        partialContent: '「新版草稿」',
+      );
+      var translations = 0;
+      final chat = ChatController(
+        db: db,
+        client: DeepSeekClient(
+          client: MockClient((_) async {
+            translations++;
+            return translation('Current draft.');
+          }),
+        ),
+      );
+      addTearDown(chat.dispose);
+      await chat.syncExternalMessages();
+      final draft = chat.incompleteReplyDraft!;
+      expect(draft.sourceRevision, job.assistantSourceRevision);
+      expect(draft.sourceRevision, greaterThan(0));
+      await chat.speakMessage(draft, language: ChatLanguage.english);
+      await chat.syncExternalMessages();
+      expect(
+        chat.incompleteReplyDraft!.contentFor(ChatLanguage.english),
+        contains('Current draft.'),
+      );
+      expect(translations, 1);
+      expect(await db.messageById(draft.id), isNull);
+      await chat.ttsPlayback.stop();
+      await db.setSetting('runtime_state_epoch_v1', 'restored');
+      await chat.syncExternalMessages();
+      expect(chat.incompleteReplyDraft!.languageVariants, isEmpty);
+    },
+  );
 
   test(
     'a discarded draft cannot be restored by its late spoken translation',

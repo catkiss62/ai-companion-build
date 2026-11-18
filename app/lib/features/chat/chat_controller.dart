@@ -192,6 +192,8 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
   ChatMessage? incompleteReplyDraft;
+  ({String jobId, int attempts, DateTime updatedAt, BrainWorkFence fence})?
+      _translatedDraftOwner;
   String? incompleteReplyJobId;
   bool deepThinking = false;
 
@@ -533,23 +535,37 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _restoreIncompleteReplyDraft() async {
+    final before = incompleteReplyDraft;
+    final translated = _translatedDraftOwner;
+    final sameRuntime = translated != null && await db.brainWorkFenceCurrent(translated.fence);
     final job = await db.blockingGenerationJob();
+    if (_disposed || !identical(before, incompleteReplyDraft)) return;
     if (job?.status != 'awaiting_confirmation' ||
         job!.partialContent.trim().isEmpty) {
+      _translatedDraftOwner = null;
       incompleteReplyDraft = null;
       incompleteReplyJobId = null;
       return;
     }
+    final visible = EmotionEnvelope.streamingVisible(job.partialContent);
+    if (translated != null && sameRuntime && translated.jobId == job.id &&
+        translated.attempts == job.attempts && translated.updatedAt == job.updatedAt &&
+        incompleteReplyJobId == job.id && incompleteReplyDraft?.content == visible &&
+        incompleteReplyDraft?.sourceRevision == job.assistantSourceRevision) {
+      return;
+    }
+    _translatedDraftOwner = null;
     incompleteReplyJobId = job.id;
     incompleteReplyDraft = ChatMessage(
+      sourceRevision: job.assistantSourceRevision,
       id: job.assistantMessageId,
       role: 'assistant',
       formContextJson: job.formContextJson,
-      content: EmotionEnvelope.streamingVisible(job.partialContent),
+      content: visible,
       reasoningContent: job.partialReasoning,
       model: job.model,
       createdAt: job.updatedAt,
-      segments: ChatSegmentCodec.parseAssistantText(EmotionEnvelope.streamingVisible(job.partialContent)),
+      segments: ChatSegmentCodec.parseAssistantText(visible),
     );
     notice ??= '回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。';
   }
@@ -2146,6 +2162,8 @@ class ChatController extends ChangeNotifier {
               ),
             },
           );
+          _translatedDraftOwner = (jobId: currentJob.id, attempts: currentJob.attempts,
+              updatedAt: currentJob.updatedAt, fence: draftFence);
           incompleteReplyDraft = projected;
           _safeNotify();
         } else {
