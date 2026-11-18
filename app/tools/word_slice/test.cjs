@@ -62,6 +62,27 @@ run("exitGame();mode='playing';score=100;nextLoveScore=100;spawnAt=time+10;updat
 run('sliceLove({x:100,y:love.y},{x:200,y:love.y})');assert.ok(Math.abs(run('love.end-time')-3)<1e-9);const firstKick=run('love.kickSign');run('update(.1);sliceLove({x:100,y:love.y},{x:200,y:love.y});drawLove()');assert.equal(run('love.kickSign'),-firstKick);assert.equal(run('love.kickAt'),run('time'));
 run('for(let i=0;i<340;i++)update(1/120)');assert.ok(run('love!==null'));run('for(let i=0;i<12;i++)update(1/120)');assert.equal(run('love'),null);run('exitGame()');assert.equal(run('particles.length'),0);
 console.log('PASS: gradient drawing, flight rotation/trail, alternating impact response, 3s expiry and cleanup.');
+// Advance an actual wave, then exercise the normal swipe entry point.
+run('exitGame();startGame();mode="playing";wave=3;spawnAt=Infinity;spawnWave()');
+assert.ok(run('bombs.every(b => Math.abs(b.r)<=.22 && Math.abs(b.vr)>=.40)'));
+const firstRotation=run('bombs[0].r');
+run('update(1/120)');
+assert.notEqual(run('bombs[0].r'),firstRotation);
+for (const direction of [1,-1]) {
+ run('exitGame();startGame();mode="playing";spawnAt=Infinity;'+
+   'bombs=[{x:195,y:360,vx:0,vy:0,r:.12,vr:.6,age:time}];'+
+   `cut({x:${195-direction*40},y:355},{x:${195+direction*40},y:355})`);
+ assert.equal(run('mode'),'ending');
+ assert.ok(run('victim.vx')*direction>250);
+ run('for(let i=0;i<15;i++)update(1/120)');
+ assert.ok((run('victim.x')-195)*direction>25);
+ assert.ok(run('victim.y')<360);
+ assert.notEqual(run('victim.r'),.12);
+ run('for(let i=0;i<400;i++)update(1/120)');
+ assert.equal(run('victim.y'),676);
+ assert.equal(run('mode'),'over');
+}
+console.log('PASS: randomized bomb rotation, opposite swipe trajectories, air rotation, and landing.');
 // A suspended context resumes asynchronously; the explicit test must wait.
 (async()=>{
  for(const el of nodes.values())el.setAttribute=()=>{};
@@ -70,6 +91,6 @@ console.log('PASS: gradient drawing, flight rotation/trail, alternating impact r
  run('sound.context').resume=()=>new Promise(r=>{resolveResume=()=>{run("sound.context.state='running'");r();}});
  const before=starts;run('testSound()');assert.equal(starts,before);resolveResume();await Promise.resolve();await Promise.resolve();await Promise.resolve();assert.ok(starts>before);
  const template=fs.readFileSync(__dirname+'/template.html','utf8');assert.ok(template.includes("['pointerup','touchend','click']"));
- run("startGame();hitBomb({x:180,y:300,vx:0,vy:0})");assert.equal(element('damage').style.opacity,'1');run('update(.14)');assert.ok(Number(element('damage').style.opacity)>.45);run('update(.15)');assert.equal(Number(element('damage').style.opacity),0);run('exitGame()');assert.equal(element('damage').style.opacity,'0');
+ run("startGame();bombs=[{x:180,y:300,vx:0,vy:0,r:.12,vr:.6,age:time}];cut({x:120,y:300},{x:220,y:300})");assert.equal(element('damage').style.opacity,'1');run('update(.14)');assert.ok(Number(element('damage').style.opacity)>.45);run('update(.15)');assert.equal(Number(element('damage').style.opacity),0);run('exitGame()');assert.equal(element('damage').style.opacity,'0');
  console.log('PASS: asynchronous audio resume then audition, touch-release hooks, single hit flash/fade/exit reset.');
 })().catch(e=>{console.error(e);process.exitCode=1});

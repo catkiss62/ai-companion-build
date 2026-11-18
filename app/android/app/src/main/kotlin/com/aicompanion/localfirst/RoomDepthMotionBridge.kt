@@ -75,10 +75,9 @@ internal class RoomDepthMotionBridge(private val activity: Activity, engine: Flu
         if (SensorManager.remapCoordinateSystem(raw, axes.first, axes.second, screen) &&
             filter.update(screen, event.timestamp)) {
             emit(filter.x, filter.y, reset = recalibrated)
-            // Gravity projected into screen axes includes roll, which room parallax
-            // intentionally ignores. Near-flat phones smoothly approach zero sway.
-            pendant?.invoke((-screen[6] * 1.8f).coerceIn(-1f, 1f),
-                screen[8].coerceIn(-1f, 1f), false)
+            // World down projected into the screen plane. Android's screen Y
+            // points up in this matrix, whereas the canvas Y points down.
+            pendant?.invoke(-screen[6], screen[7], false)
         }
     }
 }
