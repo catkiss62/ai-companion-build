@@ -145,7 +145,7 @@ function sliceLove(a,b){if(!love||love.y>floorY()-30||distanceToSegment(love,a,b
  if(!love.active){love.active=true;love.end=time+3;loveHits=0;lastLoveCut=-10;bombs=[];glyphs=[];sound.play('combo');}
  if(time-lastLoveCut>=.08){lastLoveCut=time;loveHits++;love.kickAt=time;love.kickSign=loveHits%2?1:-1;score++;setScore();loveBurst(love.x,love.y,7);sound.play('cut',loveHits);if(loveHits%10===0)sound.play('combo');}
  return true;}
-function drawLove(){if(!love)return;const l=love;ctx.save();ctx.translate(l.x,l.y);const age=Math.max(0,time-(l.kickAt??-10)),kick=l.active?Math.max(0,1-age/.24):0;ctx.save();ctx.translate(Math.cos(age*55)*9*kick*(l.kickSign||1),-Math.sin(age*43)*5*kick);ctx.rotate(l.r+Math.cos(age*48)*.28*kick*(l.kickSign||1));ctx.scale(1+kick*.12,1-kick*.06);ctx.font='800 '+(32+Math.sin(time*8))+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';const tint=ctx.createLinearGradient(0,-18,0,18);tint.addColorStop(0,'#ff929e');tint.addColorStop(.5,'#ffacc8');tint.addColorStop(1,'#ffd0ed');ctx.strokeStyle='rgba(60,24,50,.62)';ctx.lineWidth=1.4;ctx.lineJoin='round';ctx.strokeText('爱',0,0);ctx.fillStyle=tint;ctx.fillText('爱',0,0);ctx.restore();for(let i=0;i<12;i++){const a=time*(i%2?1:-1)+i*Math.PI/6,r=27+Math.sin(time*3+i)*3;ctx.fillStyle=i%3?'#ff94cd':'#ffe1a3';ctx.globalAlpha=.5+.4*Math.sin(time*4+i)**2;ctx.beginPath();ctx.arc(Math.cos(a)*r,Math.sin(a)*r,1.5+i%3*.6,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.fillStyle='#ffd2e8';ctx.font='600 12px system-ui';if(l.active)drawLabel('连切 ×'+loveHits,0,-43,12,'#ffd2e8');else ctx.fillText('切我 · 爱意连击',0,-43);if(l.active){ctx.strokeStyle='#ff87c2';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,33,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,(l.end-time)/3));ctx.stroke();}ctx.restore();}
+function drawLove(){if(!love)return;const l=love;ctx.save();ctx.translate(l.x,l.y);const age=Math.max(0,time-(l.kickAt??-10)),kick=l.active?Math.max(0,1-age/.24):0;ctx.save();ctx.translate(Math.cos(age*55)*9*kick*(l.kickSign||1),-Math.sin(age*43)*5*kick);ctx.rotate(l.r+Math.cos(age*48)*.28*kick*(l.kickSign||1));ctx.scale(1+kick*.12,1-kick*.06);ctx.font='800 '+(32+Math.sin(time*8))+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';const tint=ctx.createLinearGradient(0,-18,0,18);tint.addColorStop(0,'#ff929e');tint.addColorStop(.5,'#ffacc8');tint.addColorStop(1,'#ffd0ed');ctx.strokeStyle='rgba(60,24,50,.62)';ctx.lineWidth=1.4;ctx.lineJoin='round';ctx.strokeText('爱',0,0);ctx.fillStyle=tint;ctx.fillText('爱',0,0);ctx.restore();for(let i=0;i<12;i++){const a=time*(i%2?1:-1)+i*Math.PI/6,r=27+Math.sin(time*3+i)*3;ctx.fillStyle=i%3?'#ff94cd':'#ffe1a3';ctx.globalAlpha=.5+.4*Math.sin(time*4+i)**2;ctx.beginPath();ctx.arc(Math.cos(a)*r,Math.sin(a)*r,1.5+i%3*.6,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.fillStyle='#ffd2e8';ctx.font='600 12px system-ui';if(l.active){ctx.textAlign='center';ctx.textBaseline='alphabetic';}ctx.fillText(l.active?'连切 ×'+loveHits:'切我 · 爱意连击',0,-43);if(l.active){ctx.strokeStyle='#ff87c2';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,33,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,(l.end-time)/3));ctx.stroke();}ctx.restore();}
 function distanceToSegment(p,a,b){let dx=b.x-a.x,dy=b.y-a.y;let t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));}
 function cut(a,b){if(mode!=='playing'&&mode!=='intro')return;if(Math.hypot(b.x-a.x,b.y-a.y)<2||introCacheJob)return;if(sliceLove(a,b)||love?.active)return;
  for(const bomb of bombs){if(time>=bomb.age&&bomb.y<=floorY()-24&&distanceToSegment(bomb,a,b)<23){hitBomb(bomb,a,b);return}}
@@ -192,7 +192,7 @@ function stepHitBomb(dt){
 function update(dt){time+=dt;$('damage').style.opacity=victim?String(Math.max(0,1-(time-victim.hit)/.28)):'0';stepRope(dt);if(mode==='idle'&&time>idleNext){idleName=pick(idleNames.filter(n=>n!==idleName));idleSince=time;idleNext=time+rand(3,6)}
  if(mode==='intro'&&!introCacheJob&&time-roundStart>1.95)mode='playing';
  if(mode==='playing'&&!love&&score>=nextLoveScore){love={x:rand(W*.23,W*.67),y:floorY()+45,vx:rand(-65,65)*2/3,vy:-Math.sqrt(2*settings.gravity*rand(H*.34,H*.55))*2/3,gravity:settings.gravity*4/9,r:rand(-.35,.35),vr:rand(-1.8,1.8),trailAt:time,active:false};nextLoveScore+=100;}
- if(love){if(love.active){$('subscore').textContent='爱意连切 · '+Math.max(0,love.end-time).toFixed(1)+' 秒 · 暂无炸弹';if(time>=love.end)finishLove();}else{love.r+=love.vr*dt;if(time>=love.trailAt){particles.push({kind:'spark',x:love.x+rand(-8,8),y:love.y+rand(-8,8),vx:rand(-10,10),vy:rand(-8,8),gravity:18,size:rand(1,2.2),color:pick(['#ffb5d3','#ffd6e9','#ffe7b8']),alpha:.45,life:.48,max:.48});love.trailAt=time+.045;}love.vy+=love.gravity*dt;love.y+=love.vy*dt;love.x+=love.vx*dt;if(love.x<32||love.x>W-32){love.x=clamp(love.x,32,W-32);love.vx*=-1;}if(love.y>H+75){love=null;spawnAt=time+.4;}}}
+ if(love){if(love.active){$('subscore').textContent='爱意连切 · '+Math.max(0,love.end-time).toFixed(1)+' 秒';if(time>=love.end)finishLove();}else{love.r+=love.vr*dt;if(time>=love.trailAt){particles.push({kind:'spark',x:love.x+rand(-8,8),y:love.y+rand(-8,8),vx:rand(-10,10),vy:rand(-8,8),gravity:18,size:rand(1,2.2),color:pick(['#ffb5d3','#ffd6e9','#ffe7b8']),alpha:.45,life:.48,max:.48});love.trailAt=time+.045;}love.vy+=love.gravity*dt;love.y+=love.vy*dt;love.x+=love.vx*dt;if(love.x<32||love.x>W-32){love.x=clamp(love.x,32,W-32);love.vx*=-1;}if(love.y>H+75){love=null;spawnAt=time+.4;}}}
  if(mode==='playing'&&!love&&time>=spawnAt){spawnWave();spawnAt=time+settings.spawn+rand(0,.35)}
  if(pending&&time>transitionUntil){let p=pending;pending=null;p==='start'?startGame():exitByPendant()}
  for(const g of glyphs){if(g.intro&&(introCacheJob||time-roundStart<.20+g.delay))continue;g.vy+=settings.gravity*dt;g.x+=g.vx*dt;g.y+=g.vy*dt;g.r+=g.vr*dt;}
@@ -271,64 +271,21 @@ function textGlyph(g,size=g.size){
  ctx.restore();
 }
 const hitLabel={text:'痛！',color:'#ff5863',life:.8};
-const labelBitmaps=new Map();
-let labelDpr=0,labelRasterBudget=0;
-
-// Each new caption costs at most one small raster per frame. Later frames
-// only move, scale and fade the cached image.
-function labelBitmap(text,size,color){
- const key=`${size}:${color}:${text}`;
- if(labelBitmaps.has(key))return labelBitmaps.get(key);
- if(labelRasterBudget<1)return null;
- labelRasterBudget--;
- ctx.save();
- ctx.font=`600 ${size}px system-ui`;
- const textWidth=ctx.measureText(text).width;
- ctx.restore();
- const width=Math.ceil((textWidth+6)*labelDpr);
- const above=Math.ceil((size+3)*labelDpr);
- const height=above+Math.ceil((size*.35+3)*labelDpr);
- const image=document.createElement('canvas');
- image.width=width;image.height=height;
- const target=image.getContext('2d');
- let bitmap=null;
- if(target){
-  target.setTransform(labelDpr,0,0,labelDpr,width/2,above);
-  target.font=`600 ${size}px system-ui`;target.textAlign='center';target.textBaseline='alphabetic';
-  target.lineJoin='round';target.lineWidth=1.5;target.strokeStyle='rgba(30,19,38,.9)';
-  target.strokeText(text,0,0);
-  target.fillStyle=color;target.fillText(text,0,0);
-  bitmap={image,width:width/labelDpr,height:height/labelDpr,above:above/labelDpr};
- }
- if(labelBitmaps.size>=32)labelBitmaps.delete(labelBitmaps.keys().next().value);
- labelBitmaps.set(key,bitmap);
- return bitmap;
-}
-function drawLabel(text,x,y,size,color,scale=1){
- const bitmap=labelBitmap(text,size,color);
- if(bitmap){
-  const width=bitmap.width*scale;
-  ctx.drawImage(bitmap.image,x-width/2,y-bitmap.above*scale,width,bitmap.height*scale);
- }else{
-  ctx.save();ctx.font=`600 ${size*scale}px system-ui`;
-  ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle=color;
-  ctx.fillText(text,x,y);ctx.restore();
- }
-}
 function drawFloatingLabels(){
- // On the impact frame, give the red label priority over an older combo.
- if(labels.at(-1)?.grows)labelBitmap(hitLabel.text,17,hitLabel.color);
+ if(!labels.length)return;
+ ctx.save();
+ ctx.textAlign='center';ctx.textBaseline='alphabetic';
  for(const label of labels){
   const progress=label.grows?clamp(1-label.life/hitLabel.life,0,1):0;
   const scale=1+.28*progress*progress*(3-2*progress);
   ctx.globalAlpha=Math.min(1,label.life*3);
-  drawLabel(label.text,clamp(label.x,55,W-55),label.y,17,label.color??'#edcbff',scale);
+  ctx.font=`600 ${17*scale}px system-ui`;
+  ctx.fillStyle=label.color??'#edcbff';
+  ctx.fillText(label.text,clamp(label.x,55,W-55),label.y);
  }
- ctx.globalAlpha=1;
+ ctx.restore();
 }
 function draw(){ctx.clearRect(0,0,W,H);
- if(labelDpr!==dpr){labelDpr=dpr;labelBitmaps.clear();}
- labelRasterBudget=1;
  const buildup=clamp((time-roundStart)/.20,0,1);
  if(!introCacheJob){
   ctx.globalAlpha=.7+.3*buildup;

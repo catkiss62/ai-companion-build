@@ -1,12 +1,12 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const html=fs.readFileSync(path.join(__dirname,'../android/app/src/main/assets/word_slice/index.html'),'utf8');
 const ids=new Set([...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1])),nodes=new Map();
-const strokeCalls=[],imageCalls=[];
+const strokeCalls=[],fillCalls=[];
 const context=new Proxy({},{get(t,k){
  if(k==='measureText')return text=>({width:16*[...text].length});
  if(k==='createLinearGradient')return()=>({addColorStop(){}});
- if(k==='strokeText')return text=>strokeCalls.push([text,t.fillStyle,t.lineWidth]);
- if(k==='drawImage')return(...args)=>imageCalls.push({args,alpha:t.globalAlpha});
+ if(k==='strokeText')return text=>strokeCalls.push(text);
+ if(k==='fillText')return(text,x,y)=>fillCalls.push({text,x,y,color:t.fillStyle,font:t.font,alpha:t.globalAlpha});
  return t[k]??(()=>{});
 }});
 function el(id){assert.ok(ids.has(id),'No dangling DOM reference: '+id);if(!nodes.has(id))nodes.set(id,{style:{},textContent:'',classList:{add(){},remove(){}},clientWidth:390,clientHeight:844,events:{},addEventListener(k,f){this.events[k]=f},getBoundingClientRect(){return {left:0,top:0,width:390,height:844}},querySelectorAll(){return []},setPointerCapture(){},hasPointerCapture(){return false},releasePointerCapture(){},getContext(){return context}});return nodes.get(id)}
@@ -61,36 +61,37 @@ run("window.sliceHost.start([{ch:'鲸',x:130,y:550,size:20}])");assert.equal(run
 console.log('PASS: bounded atlas warmup, stable source positions, reuse and simplified result card.');
 
 
-// Outline both texts without repainting strokes on every animated frame.
-run("exitGame();mode='playing';spawnAt=Infinity;labels=[{text:'连切 ×8',x:170,y:310,life:.7}];");
+// Floating hit and combo labels use solid fill. The red label still grows and fades.
+run("exitGame();mode='playing';spawnAt=Infinity;labels=[{text:'连切 ×8',x:170,y:310,life:.7},{text:'爱意连切 +5',x:195,y:303,life:1.2}];");
 run("hitBomb({x:180,y:330,vx:0,vy:0},{x:145,y:330},{x:220,y:330})");
-assert.equal(run('labels.at(-1).color'),'#ff5863');
-const labelImages=()=>imageCalls.filter(call=>call.args.length===5&&'width' in call.args[0]);
 const strokeStart=strokeCalls.length;
+let fillStart=fillCalls.length;
 run('draw()');
-const painDraw=labelImages().at(-1);
-assert.ok(painDraw);
-assert.equal(strokeCalls.length-strokeStart,1);
-assert.equal(strokeCalls.at(-1)[0],'痛！');
+assert.deepEqual(fillCalls.slice(fillStart).map(x=>x.text),['连切 ×8','爱意连切 +5','痛！']);
+assert.equal(strokeCalls.length,strokeStart);
+const painDraw=fillCalls.at(-1);
+assert.equal(painDraw.color,'#ff5863');
 assert.equal(painDraw.alpha,1);
-run('draw()');
-assert.equal(strokeCalls.length-strokeStart,2);
-assert.equal(strokeCalls.at(-1)[0],'连切 ×8');
 run('for(let i=0;i<60;i++)update(1/120);draw()');
-const halfway=labelImages().at(-1);
-assert.ok(halfway.args[3]>painDraw.args[3],'pain label grows');
-assert.ok(halfway.args[3]<painDraw.args[3]*1.28,'growth is gradual');
-assert.ok(halfway.args[2]<painDraw.args[2],'original rise is preserved');
+const halfway=fillCalls.at(-1);
+const fontSize=entry=>Number(entry.font.match(/ ([0-9.]+)px/)[1]);
+assert.ok(fontSize(halfway)>fontSize(painDraw),'pain label grows');
+assert.ok(fontSize(halfway)<fontSize(painDraw)*1.28,'growth is gradual');
+assert.ok(halfway.y<painDraw.y,'original rise is preserved');
 assert.ok(halfway.alpha<1,'original fade is preserved');
-assert.equal(strokeCalls.length-strokeStart,2);
+assert.equal(strokeCalls.length,strokeStart);
 run('for(let i=0;i<39;i++)update(1/120);draw()');
-assert.equal(run('labels.length'),0,'pain label still expires at 0.8s');
-run("labels=Array.from({length:50},(_,i)=>({text:'连切 ×'+(100+i),x:170,y:310,life:.7}));draw()");
-assert.equal(strokeCalls.length-strokeStart,3,'busy frame rasterizes one new label');
-run('for(let i=0;i<40;i++)draw()');
-assert.ok(run('labelBitmaps.size')<=32,'label bitmap cache stays bounded');
-console.log('PASS: red impact text, existing upward fade, gradual scale, outlines reused, and bounded warmup/cache.');
+assert.ok(run("labels.every(l=>l.text!=='痛！')"),'pain label still expires at 0.8s');
 
+// The love streak caption has solid fill; the reward glyph and countdown still render.
+run("exitGame();mode='playing';spawnAt=Infinity;love={x:195,y:330,r:0,active:true,end:time+3};loveHits=5;update(.1)");
+fillStart=fillCalls.length;
+run('draw()');
+assert.deepEqual(fillCalls.slice(fillStart).map(x=>x.text),['爱','连切 ×5']);
+assert.deepEqual(strokeCalls.slice(strokeStart),['爱']);
+assert.equal(el('subscore').textContent,'爱意连切 · 2.9 秒');
+assert.ok(!html.includes('暂无炸弹'));
+console.log('PASS: unoutlined labels, red impact growth and fade, and simplified love countdown.');
 
 // A touch unlocks audio, but system Back, activity hide and resume are silent.
 let playedVoices=0;
