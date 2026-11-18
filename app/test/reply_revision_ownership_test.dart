@@ -19,7 +19,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:image/image.dart' as img;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -284,9 +283,12 @@ void main() {
               started.complete();
               await finish.future;
             }
-            final im = img.Image(width: 4, height: 4)
-              ..clear(img.ColorRgb8(n * 50, 20, 20));
-            final png = img.encodePng(im);
+            // Two valid solid-color images give each committed revision its own blob.
+            final png = base64Decode(
+              n == 3
+                  ? 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVR4nGNkYPjPAANMDEgANwcAMdMBB1sLEtoAAAAASUVORK5CYII='
+                  : 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP8z4AATAxEcQAz0QEHOoQ+uAAAAABJRU5ErkJggg==',
+            );
             final archive = Archive()
               ..addFile(ArchiveFile('image.png', png.length, png));
             return http.Response.bytes(ZipEncoder().encode(archive), 200);

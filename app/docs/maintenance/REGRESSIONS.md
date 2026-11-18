@@ -4,6 +4,7 @@
 
 | 领域 | 已有问题/容易回归的边界 | 修改时核对 | 证据 |
 | --- | --- | --- | --- |
+| 普通聊天换档和重生成 | 同一消息 ID 可对应新正文；旧识图、配图或译文曾写入新数据 | 同 ID 迟到、同文换档、相册保留、旧草稿与正常回包 | [第一组修复记录](../ledger/AI_Companion_总账_v4.md)、[回归测试](../../test/reply_revision_ownership_test.dart) |
 | 语义召回 | 共享缓存淘汰本轮仍要使用的向量，长查询失败并进入冷却 | 每轮持有自己的向量；缓存已满、混合命中、并发淘汰 | [v4：语义召回分段缓存修复](../ledger/AI_Companion_总账_v4.md)、[回归测试](../../test/local_semantic_index_test.dart) |
 | 沉浸摘要 | 实际发送尾部消息，却按另一批消息推进摘要进度 | 最早未处理完整消息；游标只算实际覆盖；归档重新读原文 | [v4：上下文截取与 token 六项修复](../ledger/AI_Companion_总账_v4.md) |
 | QQ 长材料 | 只保留开头导致尾事实丢失；图片追读和文字游标混用 | 首尾/相关片段、partial、Unicode、独立 image_cursor | [v4：+438 修复及真机待验](../ledger/AI_Companion_总账_v4.md) |

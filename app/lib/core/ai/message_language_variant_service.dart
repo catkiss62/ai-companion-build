@@ -227,7 +227,7 @@ class MessageLanguageVariantService {
     if (latest == null || !latest.hasSameTranslationSource(message)) {
       throw const BrainWorkInvalidated();
     }
-    final existing = latest?.languageVariants[language];
+    final existing = latest.languageVariants[language];
     if (existing != null &&
         MessageLanguageVariantDecoder.isPlausibleVariant(existing, language)) {
       return existing;
