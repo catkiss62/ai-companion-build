@@ -106,7 +106,7 @@ class QqIllustrationService {
   final QqStore store;
   final IllustrationClient client;
 
-  Future<({String raw, QqIllustration picture})?> recoverUnsent(QqBatch batch,
+  Future<({String raw, QqIllustration picture})?> recoverUnsent(QqBatch batch, String replyTo,
       Future<bool> Function() current) async {
     if (!await current()) return null;
     final sql = await store.db.database;
@@ -116,6 +116,10 @@ class QqIllustrationService {
     final rawDraft = tasks.single['draft'] as String? ?? '';
     if (rawDraft.isEmpty) return null;
     final draft = jsonDecode(rawDraft) as Map;
+    // Old drafts can prove the reply target only for single-source batches.
+    final savedTarget = draft['illustration_reply_to'] ??
+        (batch.rows.length == 1 ? batch.rows.single['platform_id'] : null);
+    if (replyTo.isEmpty || savedTarget != replyTo) return null;
     final raw = draft['raw'] as String? ?? '';
     if (draft[QqReplyTasks.illustrationStartedKey] != true ||
         QqIllustrationChoice.parse(raw) == null) return null;
@@ -142,6 +146,7 @@ class QqIllustrationService {
     required SecureConfig secure,
     required DeepSeekClient planner,
     required String rawReply,
+    required String replyTo,
     required String context,
     required bool autonomous,
     required int now,
@@ -152,7 +157,7 @@ class QqIllustrationService {
     if (!await current()) throw const BrainWorkInvalidated();
     if (!await QqReplyTasks(store).reserveIllustration(
       batch,
-      rawReply: rawReply,
+      rawReply: rawReply, replyTo: replyTo,
       autonomous: autonomous,
       now: now,
     )) {

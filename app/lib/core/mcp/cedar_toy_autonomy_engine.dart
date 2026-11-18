@@ -2313,10 +2313,8 @@ ${arrangements.prompt}''',
         params,
         cancellationToken: scope.cancellation,
       );
-    } on McpHttpException catch (error) {
-      if (error.knownToolRejection) {
-        outcome = error.rejection;
-      } else if (!CedarPlatformActionPolicy.isReadOnlyCall(action, params)) {
+    } on McpHttpException {
+      if (!CedarPlatformActionPolicy.isReadOnlyCall(action, params)) {
         await store.markWriteOutcomeUncertain(gameId: session.gameId, action: action,
             params: params, executionId: scope.executionId);
         return const CedarAutonomyProgress('write_outcome_sync');

@@ -117,6 +117,7 @@ class QqReplyTasks {
   Future<bool> reserveIllustration(
     QqBatch b, {
     required String rawReply,
+    required String replyTo,
     required bool autonomous,
     required int now,
   }) => store.write(b.fence, (sql) async {
@@ -127,7 +128,7 @@ class QqReplyTasks {
     final draft = existing.isEmpty ? <String, dynamic>{}
         : (jsonDecode(existing) as Map).cast<String, dynamic>();
     if (draft[illustrationStartedKey] == true) return false;
-    final updated = jsonEncode({...draft, 'raw': rawReply, illustrationStartedKey: true});
+    final updated = jsonEncode({...draft, 'raw': rawReply, 'illustration_reply_to':replyTo, illustrationStartedKey: true});
     if (updated.length > 48000) throw const FormatException('qq_draft_size');
     if (autonomous && !await QqDrawingPolicy.reserveAutonomousIllustration(sql, b, now)) return false;
     await sql.update('qq_reply_tasks', {'draft': updated}, where: 'id=?', whereArgs: [b.id]);

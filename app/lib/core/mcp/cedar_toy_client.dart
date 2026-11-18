@@ -54,15 +54,15 @@ class CedarToyClient {
     String action,
     Map<String, Object?> params, {
     GenerationCancellationToken? cancellationToken,
-  }) => transport.callTool(
-        'play',
-        <String, Object?>{
-          'game': game,
-          'action': action,
-          'params': params,
-        },
-        cancellationToken: cancellationToken,
-      );
+  }) async {
+    try {
+      return await transport.callTool('play', {'game':game, 'action':action, 'params':params},
+          cancellationToken:cancellationToken);
+    } on McpHttpException catch (error) {
+      if (error.knownToolRejection) return error.rejection;
+      rethrow;
+    }
+  }
 
   /// Reads only the live player-facing `play` tool signature. This is an MCP
   /// operating contract, not game source or strategy material. It lets the

@@ -85,7 +85,7 @@ class QqReplyRecovery {
       final next={key:{'attempts':((retry['attempts'] as num?)?.toInt() ?? 0)+1,'next_at':0},
         if(draft[QqReplyTasks.illustrationStartedKey]==true) ...{
           QqReplyTasks.illustrationStartedKey:true,
-          for (final field in ['raw','illustration_blob_id','illustration_description'])
+          for (final field in ['raw','illustration_blob_id','illustration_description','illustration_reply_to'])
             if (draft[field] is String) field:draft[field],
         }};
       await sql.update('qq_reply_tasks',{'stage':'checking','draft':jsonEncode(next),'updated_at':now},where:'id=?',whereArgs:[row['id']]);

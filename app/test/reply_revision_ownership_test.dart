@@ -166,8 +166,12 @@ void main() {
     chat.notice = '第三通道错误';
     await chat.regenerateLatestReply(message('assistant','旧回复'));
     expect(chat.temporaryHint, contains('只能重新生成'));
+    await Future<void>.delayed(const Duration(milliseconds:2100));
+    await chat.regenerateLatestReply(message('assistant','旧回复'));
     chat.error = 'API Key 已失效';
-    await Future<void>.delayed(const Duration(milliseconds:4200));
+    await Future<void>.delayed(const Duration(milliseconds:2100));
+    expect(chat.temporaryHint,isNotNull);
+    await Future<void>.delayed(const Duration(milliseconds:2100));
     expect(chat.temporaryHint,isNull);
     expect(chat.error,'API Key 已失效');
     expect(chat.notice,'第三通道错误');

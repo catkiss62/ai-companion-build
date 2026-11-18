@@ -611,7 +611,7 @@ class QqRuntime {
           ? await secure.readIllustration()
           : const IllustrationConnection();
       final recovered = pending.isEmpty && reusedDraft == null && illustrationConnection.configured
-          ? await illustrations.recoverUnsent(b,current) : null;
+          ? await illustrations.recoverUnsent(b,replyRow['platform_id'] as String,current) : null;
       final canIllustrate=illustrationConnection.configured &&
           (recovered != null || drawingRequested || await QqDrawingPolicy.autonomousIllustrationOpportunity(store,b,drawingAt));
       await store.illustrationAudit(b,'eligibility',drawingAt,{
@@ -742,7 +742,7 @@ class QqRuntime {
           status('illustrating');
           illustration=recovered?.picture ?? await illustrations.generate(
             batch:b,choice:illustrationChoice,connection:illustrationConnection,secure:secure,
-            planner:client,rawReply:raw,
+            planner:client,rawReply:raw,replyTo:replyRow['platform_id'] as String,
             context:drawingRequest.length<=1200?drawingRequest:drawingRequest.substring(drawingRequest.length-1200),
             autonomous:!drawingRequested,now:now().millisecondsSinceEpoch,current:illustrationCurrent,
             preferMature: preferMature, previousIllustration: previousIllustration,

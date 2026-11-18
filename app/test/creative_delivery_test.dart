@@ -1,3 +1,4 @@
+import 'third_channel_v042149_test.dart' as third_fixture show complete;
 import 'dart:io';
 import 'package:ai_companion_localfirst/core/ai/third_channel_config.dart';
 import 'dart:async';
@@ -59,7 +60,8 @@ void main() {
   Future<Map<String, dynamic>> notice() => CreativeDelivery(db).read(id);
   Future<void> tick(CreativeDelivery runtime) async { clock = clock.add(const Duration(minutes: 5)); await runtime.runOnce(); }
 
-  test('completion uses enabled third channel before the relay', () async {
+  for (final validThird in [true, false]) {
+  test('completion routes third response before the relay (valid=$validThird)', () async {
     await HttpOverrides.runWithHttpOverrides(() async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4,0);
       var posts = 0;
@@ -71,7 +73,7 @@ void main() {
         } else {
           posts++;
           request.response.headers.set('content-type','text/event-stream; charset=utf-8');
-          request.response.write(answer('第三通道完成通知').body);
+          request.response.write(validThird ? third_fixture.complete('第三通道完成通知') : answer('无用量回执').body);
         }
         await request.response.close();
       });
@@ -79,11 +81,12 @@ void main() {
         await SecureConfig.instance.writeThirdChannel(ThirdChannelConfig(enabled:true,
             baseUrl:'http://127.0.0.1:${server.port}/v1',apiKey:'synthetic-third'));
         await tick(runner((_) async => answer('第二通道')));
-        expect((await delivered()).single['content'],'第三通道完成通知');
-        expect(posts,1); expect(calls,0);
+        expect((await delivered()).single['content'],validThird ? '第三通道完成通知' : '第二通道');
+        expect(posts,1); expect(calls,validThird ? 0 : 1);
       } finally { await server.close(force:true); }
     }, _LocalHttp());
   });
+  }
 
   test('one direct second-channel body, no planner, real card identity and no proactive quota', () async {
     final runtime = runner((request) async {

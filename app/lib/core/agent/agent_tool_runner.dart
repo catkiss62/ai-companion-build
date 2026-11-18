@@ -971,10 +971,7 @@ class AgentToolRunner {
           cancellationToken: cancellationToken,
         );
       } on McpHttpException catch (error) {
-        if (error.knownToolRejection) {
-          outcome = error.rejection;
-        } else {
-          return AgentToolResult(
+        return AgentToolResult(
             toolId: AgentToolRegistry.cedarToyPlay.id,
             status: AgentToolStatus.failed,
             displayText: isWrite ? 'Cedar 操作结果待核对' : '未取得游戏状态',
@@ -984,7 +981,6 @@ class AgentToolRunner {
             errorCode: 'cedar_${error.code}',
             continuationRecommended: isWrite,
           );
-        }
       }
       receivedOutcome = true;
       outcome = CedarPlatformActionPolicy.normalizeOutcome(outcome);

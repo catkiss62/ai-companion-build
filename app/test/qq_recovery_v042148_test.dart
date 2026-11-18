@@ -43,7 +43,7 @@ void main() {
     final b=await claim((await add('paid',mention:true))!);
     final tasks=QqReplyTasks(store);
     const raw='<qq_illustration mode="only">小鲸鱼</qq_illustration>';
-    expect(await tasks.reserveIllustration(b,rawReply:raw,autonomous:false,now:now),isTrue);
+    expect(await tasks.reserveIllustration(b,rawReply:raw,replyTo:'paid',autonomous:false,now:now),isTrue);
     final bytes=base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVR4nGNkYPjPAANMDEgANwcAMdMBB1sLEtoAAAAASUVORK5CYII=');
     final storage=MessageAttachmentStorage(db:db);
     final draft=await storage.prepareImageBytes(bytes:bytes,source:'assistant_illustration:qq',mimeType:'image/png');
@@ -55,10 +55,11 @@ void main() {
     expect(await recovery.due(b.fence,now,{}),contains(cid));
     final resumed=(await recovery.claim(b.fence,cid,now,'policy'))!;
     final illustrations=QqIllustrationService(store,IllustrationClient());
-    final saved=await illustrations.recoverUnsent(resumed,() async=>true);
+    expect(await illustrations.recoverUnsent(resumed,'other',() async=>true),isNull);
+    final saved=await illustrations.recoverUnsent(resumed,'paid',() async=>true);
     expect(saved?.raw,raw); expect(saved?.picture.image.bytes,bytes);
     await store.mark(b,'sending');
-    expect(await illustrations.recoverUnsent(resumed,() async=>true),isNull);
+    expect(await illustrations.recoverUnsent(resumed,'paid',() async=>true),isNull);
     expect(await recovery.due(b.fence,now,{}),isEmpty);
   });
   for(final whileActive in [false,true]) {
