@@ -1859,14 +1859,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.212+456 External Delivery' \
-              --notes 'Handle uncertain game writes, resume unsent QQ images, route work notifications and bound reminder retries. Original signer. Unpublished test build.'
+              --notes 'Handle uncertain game writes, resume verified unsent QQ originals, route work notifications and bound calendar retries. Four temporary chat hints expire after four seconds. Original signer. Unpublished test build.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.212+456 External Delivery' \
-              --notes 'Handle uncertain game writes, resume unsent QQ images, route work notifications and bound reminder retries. Original signer. Unpublished test build.'
+              --notes 'Handle uncertain game writes, resume verified unsent QQ originals, route work notifications and bound calendar retries. Four temporary chat hints expire after four seconds. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1965,7 +1965,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.212+456 External Delivery' \
-              --notes 'Handle uncertain game writes, resume unsent QQ images, route work notifications and bound reminder retries. Original signer. Unpublished test build.'
+              --notes 'Handle uncertain game writes, resume verified unsent QQ originals, route work notifications and bound calendar retries. Four temporary chat hints expire after four seconds. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
