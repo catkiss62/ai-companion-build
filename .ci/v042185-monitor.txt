@@ -1,1210 +1,553 @@
 status=failure
 build_result=failure
-run_id=44508162086
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44508162086
-head_sha=a3f3eaf7876393aade4599cc7bfe66ce27985395
+run_id=44522956123
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44522956123
+head_sha=fbeaf025a6cf06701ededf8964ee83d86e12b62d
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=failure id=135508372654 ---
-2026-11-19T11:18:02.3647365Z 09:50 +3569: /home/runner/work/ai-companion-build/ai-companion-build/app/test/cedar_cadence_regression_v04259_test.dart: sustained solo continuation preserves ordinary pacing (task=)
-2026-11-19T11:18:02.6761898Z 09:51 +3570: /home/runner/work/ai-companion-build/ai-companion-build/app/test/cedar_cadence_regression_v04259_test.dart: sustained solo continuation preserves ordinary pacing (task=cedar-task:fixture)
-2026-11-19T11:18:03.0943236Z 09:51 +3571: /home/runner/work/ai-companion-build/ai-companion-build/app/test/cedar_cadence_regression_v04259_test.dart: sustained solo continuation preserves ordinary pacing (task=cedar-task:fixture)
-2026-11-19T11:18:03.0963739Z 09:51 +3572: /home/runner/work/ai-companion-build/ai-companion-build/app/test/cedar_cadence_regression_v04259_test.dart: sustained solo continuation preserves ordinary pacing (task=cedar-task:fixture)
-2026-11-19T11:18:03.7233948Z 09:52 +3573: /home/runner/work/ai-companion-build/ai-companion-build/app/test/notification_activity_v04286_test.dart: same-ID updates retain new text but repeated callbacks count once
-2026-11-19T11:18:03.7392979Z 09:52 +3574: /home/runner/work/ai-companion-build/ai-companion-build/app/test/notification_activity_v04286_test.dart: service, grouped summary and promotional callbacks are not chat activity
-2026-11-19T11:18:03.7416320Z 09:52 +3575: /home/runner/work/ai-companion-build/ai-companion-build/app/test/notification_activity_v04286_test.dart: message timestamps distinguish identical new messages from an old repost
-2026-11-19T11:18:03.7435215Z 09:52 +3576: /home/runner/work/ai-companion-build/ai-companion-build/app/test/notification_activity_v04286_test.dart: 09:06 callbacks cannot describe dense messages at 09:21
-2026-11-19T11:18:03.7492758Z 09:52 +3577: /home/runner/work/ai-companion-build/ai-companion-build/app/test/notification_activity_v04286_test.dart: fresh arrival evidence expires promptly and never exposes message bodies
-2026-11-19T11:18:03.7516556Z 09:52 +3578: /home/runner/work/ai-companion-build/ai-companion-build/app/test/notification_activity_v04286_test.dart: unknown, malformed and future rows do not invent communication
-2026-11-19T11:18:03.9831705Z 09:52 +3579: /home/runner/work/ai-companion-build/ai-companion-build/app/test/reference_item_test.dart: reference item stays explicitly separate from durable memory
-2026-11-19T11:18:04.0265863Z 09:52 +3580: All tests passed!
-2026-11-19T11:18:04.1491289Z ##[group]Run flutter test test/memory_browse_pagination_test.dart test/memory_page_pagination_test.dart test/creative_inspiration_lifecycle_test.dart test/memory_capacity_recall_test.dart test/creative_integrity_test.dart test/daily_balance_spend_test.dart test/snapshot_archive_limits_test.dart test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart test/creative_snapshot_retention_test.dart test/creative_agent_test.dart test/creative_context_test.dart
-2026-11-19T11:18:04.1494510Z [36;1mflutter test test/memory_browse_pagination_test.dart test/memory_page_pagination_test.dart test/creative_inspiration_lifecycle_test.dart test/memory_capacity_recall_test.dart test/creative_integrity_test.dart test/daily_balance_spend_test.dart test/snapshot_archive_limits_test.dart test/creative_facts_test.dart test/creative_autonomy_test.dart test/sqlite_settings_backup_v04255_test.dart test/portable_snapshot_v04256_test.dart test/snapshot_directory_swap_test.dart test/snapshot_process_recovery_test.dart test/creative_snapshot_retention_test.dart test/creative_agent_test.dart test/creative_context_test.dart[0m
-2026-11-19T11:18:04.1541713Z shell: /usr/bin/bash -e {0}
-2026-11-19T11:18:04.1541934Z env:
-2026-11-19T11:18:04.1542328Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:04.1542707Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:18:04.1543046Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:04.1543361Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:04.1543666Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:04.1543970Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:18:04.1544319Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:18:04.1544691Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:18:04.1545060Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:18:04.1545350Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:18:04.1545773Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:18:04.1546378Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:18:04.1546641Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:18:04.1546983Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:18:04.1547336Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:18:04.1547705Z ##[endgroup]
-2026-11-19T11:18:04.6991799Z 
-2026-11-19T11:18:07.9358641Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_browse_pagination_test.dart: all rows beyond 300 are reachable with equal ranking ties
-2026-11-19T11:18:08.2205887Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_browse_pagination_test.dart: paged search preserves literal wildcard escaping and all three fields
-2026-11-19T11:18:08.5380443Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_browse_pagination_test.dart: deleting cursor row or inserting ahead does not shift later pages
-2026-11-19T11:18:10.2731763Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: inspiration sees shared and private forms without a feedback scoring field
-2026-11-19T11:18:10.9895564Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: private work outlives its clipped idea and can retire to release a private slot
-2026-11-19T11:18:11.3781703Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: resuming a commission during inspiration keeps the user task ahead of new private work
-2026-11-19T11:18:11.7571861Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: private-work capacity is checked again when an inspiration result commits
-2026-11-19T11:18:11.9643440Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_page_pagination_test.dart: load more reaches memories after 300 with a truthful end marker
-2026-11-19T11:18:12.1374357Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: conflicting request classification remains blocked in forward order
-2026-11-19T11:18:12.4708918Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: conflicting request classification remains blocked in reverse order
-2026-11-19T11:18:12.8583086Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: equal classification duplicates are compatible but conflicting non-request rows cannot start work
-2026-11-19T11:18:13.2129287Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_page_pagination_test.dart: a new search invalidates a pending load-more before debounce completes
-2026-11-19T11:18:13.3313827Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: retirement cannot target a shared gift or a commissioned work
-2026-11-19T11:18:13.6475753Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_inspiration_lifecycle_test.dart: retirement with a clipped idea keeps epoch and selected work fences
-2026-11-19T11:18:14.6076686Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_capacity_recall_test.dart: extraction finds old low-priority evidence beyond the previous global cap
-2026-11-19T11:18:14.8701330Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_capacity_recall_test.dart: inference finds old low-priority evidence beyond the previous global cap
-2026-11-19T11:18:15.1488159Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_capacity_recall_test.dart: history finds old low-priority evidence beyond the previous global cap
-2026-11-19T11:18:15.4449858Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_capacity_recall_test.dart: status, semantic type, retention and historical subject filters remain intact
-2026-11-19T11:18:15.4481083Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: missing commissioned current source rejects before changing the live database
-2026-11-19T11:18:15.7188766Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_capacity_recall_test.dart: caller output limits and scoring order stay separate from candidate capacity
-2026-11-19T11:18:15.8001430Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: missing commissioned draft source rejects before changing the live database
-2026-11-19T11:18:15.9781474Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_capacity_recall_test.dart: literal SQL wildcard characters cannot introduce unrelated candidates
-2026-11-19T11:18:16.1006540Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: missing commissioned versions source rejects before changing the live database
-2026-11-19T11:18:16.5532252Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: older playable source outside the version list survives collection and restore
-2026-11-19T11:18:16.9496752Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: legacy queued work without source and historical receipts remain importable
-2026-11-19T11:18:17.2383895Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: missing source or an empty completed version cannot create a play session
-2026-11-19T11:18:17.4167799Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: first reading establishes a baseline; only decreases add spending
-2026-11-19T11:18:17.6620398Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: public saves, descriptions and another reveal do not discard a pending paid choice
-2026-11-19T11:18:17.7651090Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: top-ups replace the reference without erasing already observed spending
-2026-11-19T11:18:18.0072776Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: background revision and publication preserve a pending choice in the old play version
-2026-11-19T11:18:18.0504510Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: midnight resets spend; a late first reading never assigns unknown overnight use
-2026-11-19T11:18:18.3361136Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: out-of-order or duplicate responses cannot invent recharge or spending
-2026-11-19T11:18:18.3395490Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: next paid choice receives actual reveal order and no still-sealed choice
-2026-11-19T11:18:18.6033183Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: a request spanning midnight starts the new baseline and cannot replace a newer one
-2026-11-19T11:18:18.6742010Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: restart prevents a pending choice from overwriting newer state
-2026-11-19T11:18:18.9119110Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: accounts and currencies never share a baseline
-2026-11-19T11:18:19.1411427Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: restore prevents a pending choice from overwriting newer state
-2026-11-19T11:18:19.1618622Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: fixed-point reads keep tiny charges; invalid numbers are not zero balances
-2026-11-19T11:18:19.4616910Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: delete prevents a pending choice from overwriting newer state
-2026-11-19T11:18:19.5618599Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: state survives export/import and later readings continue the same day
-2026-11-19T11:18:19.7790921Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_integrity_test.dart: same-turn prevents a pending choice from overwriting newer state
-2026-11-19T11:18:19.8124017Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: restore and transfer invalidate asynchronous writes inside their transaction
-2026-11-19T11:18:20.0566490Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: official successful balance reads persist before display resolves; failures do not overwrite
-2026-11-19T11:18:20.2697072Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/daily_balance_spend_test.dart: switching the configured key during HTTP discards the old account response
-2026-11-19T11:18:20.3785788Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_archive_limits_test.dart: capacity boundaries accept exact maxima without allocating large files
-2026-11-19T11:18:20.3871328Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_archive_limits_test.dart: ZIP capacity rejects an empty or one-byte-oversized archive
-2026-11-19T11:18:20.3901620Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_archive_limits_test.dart: state, manifest, bundled bytes and entry limits fail closed
-2026-11-19T11:18:20.3918529Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_archive_limits_test.dart: expanded bytes must include the entire payload and fit its own bound
-2026-11-19T11:18:21.8036088Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: legacy completed work needs no delivery text; usage is coarse and does not leak details
-2026-11-19T11:18:22.1985862Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: relevant older works outrank five new jobs and omissions are explicit
-2026-11-19T11:18:22.4977983Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: revision pause preserves the published version without calling the revision completed
-2026-11-19T11:18:22.8122215Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: pending or cancelled announcement does not undo completed work
-2026-11-19T11:18:22.9108141Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: default off; ordinary thinking switch does not grant autonomy
-2026-11-19T11:18:23.3329088Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: autonomous share is a delivered announcement and survives archive restore
-2026-11-19T11:18:23.3712322Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: unapproved request cannot become an autonomous commission
-2026-11-19T11:18:23.6190395Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: announcement receipt requires the same work request version and actual assistant message
-2026-11-19T11:18:23.9071906Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: private and deleted works never enter facts, including related-source lookup
-2026-11-19T11:18:23.9366572Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: held idea is private, survives JSON backup and requires explicit resume
-2026-11-19T11:18:24.2741538Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: a new user turn or toggle roundtrip invalidates in-flight inspiration
-2026-11-19T11:18:24.5089323Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: ordinary and fresh-topic proactive prompts both verify the selected source
-2026-11-19T11:18:24.8230967Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: private finish checks source and never queues ordinary completion
-2026-11-19T11:18:25.1007494Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: experience extraction actually receives work facts and only this user message snapshot
-2026-11-19T11:18:25.1873930Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: private worker yields to chat without consuming calls, then resumes saved files
-2026-11-19T11:18:25.4851839Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: archive roundtrip keeps public facts, private isolation and message-scoped snapshots
-2026-11-19T11:18:25.5772207Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: chat starting during preview keeps the last checkpoint and prevents private finish
-2026-11-19T11:18:25.7278954Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: new version marks old use as historical, and restart cannot invent previous scores
-2026-11-19T11:18:25.9552770Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: outbound guard accepts proven local play, without granting external operations or false recency
-2026-11-19T11:18:26.0197094Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: active private files and tool cursor survive full export/import paused
-2026-11-19T11:18:26.1923919Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: guard uses revealed timestamps and never accepts a future timestamp as just now
-2026-11-19T11:18:26.3770639Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: completed private backup remains private and cannot auto-share after import
-2026-11-19T11:18:26.5081376Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_facts_test.dart: real fresh-topic prompt carries typed play proof; private work and empty new round do not
-2026-11-19T11:18:26.7102757Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: retired private work stays retired after import and continue
-2026-11-19T11:18:27.0076840Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: share visibility, message, receipt and ordinary quota commit together
-2026-11-19T11:18:27.2130727Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: toggle or stale selected version cannot publish a private work
-2026-11-19T11:18:27.4354813Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: chat preemption cannot publish a gift without its message
-2026-11-19T11:18:27.6601643Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: missing private source rejects import without replacing data
-2026-11-19T11:18:27.8226561Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/sqlite_settings_backup_v04255_test.dart: small, empty and absent values keep one bounded query
-2026-11-19T11:18:27.9594802Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: corrupt private visibility or inspiration state rejects before replacing live data
-2026-11-19T11:18:28.1973167Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: ordinary message budget rejection leaves private work and receipts untouched
-2026-11-19T11:18:28.3274994Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/sqlite_settings_backup_v04255_test.dart: large settings survive a CursorWindow bound without truncation
-2026-11-19T11:18:28.5613190Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: old archives keep public works visible and autonomy default off
-2026-11-19T11:18:28.9290714Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: completed card receipt is per commission, not current work status
-2026-11-19T11:18:29.6410826Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_autonomy_test.dart: completed creation badge is visible while card remains collapsed
-2026-11-19T11:18:30.3732099Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/sqlite_settings_backup_v04255_test.dart: export JSON and restore keep complete multi MiB settings
-2026-11-19T11:18:30.6362258Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/sqlite_settings_backup_v04255_test.dart: short chunk is an error, never a successful partial value
-2026-11-19T11:18:31.4008699Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_directory_swap_test.dart: rollback restores the exact previous live tree
-2026-11-19T11:18:31.4085912Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_directory_swap_test.dart: commit keeps only the complete incoming tree
-2026-11-19T11:18:31.4187044Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_directory_swap_test.dart: unsafe expected path aborts preparation without touching live tree
-2026-11-19T11:18:31.5313598Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: real ZIP restores event-owned game pictures without a chat attachment owner
-2026-11-19T11:18:32.0227442Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: real ZIP backup carries the directory and restores originals with stale old handles rejected
-2026-11-19T11:18:32.7986365Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: real backup restore keeps task budget but excludes clock and stale leases
-2026-11-19T11:18:33.2542031Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: formal backup restore ends uncommitted registration before activation
-2026-11-19T11:18:33.8478958Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: formal backup restore ends accepted registration before activation
-2026-11-19T11:18:34.0422152Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at afterBackupFreeze recovers a coherent state on next process start
-2026-11-19T11:18:34.4841279Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: legacy full v7 backup still restores models stickers facts and non-secret settings
-2026-11-19T11:18:35.0541491Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: a failure after database commit completes new state instead of reporting rollback
-2026-11-19T11:18:35.5804326Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: failure after native writes restores files prefs secure config and database
-2026-11-19T11:18:35.5968689Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at duringPrepare recovers a coherent state on next process start
-2026-11-19T11:18:36.1561500Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: database import failure rolls back already applied portable configuration
-2026-11-19T11:18:36.9886985Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at beforeJournal recovers a coherent state on next process start
-2026-11-19T11:18:37.7096040Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: fresh installation restores relative model and sticker paths without copying ownership or keys
-2026-11-19T11:18:38.0282427Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: corrupt missing and unsafe portable entries are rejected before installation
-2026-11-19T11:18:38.3070953Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at afterJournal recovers a coherent state on next process start
-2026-11-19T11:18:38.4358267Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: v6 archive leaves native and secure settings alone
-2026-11-19T11:18:38.8245226Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: an empty v7 model domain restores absence instead of retaining a foreign model
-2026-11-19T11:18:39.4736221Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: collected images and edited meanings survive full backup restore without replacing other packs
-2026-11-19T11:18:39.7069246Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at afterFirstRename recovers a coherent state on next process start
-2026-11-19T11:18:39.8275060Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: collection restore failure rolls back current images and meanings
-2026-11-19T11:18:40.5011346Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: empty collection snapshot clears collection only and permits collecting again
-2026-11-19T11:18:40.8695939Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: new backup restores settings while retaining externally imported resource files
-2026-11-19T11:18:41.0893367Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at afterFirstTree recovers a coherent state on next process start
-2026-11-19T11:18:41.2855172Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: settings-only archive on an installation without resources restores preferences without creating models
-2026-11-19T11:18:41.5341708Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: settings-only payload cannot disguise resource entries as excluded
-2026-11-19T11:18:41.7710491Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: API URL credentials are stripped; unknown secure keys cannot enter portable config
-2026-11-19T11:18:42.4488457Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: shared stickers survive backup on an empty device and keep local pack on restore
-2026-11-19T11:18:42.5200832Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at partialPreferences recovers a coherent state on next process start
-2026-11-19T11:18:42.9114156Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: restoring an older backup preserves newly imported local shared originals
-2026-11-19T11:18:43.3465104Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: optimizer cannot change owners or bytes after exportAll until archive is complete
-2026-11-19T11:18:43.6958326Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: known missing legacy files are accurately reported through export inspect and restore
-2026-11-19T11:18:43.9217022Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at insideDatabase recovers a coherent state on next process start
-2026-11-19T11:18:43.9803802Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: missing shared bytes are rejected instead of being downgraded to a legacy warning
-2026-11-19T11:18:44.2494159Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: export rejects state overflow and leaves source state intact
-2026-11-19T11:18:44.5184488Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: export rejects manifest overflow and leaves source state intact
-2026-11-19T11:18:44.7947797Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: export rejects entry count overflow and leaves source state intact
-2026-11-19T11:18:45.0984281Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: export rejects expanded bytes overflow and leaves source state intact
-2026-11-19T11:18:45.3539815Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at duringRollback recovers a coherent state on next process start
-2026-11-19T11:18:45.4163078Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: export rejects ZIP bytes overflow and leaves source state intact
-2026-11-19T11:18:45.8402882Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/portable_snapshot_v04256_test.dart: immersive background image and offscreen geometry survive the real ZIP backup restore
-2026-11-19T11:18:46.9871854Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at afterDatabase recovers a coherent state on next process start
-2026-11-19T11:18:47.8374325Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_snapshot_retention_test.dart: delayed memory work keeps its message snapshots across overflow and restore, then releases them
-2026-11-19T11:18:48.5268600Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_snapshot_retention_test.dart: failed reply and current old-timestamp turn stay retained until cancellation
-2026-11-19T11:18:48.5706101Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at duringCleanup recovers a coherent state on next process start
-2026-11-19T11:18:49.0071233Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_snapshot_retention_test.dart: blocking reply states reject a new turn before pruning any snapshot
-2026-11-19T11:18:49.9164501Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/snapshot_process_recovery_test.dart: SIGKILL at afterConsistentMarker recovers a coherent state on next process start
-2026-11-19T11:18:50.4589631Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: native SSE tools repair preview feedback; isolated context and chat coexist
-2026-11-19T11:18:50.8948013Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: chat thinking and model changes during and between turns never cancel authorized work
-2026-11-19T11:18:51.1549114Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: snapshot with unavailable observation waits for already queued public save
-2026-11-19T11:18:51.2821575Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: a real user pause survives toggle changes and resume needs no new commission
-2026-11-19T11:18:51.5014712Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: failed queued save does not poison later snapshot or adopt its rejected data
-2026-11-19T11:18:51.6601506Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: malformed arguments become tool feedback and a later call repairs them
-2026-11-19T11:18:51.9946485Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: foreground and background runners cannot request the same commission twice
-2026-11-19T11:18:52.0396960Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: running version keeps bound metadata through revision, reopen and newer release
-2026-11-19T11:18:52.3404363Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: legacy unbound session never adopts metadata from an unfinished or newer version
-2026-11-19T11:18:52.3785827Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: length never executes a seemingly complete tool; existing files survive
-2026-11-19T11:18:52.6084281Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: legacy current ready version can bind its existing published metadata
-2026-11-19T11:18:52.7059038Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: EOF without finish does not invent a draft and resumes with explicit cause
-2026-11-19T11:18:52.9056795Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: seventh result retains totals and IDs; ordinary chat never inherits open-page scope
-2026-11-19T11:18:53.0998047Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: temporary HTTP errors back off and stop after a finite number of paid attempts
-2026-11-19T11:18:53.1964331Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: old seven-round public save is usable without rebuilding the HTML
-2026-11-19T11:18:53.3450122Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: credentials or balance errors pause without repeated calls or secret error bodies
-2026-11-19T11:18:53.4747879Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: reverse reveals and repeated reveal retain actual order even at the same millisecond
-2026-11-19T11:18:53.6042356Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: a saved model response resumes its remaining append without another API call
-2026-11-19T11:18:53.7281701Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: legacy reveals use reveal time with choice-time fallback and stable ties
-2026-11-19T11:18:53.9199639Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: stop during preview fences late publication and explicit resume retains the response
-2026-11-19T11:18:54.0065225Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: new sessions isolate old callbacks and reset progress, reopening keeps it
-2026-11-19T11:18:54.2164930Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: delete during generation rejects late calls and does not resurrect files
-2026-11-19T11:18:54.3247588Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: static descriptions and observed text are scoped to the message; long-open pages work
-2026-11-19T11:18:54.5670740Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: snapshot commits with user turn; restart before commit rejects both
-2026-11-19T11:18:54.6748245Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: a real restore fences the old worker even after the same commission resumes
-2026-11-19T11:18:54.9324956Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: snapshot after send is immutable across restart and survives backup
-2026-11-19T11:18:54.9558356Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: file changed after preview cannot publish the old verification
-2026-11-19T11:18:55.1716053Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: large public and DOM data remain bounded without exposing sealed choices
-2026-11-19T11:18:55.3784660Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: failed revision cannot finish the old source in the same batch; next turn can repair
-2026-11-19T11:18:55.5460443Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_context_test.dart: progress and delivery receipts stay associated when a revision replaces metadata
-2026-11-19T11:18:55.7048942Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: revision metadata is published with its verified version, not during planning
-2026-11-19T11:18:55.9975632Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: imported pending failure receipts still block finish after a successful preview
-2026-11-19T11:18:56.2423191Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: companion works require actual choose and reveal receipts, not just a passing title check
-2026-11-19T11:18:56.5616615Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: archive carries editable files, pauses work, invalidates preview and resumes without regeneration
-2026-11-19T11:18:56.7227412Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: raw user request survives delegation and legacy assistant-card lookup
-2026-11-19T11:18:56.9700675Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: long commission plus a real-size thumbnail remains importable
-2026-11-19T11:18:57.1727931Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: a delegated companion requirement cannot be downgraded to a local opponent
-2026-11-19T11:18:57.4442018Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: revision inherits published companion participation
-2026-11-19T11:18:57.7085630Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: revision inherits legacy workspace companion participation
-2026-11-19T11:18:57.9325905Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: explicit local revision can change the previous companion contract
-2026-11-19T11:18:58.1041478Z ✅ /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_agent_test.dart: workspace rejects stale edits and unexpected paths and bundles separate assets
-2026-11-19T11:18:58.1241935Z 
-2026-11-19T11:18:58.1246951Z 🎉 175 tests passed.
-2026-11-19T11:18:58.2223524Z ##[group]Run python app/tools/prepare_memory_embedding.py
-2026-11-19T11:18:58.2223948Z [36;1mpython app/tools/prepare_memory_embedding.py[0m
-2026-11-19T11:18:58.2269841Z shell: /usr/bin/bash -e {0}
-2026-11-19T11:18:58.2270056Z env:
-2026-11-19T11:18:58.2270278Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.2270637Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:18:58.2270982Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.2271296Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.2271596Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.2271909Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:18:58.2272253Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:18:58.2272638Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:18:58.2273070Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:18:58.2273372Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:18:58.2273808Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:18:58.2274440Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:18:58.2274717Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:18:58.2275077Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:18:58.2275442Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:18:58.2275816Z ##[endgroup]
-2026-11-19T11:18:58.8968206Z Verified offline asset: model.onnx (24010842 bytes)
-2026-11-19T11:18:58.8968733Z Verified offline asset: tokenizer.json (439125 bytes)
-2026-11-19T11:18:58.9094158Z ##[group]Run flutter build apk --release --target-platform android-arm64
-2026-11-19T11:18:58.9094614Z [36;1mflutter build apk --release --target-platform android-arm64[0m
-2026-11-19T11:18:58.9141419Z shell: /usr/bin/bash -e {0}
-2026-11-19T11:18:58.9141632Z env:
-2026-11-19T11:18:58.9141863Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.9142229Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:18:58.9142586Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.9142899Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.9143214Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:18:58.9143516Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:18:58.9143854Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:18:58.9144260Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:18:58.9144635Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:18:58.9144932Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:18:58.9145360Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:18:58.9145951Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:18:58.9146221Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:18:58.9146725Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:18:58.9147267Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:18:58.9147895Z   ORG_GRADLE_PROJECT_skipGenieNativeBuild: true
-2026-11-19T11:18:58.9148267Z ##[endgroup]
-2026-11-19T11:19:00.4534282Z Warning: Flutter support for your project's Gradle version (8.12.0) will soon be dropped. Please upgrade your Gradle version to a version of at least 8.14.0 soon.
-2026-11-19T11:19:00.4535474Z Running Gradle task 'assembleRelease'...                        
-2026-11-19T11:19:00.4551513Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
-2026-11-19T11:19:00.4560186Z 
-2026-11-19T11:19:00.4561497Z Potential fix: Your project's gradle version is typically defined in the gradle wrapper file. By default, this can be found at /home/runner/work/ai-companion-build/ai-companion-build/app/android/gradle/wrapper/gradle-wrapper.properties. 
-2026-11-19T11:19:00.4563310Z For more information, see https://docs.gradle.org/current/userguide/gradle_wrapper.html.
-2026-11-19T11:19:00.4563972Z 
-2026-11-19T11:19:00.4565198Z Warning: Flutter support for your project's Android Gradle Plugin version (Android Gradle Plugin version 8.9.1) will soon be dropped. Please upgrade your Android Gradle Plugin version to a version of at least Android Gradle Plugin version 8.11.1 soon.
-2026-11-19T11:19:00.4567001Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
-2026-11-19T11:19:00.4567697Z 
-2026-11-19T11:19:00.4568993Z Potential fix: Your project's AGP version is typically defined in the plugins block of the `settings.gradle` file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/settings.gradle), by a plugin with the id of com.android.application. 
-2026-11-19T11:19:00.4572320Z If you don't see a plugins block, your project was likely created with an older template version. In this case it is most likely defined in the top-level build.gradle file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/build.gradle) by the following line in the dependencies block of the buildscript: "classpath 'com.android.tools.build:gradle:<version>'".
-2026-11-19T11:19:00.4574290Z 
-2026-11-19T11:19:00.4575100Z Warning: Flutter support for your project's Kotlin version (2.1.0) will soon be dropped. Please upgrade your Kotlin version to a version of at least 2.2.20 soon.
-2026-11-19T11:19:00.4576838Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
-2026-11-19T11:19:00.4577571Z 
-2026-11-19T11:19:00.4578892Z Potential fix: Your project's KGP version is typically defined in the plugins block of the `settings.gradle` file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/settings.gradle), by a plugin with the id of org.jetbrains.kotlin.android. 
-2026-11-19T11:19:00.4581727Z If you don't see a plugins block, your project was likely created with an older template version, in which case it is most likely defined in the top-level build.gradle file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/build.gradle) by the ext.kotlin_version property.
-2026-11-19T11:19:00.4583244Z 
-2026-11-19T11:19:01.1382683Z Your project is configured with Android NDK 27.2.12479018, but the following plugin(s) depend on a different Android NDK version:
-2026-11-19T11:19:01.1422526Z - flutter_plugin_android_lifecycle requires Android NDK 27.0.12077973
-2026-11-19T11:19:01.1440410Z - flutter_secure_storage requires Android NDK 27.0.12077973
-2026-11-19T11:19:01.1470206Z - image_picker_android requires Android NDK 27.0.12077973
-2026-11-19T11:19:01.1476854Z - jni requires Android NDK 28.2.13676358
-2026-11-19T11:19:01.1477146Z - jni_flutter requires Android NDK 27.0.12077973
-2026-11-19T11:19:01.1477433Z - sqflite_android requires Android NDK 27.0.12077973
-2026-11-19T11:19:01.1477895Z Fix this issue by using the highest Android NDK version (they are backward compatible).
-2026-11-19T11:19:01.1478505Z Add the following to /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/build.gradle.kts:
-2026-11-19T11:19:01.1478850Z 
-2026-11-19T11:19:01.1478927Z     android {
-2026-11-19T11:19:01.1479119Z         ndkVersion = "28.2.13676358"
-2026-11-19T11:19:01.1479361Z         ...
-2026-11-19T11:19:01.1479721Z     }
-2026-11-19T11:19:04.5380300Z Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
-2026-11-19T11:19:04.5381124Z License for package CMake 3.22.1 accepted.
-2026-11-19T11:19:04.5381609Z Preparing "Install CMake 3.22.1 v.3.22.1".
-2026-11-19T11:19:05.5372466Z "Install CMake 3.22.1 v.3.22.1" ready.
-2026-11-19T11:19:05.5373436Z Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
-2026-11-19T11:19:05.5374267Z "Install CMake 3.22.1 v.3.22.1" complete.
-2026-11-19T11:19:05.7390609Z "Install CMake 3.22.1 v.3.22.1" finished.
-2026-11-19T11:19:35.1374397Z Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 28716 bytes (98.3% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
-2026-11-19T11:20:48.2449401Z Caught exception: Already watching path: /home/runner/work/ai-companion-build/ai-companion-build/app/android
-2026-11-19T11:21:25.7392882Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1442: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-11-19T11:21:25.7410059Z     public boolean getOverwriteFlagForModelCullings() {
-2026-11-19T11:21:25.7439984Z                    ^
-2026-11-19T11:21:25.7470779Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1462: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-11-19T11:21:25.7482298Z     public void setOverwriteFlagForModelCullings(boolean value) {
-2026-11-19T11:21:25.7499886Z                 ^
-2026-11-19T11:21:25.7530930Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1483: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-11-19T11:21:25.7573395Z     public boolean getOverwriteFlagForDrawableCullings(int drawableIndex) {
-2026-11-19T11:21:25.7614895Z                    ^
-2026-11-19T11:21:25.7681477Z /home/runner/work/ai-companion-build/ai-companion-build/app/android/app/src/main/java/com/live2d/sdk/cubism/framework/model/CubismModel.java:1505: warning: [dep-ann] deprecated item is not annotated with @Deprecated
-2026-11-19T11:21:25.7723403Z     public void setOverwriteFlagForDrawableCullings(int drawableIndex, boolean value) {
-2026-11-19T11:21:25.7761446Z                 ^
-2026-11-19T11:21:26.7377140Z Note: Some input files use unchecked or unsafe operations.
-2026-11-19T11:21:26.7380319Z Note: Recompile with -Xlint:unchecked for details.
-2026-11-19T11:21:26.7381618Z 4 warnings
-2026-11-19T11:22:40.4805919Z Running Gradle task 'assembleRelease'...                          221.2s
-2026-11-19T11:22:45.7484779Z ✓ Built build/app/outputs/flutter-apk/app-release.apk (769.5MB)
-2026-11-19T11:22:46.0017157Z ##[group]Run python app/tools/prepare_memory_embedding.py --verify-apk app/build/app/outputs/flutter-apk/app-release.apk
-2026-11-19T11:22:46.0020676Z [36;1mpython app/tools/prepare_memory_embedding.py --verify-apk app/build/app/outputs/flutter-apk/app-release.apk[0m
-2026-11-19T11:22:46.0179004Z shell: /usr/bin/bash -e {0}
-2026-11-19T11:22:46.0181160Z env:
-2026-11-19T11:22:46.0188433Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.0190626Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:46.0192753Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.0193258Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.0196817Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.0197360Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:46.0201935Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:46.0202703Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:46.0205306Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:46.0207750Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:46.0210182Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:46.0217065Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:46.0219985Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:46.0222403Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:46.0224910Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:46.0227350Z ##[endgroup]
-2026-11-19T11:22:46.2779292Z Packaged offline embedding assets verified
-2026-11-19T11:22:46.4334830Z ##[group]Run python3 tools/prepare_retouched_pet_frames.py --verify-apk build/app/outputs/flutter-apk/app-release.apk
-2026-11-19T11:22:46.4337141Z [36;1mpython3 tools/prepare_retouched_pet_frames.py --verify-apk build/app/outputs/flutter-apk/app-release.apk[0m
-2026-11-19T11:22:46.4388391Z shell: /usr/bin/bash -e {0}
-2026-11-19T11:22:46.4388700Z env:
-2026-11-19T11:22:46.4390651Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.4400345Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:46.4402405Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.4404300Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.4404723Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:46.4406693Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:46.4409789Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:46.4413008Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:46.4415598Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:46.4417874Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:46.4420443Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:46.4421151Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:46.4423654Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:46.4426176Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:46.4428681Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:46.4429136Z ##[endgroup]
-2026-11-19T11:22:47.7595368Z Pet retouch: 59 preserved 306 sources, 118 derived frames, 177 PNGs verified.
-2026-11-19T11:22:47.7940278Z ##[group]Run set -euo pipefail
-2026-11-19T11:22:47.7942210Z [36;1mset -euo pipefail[0m
-2026-11-19T11:22:47.7944033Z [36;1mAPK='app/build/app/outputs/flutter-apk/app-release.apk'[0m
-2026-11-19T11:22:47.7944644Z [36;1mAPKSIGNER="$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner | sort -V | tail -1)"[0m
-2026-11-19T11:22:47.7946604Z [36;1mtest -x "${APKSIGNER}"[0m
-2026-11-19T11:22:47.7948761Z [36;1m"${APKSIGNER}" verify --print-certs "${APK}" | tee app/app-release.signer.txt[0m
-2026-11-19T11:22:47.7950923Z [36;1mAPK_SIGNER_SHA256="$("${APKSIGNER}" verify --print-certs "${APK}" |[0m
-2026-11-19T11:22:47.7953227Z [36;1m  sed -n 's/^.*certificate SHA-256 digest: //p' | head -1 |[0m
-2026-11-19T11:22:47.7955313Z [36;1m  tr '[:lower:]' '[:upper:]' |[0m
-2026-11-19T11:22:47.7955625Z [36;1m  sed 's/../&:/g;s/:$//')"[0m
-2026-11-19T11:22:47.7957680Z [36;1mtest -n "${APK_SIGNER_SHA256}"[0m
-2026-11-19T11:22:47.7959853Z [36;1mtest "${APK_SIGNER_SHA256}" = "${AI_COMPANION_SIGNER_SHA256}"[0m
-2026-11-19T11:22:47.7962094Z [36;1mtest "${APK_SIGNER_SHA256}" = '30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48'[0m
-2026-11-19T11:22:47.7964173Z [36;1mecho "APK signing identity verified: ${APK_SIGNER_SHA256}"[0m
-2026-11-19T11:22:47.8013320Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:47.8013691Z env:
-2026-11-19T11:22:47.8015941Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:47.8017888Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:47.8019723Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:47.8021573Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:47.8021970Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:47.8023886Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:47.8025655Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:47.8028248Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:47.8030171Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:47.8030589Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:47.8032448Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:47.8034208Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:47.8035866Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:47.8037607Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:47.8038091Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:47.8040085Z ##[endgroup]
-2026-11-19T11:22:49.1697303Z V2 Signer: certificate DN: CN=AI Companion Private Test, O=Local Development, C=JP
-2026-11-19T11:22:49.1700541Z V2 Signer: certificate SHA-256 digest: 305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148
-2026-11-19T11:22:49.1704824Z V2 Signer: certificate SHA-1 digest: 1260742e4354c19e749eeb4eb7034de7278c9457
-2026-11-19T11:22:49.1709992Z V2 Signer: certificate MD5 digest: d8f3dcb05f12cae2dece13e29cf119f0
-2026-11-19T11:22:50.0187295Z APK signing identity verified: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:50.0271120Z ##[group]Run set -euo pipefail
-2026-11-19T11:22:50.0273182Z [36;1mset -euo pipefail[0m
-2026-11-19T11:22:50.0275174Z [36;1mAAPT="$(find "${ANDROID_HOME}/build-tools" -type f -name aapt | sort -V | tail -1)"[0m
-2026-11-19T11:22:50.0277168Z [36;1mtest -x "${AAPT}"[0m
-2026-11-19T11:22:50.0277635Z [36;1m"${AAPT}" dump badging app/build/app/outputs/flutter-apk/app-release.apk > app/app-release.badging.txt[0m
-2026-11-19T11:22:50.0279871Z [36;1mpython3 - <<'PY_VERSION'[0m
-2026-11-19T11:22:50.0281986Z [36;1mfrom pathlib import Path[0m
-2026-11-19T11:22:50.0284508Z [36;1mimport re[0m
-2026-11-19T11:22:50.0285920Z [36;1mversion = re.search(r'^version:\s*([^+\s]+)\+(\d+)\s*$', Path('app/pubspec.yaml').read_text(), re.M)[0m
-2026-11-19T11:22:50.0286443Z [36;1massert version, 'Missing application version'[0m
-2026-11-19T11:22:50.0288109Z [36;1mpackage = next(line for line in Path('app/app-release.badging.txt').read_text().splitlines() if line.startswith('package: '))[0m
-2026-11-19T11:22:50.0290163Z [36;1mattributes = dict(re.findall(r"(\w+)='([^']*)'", package))[0m
-2026-11-19T11:22:50.0292420Z [36;1massert attributes.get('name') == 'com.aicompanion.localfirst', attributes[0m
-2026-11-19T11:22:50.0294373Z [36;1massert attributes.get('versionName') == version[1], attributes[0m
-2026-11-19T11:22:50.0296316Z [36;1massert attributes.get('versionCode') == version[2], attributes[0m
-2026-11-19T11:22:50.0298198Z [36;1mprint('APK package/version match the tested source manifest:', attributes['name'], version[0])[0m
-2026-11-19T11:22:50.0298660Z [36;1mPY_VERSION[0m
-2026-11-19T11:22:50.0348576Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:50.0350293Z env:
-2026-11-19T11:22:50.0352665Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.0353115Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:50.0355238Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.0360128Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.0362229Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.0362805Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:50.0364984Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:50.0367131Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:50.0370269Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:50.0373169Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:50.0373689Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:50.0376079Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:50.0378160Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:50.0380391Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:50.0382693Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:50.0385052Z ##[endgroup]
-2026-11-19T11:22:50.1895255Z APK package/version match the tested source manifest: com.aicompanion.localfirst version: 0.42.216+460
-2026-11-19T11:22:50.1898286Z 
-2026-11-19T11:22:50.2002959Z ##[group]Run set -euo pipefail
-2026-11-19T11:22:50.2218517Z [36;1mset -euo pipefail[0m
-2026-11-19T11:22:50.2218877Z [36;1mpython3 - <<'PY2'[0m
-2026-11-19T11:22:50.2220542Z [36;1mimport hashlib, json, pathlib, struct, sys, zipfile[0m
-2026-11-19T11:22:50.2222032Z [36;1mroot = pathlib.Path('app')[0m
-2026-11-19T11:22:50.2223937Z [36;1mapk = root / 'build/app/outputs/flutter-apk/app-release.apk'[0m
-2026-11-19T11:22:50.2225945Z [36;1mpayload = json.loads([0m
-2026-11-19T11:22:50.2227807Z [36;1m    pathlib.Path('.genie-payload/extracted-manifest.json').read_text(encoding='utf-8')[0m
-2026-11-19T11:22:50.2228256Z [36;1m)[0m
-2026-11-19T11:22:50.2230083Z [36;1mwith zipfile.ZipFile(apk) as z:[0m
-2026-11-19T11:22:50.2231975Z [36;1m    for relative, expected in payload.items():[0m
-2026-11-19T11:22:50.2234064Z [36;1m        packed_path = relative if relative.startswith('assets/') else 'lib/arm64-v8a/' + pathlib.Path(relative).name[0m
-2026-11-19T11:22:50.2236267Z [36;1m        packed = z.read(packed_path)[0m
-2026-11-19T11:22:50.2238095Z [36;1m        actual = hashlib.sha256(packed).hexdigest()[0m
-2026-11-19T11:22:50.2238527Z [36;1m        if len(packed) != expected['size'] or actual != expected['sha256']:[0m
-2026-11-19T11:22:50.2240578Z [36;1m            print(f'ERROR: release APK Genie payload mismatch: {relative}', file=sys.stderr)[0m
-2026-11-19T11:22:50.2242497Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.2244147Z [36;1m    required_genie_libs = {[0m
-2026-11-19T11:22:50.2245884Z [36;1m        'lib/arm64-v8a/libonnxruntime.so',[0m
-2026-11-19T11:22:50.2246185Z [36;1m        'lib/arm64-v8a/libopenjtalk_native.so',[0m
-2026-11-19T11:22:50.2248173Z [36;1m        'lib/arm64-v8a/libgenie_frontend.so',[0m
-2026-11-19T11:22:50.2248472Z [36;1m        'lib/arm64-v8a/libc++_shared.so',[0m
-2026-11-19T11:22:50.2251440Z [36;1m    }[0m
-2026-11-19T11:22:50.2254506Z [36;1m    missing = sorted(required_genie_libs.difference(z.namelist()))[0m
-2026-11-19T11:22:50.2256678Z [36;1m    if missing:[0m
-2026-11-19T11:22:50.2258533Z [36;1m        print(f'ERROR: Genie native libraries missing: {missing}', file=sys.stderr)[0m
-2026-11-19T11:22:50.2259223Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.2261111Z [36;1m    # The prior package verified the two Japanese JNI libraries byte[0m
-2026-11-19T11:22:50.2262900Z [36;1m    # for byte but omitted OpenJTalk's transitive C++ runtime. Check[0m
-2026-11-19T11:22:50.2264773Z [36;1m    # the actual release APK dependency closure so this cannot recur.[0m
-2026-11-19T11:22:50.2265185Z [36;1m    import re, subprocess, tempfile[0m
-2026-11-19T11:22:50.2268028Z [36;1m    system_libraries = {[0m
-2026-11-19T11:22:50.2268342Z [36;1m        'libandroid.so', 'libdl.so', 'liblog.so', 'libm.so',[0m
-2026-11-19T11:22:50.2271595Z [36;1m        'libc.so', 'libz.so',[0m
-2026-11-19T11:22:50.2272210Z [36;1m    }[0m
-2026-11-19T11:22:50.2273943Z [36;1m    packaged_native = {[0m
-2026-11-19T11:22:50.2275283Z [36;1m        pathlib.PurePosixPath(name).name[0m
-2026-11-19T11:22:50.2276796Z [36;1m        for name in z.namelist()[0m
-2026-11-19T11:22:50.2277349Z [36;1m        if name.startswith('lib/arm64-v8a/') and name.endswith('.so')[0m
-2026-11-19T11:22:50.2280677Z [36;1m    }[0m
-2026-11-19T11:22:50.2281010Z [36;1m    with tempfile.TemporaryDirectory() as temporary:[0m
-2026-11-19T11:22:50.2282976Z [36;1m        for source_name in ('libopenjtalk_native.so', 'libgenie_frontend.so'):[0m
-2026-11-19T11:22:50.2284871Z [36;1m            source_path = pathlib.Path(temporary) / source_name[0m
-2026-11-19T11:22:50.2286181Z [36;1m            source_path.write_bytes(z.read(f'lib/arm64-v8a/{source_name}'))[0m
-2026-11-19T11:22:50.2286532Z [36;1m            dynamic = subprocess.run([0m
-2026-11-19T11:22:50.2286783Z [36;1m                ['readelf', '-d', str(source_path)],[0m
-2026-11-19T11:22:50.2287032Z [36;1m                check=True,[0m
-2026-11-19T11:22:50.2288809Z [36;1m                capture_output=True,[0m
-2026-11-19T11:22:50.2289308Z [36;1m                text=True,[0m
-2026-11-19T11:22:50.2291261Z [36;1m            ).stdout[0m
-2026-11-19T11:22:50.2293096Z [36;1m            needed = set(re.findall(r'Shared library: \[([^]]+)\]', dynamic))[0m
-2026-11-19T11:22:50.2295091Z [36;1m            unresolved = sorted(needed - system_libraries - packaged_native)[0m
-2026-11-19T11:22:50.2295467Z [36;1m            if unresolved:[0m
-2026-11-19T11:22:50.2297171Z [36;1m                print([0m
-2026-11-19T11:22:50.2299047Z [36;1m                    f'ERROR: {source_name} has unpackaged ELF dependencies: {unresolved}',[0m
-2026-11-19T11:22:50.2300971Z [36;1m                    file=sys.stderr,[0m
-2026-11-19T11:22:50.2302381Z [36;1m                )[0m
-2026-11-19T11:22:50.2302666Z [36;1m                sys.exit(1)[0m
-2026-11-19T11:22:50.2304384Z [36;1m    print('OpenJTalk ELF dependency closure is complete in the release APK.')[0m
-2026-11-19T11:22:50.2306291Z [36;1m    verified_ort = pathlib.Path([0m
-2026-11-19T11:22:50.2307956Z [36;1m        '.genie-payload/unpacked/lib/arm64-v8a/libonnxruntime.so'[0m
-2026-11-19T11:22:50.2310029Z [36;1m    ).read_bytes()[0m
-2026-11-19T11:22:50.2310404Z [36;1m    companion_ort = z.read('lib/arm64-v8a/libonnxruntime.so')[0m
-2026-11-19T11:22:50.2314321Z [36;1m    if companion_ort != verified_ort:[0m
-2026-11-19T11:22:50.2316315Z [36;1m        print('ERROR: companion ONNX Runtime differs from verified Genie APK', file=sys.stderr)[0m
-2026-11-19T11:22:50.2318498Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.2320582Z [36;1m    print('ONNX Runtime native library is byte-identical to verified Genie APK.')[0m
-2026-11-19T11:22:50.2322716Z [36;1m    required_live2d = [[0m
-2026-11-19T11:22:50.2323053Z [36;1m        'lib/arm64-v8a/libLive2DCubismCoreJNI.so',[0m
-2026-11-19T11:22:50.2325103Z [36;1m        'assets/maid-parameter-semantics-v1.json',[0m
-2026-11-19T11:22:50.2327527Z [36;1m        'assets/sen-default-profile-v1.json',[0m
-2026-11-19T11:22:50.2329600Z [36;1m        'assets/ev-vtuber-pack/clips.json',[0m
-2026-11-19T11:22:50.2331820Z [36;1m        'assets/ev-vtuber-pack/vocab.json',[0m
-2026-11-19T11:22:50.2332273Z [36;1m        'assets/com/live2d/sdk/cubism/framework/shaders/standardES/VertShaderSrc.vert',[0m
-2026-11-19T11:22:50.3450066Z [36;1m    ][0m
-2026-11-19T11:22:50.3452525Z [36;1m    missing_live2d = [name for name in required_live2d if name not in z.namelist()][0m
-2026-11-19T11:22:50.3460252Z [36;1m    if missing_live2d:[0m
-2026-11-19T11:22:50.3462380Z [36;1m        print(f'ERROR: Caicai runtime payload missing: {missing_live2d}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3462831Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3464817Z [36;1m    if any(name.lower().endswith('.moc3') for name in z.namelist()):[0m
-2026-11-19T11:22:50.3467161Z [36;1m        print('ERROR: private model was bundled into the APK', file=sys.stderr)[0m
-2026-11-19T11:22:50.3469755Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3471742Z [36;1m    print('Caicai Cubism runtime and private-model boundary verified.')[0m
-2026-11-19T11:22:50.3472231Z [36;1m    if 'assets/frontend/english/cmudict.rep' not in z.namelist():[0m
-2026-11-19T11:22:50.3474448Z [36;1m        print('ERROR: production CMUdict frontend asset is missing', file=sys.stderr)[0m
-2026-11-19T11:22:50.3476332Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3478176Z [36;1m    packaged_roberta = [[0m
-2026-11-19T11:22:50.3479961Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3480330Z [36;1m        if 'roberta' in pathlib.Path(name).name.lower()[0m
-2026-11-19T11:22:50.3482186Z [36;1m        and name.endswith(('.onnx', '.ort'))[0m
-2026-11-19T11:22:50.3483499Z [36;1m    ][0m
-2026-11-19T11:22:50.3484784Z [36;1m    if packaged_roberta:[0m
-2026-11-19T11:22:50.3488008Z [36;1m        print(f'ERROR: user-imported RoBERTa leaked into APK: {packaged_roberta}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3488483Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3490458Z [36;1m    forbidden_meju = [[0m
-2026-11-19T11:22:50.3492446Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3492800Z [36;1m        if name.startswith('assets/tts_models/')[0m
-2026-11-19T11:22:50.3494478Z [36;1m        or name.startswith('assets/legacy_tts/')[0m
-2026-11-19T11:22:50.3494819Z [36;1m        or pathlib.Path(name).name in {[0m
-2026-11-19T11:22:50.3496499Z [36;1m            'libbertvits2.so', 'libMNN.so', 'libMNN_Express.so',[0m
-2026-11-19T11:22:50.3498260Z [36;1m            'libcppjieba.so', 'libcpptokenizer.so',[0m
-2026-11-19T11:22:50.3499907Z [36;1m        }[0m
-2026-11-19T11:22:50.3500166Z [36;1m    ][0m
-2026-11-19T11:22:50.3501688Z [36;1m    if forbidden_meju:[0m
-2026-11-19T11:22:50.3503142Z [36;1m        print(f'ERROR: retired Meju runtime leaked into APK: {forbidden_meju[:8]}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3503608Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3505217Z [36;1m    forbidden_voice_assets = ([0m
-2026-11-19T11:22:50.3506752Z [36;1m        'naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup'[0m
-2026-11-19T11:22:50.3508721Z [36;1m    )[0m
-2026-11-19T11:22:50.3510408Z [36;1m    if any([0m
-2026-11-19T11:22:50.3512214Z [36;1m        any(token in name for token in forbidden_voice_assets)[0m
-2026-11-19T11:22:50.3514116Z [36;1m        for name in z.namelist()[0m
-2026-11-19T11:22:50.3514409Z [36;1m    ):[0m
-2026-11-19T11:22:50.3516264Z [36;1m        print('ERROR: Tiandou, Naiyou or test-only voice leaked into APK', file=sys.stderr)[0m
-2026-11-19T11:22:50.3517657Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3519661Z [36;1m    manifest = json.loads(z.read('assets/benchmark/manifest.json'))[0m
-2026-11-19T11:22:50.3521004Z [36;1m    expected_cases = {[0m
-2026-11-19T11:22:50.3521298Z [36;1m        'jiuhu_idle50',[0m
-2026-11-19T11:22:50.3522912Z [36;1m        'jiuhu_bento_tools',[0m
-2026-11-19T11:22:50.3524571Z [36;1m        'jiuhu_dream_days',[0m
-2026-11-19T11:22:50.3526067Z [36;1m        'jiuhu_devotion',[0m
-2026-11-19T11:22:50.3527503Z [36;1m    }[0m
-2026-11-19T11:22:50.3527792Z [36;1m    actual_cases = {case['id'] for case in manifest['cases']}[0m
-2026-11-19T11:22:50.3529402Z [36;1m    if actual_cases != expected_cases:[0m
-2026-11-19T11:22:50.3531296Z [36;1m        print(f'ERROR: wrong Jiuhu production cases: {actual_cases}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3534545Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3536165Z [36;1m    if any(case.get('reference_audio') for case in manifest['cases']):[0m
-2026-11-19T11:22:50.3536703Z [36;1m        print('ERROR: a raw reference-audio path remains in the production manifest', file=sys.stderr)[0m
-2026-11-19T11:22:50.3538146Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3539526Z [36;1m    guard_name = manifest.get('reference_echo_guard')[0m
-2026-11-19T11:22:50.3540928Z [36;1m    if guard_name != 'reference_echo_guard.json':[0m
-2026-11-19T11:22:50.3542995Z [36;1m        print(f'ERROR: compact reference echo guard is missing: {guard_name}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3543435Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3544995Z [36;1m    guard = json.loads(z.read(f'assets/benchmark/{guard_name}'))[0m
-2026-11-19T11:22:50.3546303Z [36;1m    if set(guard.get('cases', {})) != expected_cases:[0m
-2026-11-19T11:22:50.3548252Z [36;1m        print('ERROR: compact reference echo signatures do not cover all voices', file=sys.stderr)[0m
-2026-11-19T11:22:50.3550027Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3550320Z [36;1m    packaged_reference_wavs = [[0m
-2026-11-19T11:22:50.3551967Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3553541Z [36;1m        if name.startswith('assets/benchmark/') and name.lower().endswith('.wav')[0m
-2026-11-19T11:22:50.3554866Z [36;1m    ][0m
-2026-11-19T11:22:50.3556126Z [36;1m    if packaged_reference_wavs:[0m
-2026-11-19T11:22:50.3556579Z [36;1m        print(f'ERROR: raw reference WAV remains in APK: {packaged_reference_wavs}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3558142Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3558353Z [36;1m    expected_reference_inputs = {[0m
-2026-11-19T11:22:50.3558660Z [36;1m        'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'[0m
-2026-11-19T11:22:50.3558959Z [36;1m    }[0m
-2026-11-19T11:22:50.3559147Z [36;1m    for case in manifest['cases']:[0m
-2026-11-19T11:22:50.3559595Z [36;1m        actual_inputs = {item['name'] for item in case['tensors']}[0m
-2026-11-19T11:22:50.3559948Z [36;1m        if actual_inputs != expected_reference_inputs:[0m
-2026-11-19T11:22:50.3560207Z [36;1m            print([0m
-2026-11-19T11:22:50.3560539Z [36;1m                f"ERROR: incomplete Jiuhu V2Pro prompt tensors for {case['id']}: {actual_inputs}",[0m
-2026-11-19T11:22:50.3560888Z [36;1m                file=sys.stderr,[0m
-2026-11-19T11:22:50.3561098Z [36;1m            )[0m
-2026-11-19T11:22:50.3561288Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3561528Z [36;1m    integrity = manifest.get('asset_integrity', {})[0m
-2026-11-19T11:22:50.3561821Z [36;1m    for relative, expected in integrity.items():[0m
-2026-11-19T11:22:50.3562111Z [36;1m        data = z.read('assets/benchmark/' + relative)[0m
-2026-11-19T11:22:50.3562493Z [36;1m        if len(data) != expected['bytes'] or hashlib.sha256(data).hexdigest() != expected['sha256']:[0m
-2026-11-19T11:22:50.3562958Z [36;1m            print(f'ERROR: Jiuhu manifest integrity mismatch: {relative}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3563289Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3563707Z [36;1m    print(f'All {len(payload)} Genie/Jiuhu/OpenJTalk payload files are size/hash exact; Tiandou, Naiyou and Meju are absent.')[0m
-2026-11-19T11:22:50.3564132Z [36;1m    pet_entries = [[0m
-2026-11-19T11:22:50.3564335Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3564627Z [36;1m        if name.startswith('assets/pets/dafeiyu/source/assets/')[0m
-2026-11-19T11:22:50.3564916Z [36;1m        and not name.endswith('/')[0m
-2026-11-19T11:22:50.3565140Z [36;1m    ][0m
-2026-11-19T11:22:50.3565324Z [36;1m    if len(pet_entries) != 417:[0m
-2026-11-19T11:22:50.3565697Z [36;1m        print(f'ERROR: APK contains {len(pet_entries)} source-pack files, expected 417', file=sys.stderr)[0m
-2026-11-19T11:22:50.3566061Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3566330Z [36;1m    print('Complete 417-file pet source pack is present in the APK.')[0m
-2026-11-19T11:22:50.3566635Z [36;1m    forbidden_emotion_payloads = [[0m
-2026-11-19T11:22:50.3566866Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3567134Z [36;1m        if name.startswith('assets/emotion_model_19emo/') and[0m
-2026-11-19T11:22:50.3567552Z [36;1m           (name.endswith('.onnx') or name.endswith('/vocab.txt') or name.endswith('/label_mapping.json'))[0m
-2026-11-19T11:22:50.3568032Z [36;1m    ][0m
-2026-11-19T11:22:50.3568215Z [36;1m    if forbidden_emotion_payloads:[0m
-2026-11-19T11:22:50.3568644Z [36;1m        print(f'ERROR: native 19emo payload unexpectedly present: {forbidden_emotion_payloads}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3569042Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3569383Z [36;1m    print('DeepSeek 19-label contract retained; Genie ONNX Runtime is present without 19emo.')[0m
-2026-11-19T11:22:50.3569923Z [36;1m    background_prefix = 'assets/flutter_assets/assets/lingchat/background/'[0m
-2026-11-19T11:22:50.3570343Z [36;1m    background_names = {'day.webp', 'night.webp', 'day_depth.png', 'night_depth.png'}[0m
-2026-11-19T11:22:50.3570689Z [36;1m    packaged_backgrounds = {[0m
-2026-11-19T11:22:50.3570985Z [36;1m        name.removeprefix(background_prefix) for name in z.namelist()[0m
-2026-11-19T11:22:50.3571364Z [36;1m        if name.startswith(background_prefix) and not name.endswith('/')[0m
-2026-11-19T11:22:50.3571651Z [36;1m    }[0m
-2026-11-19T11:22:50.3571857Z [36;1m    if packaged_backgrounds != background_names:[0m
-2026-11-19T11:22:50.3572393Z [36;1m        print(f'ERROR: unexpected room background payload: {packaged_backgrounds}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3572780Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3573044Z [36;1m    # The pinned original presentation pack still has 62 files.[0m
-2026-11-19T11:22:50.3573415Z [36;1m    # The two reviewed auxiliary depth maps are verified separately below.[0m
-2026-11-19T11:22:50.3573730Z [36;1m    auxiliary_depth_entries = {[0m
-2026-11-19T11:22:50.3573974Z [36;1m        background_prefix + 'day_depth.png',[0m
-2026-11-19T11:22:50.3574237Z [36;1m        background_prefix + 'night_depth.png',[0m
-2026-11-19T11:22:50.3574468Z [36;1m    }[0m
-2026-11-19T11:22:50.3574635Z [36;1m    lingchat_entries = [[0m
-2026-11-19T11:22:50.3574851Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3575149Z [36;1m        if name.startswith('assets/flutter_assets/assets/lingchat/')[0m
-2026-11-19T11:22:50.3575456Z [36;1m        and not name.endswith('/')[0m
-2026-11-19T11:22:50.3575702Z [36;1m        and not name.endswith('/NOTICE.md')[0m
-2026-11-19T11:22:50.3575966Z [36;1m        and name not in auxiliary_depth_entries[0m
-2026-11-19T11:22:50.3576192Z [36;1m    ][0m
-2026-11-19T11:22:50.3576358Z [36;1m    expected_groups = {[0m
-2026-11-19T11:22:50.3576556Z [36;1m        'deepseek': 21,[0m
-2026-11-19T11:22:50.3576754Z [36;1m        'background': 2,[0m
-2026-11-19T11:22:50.3576954Z [36;1m        'effects': 16,[0m
-2026-11-19T11:22:50.3577151Z [36;1m        'audio': 23,[0m
-2026-11-19T11:22:50.3577327Z [36;1m    }[0m
-2026-11-19T11:22:50.3577529Z [36;1m    for group, expected in expected_groups.items():[0m
-2026-11-19T11:22:50.3577845Z [36;1m        prefix = f'assets/flutter_assets/assets/lingchat/{group}/'[0m
-2026-11-19T11:22:50.3578221Z [36;1m        found = [name for name in lingchat_entries if name.startswith(prefix)][0m
-2026-11-19T11:22:50.3578543Z [36;1m        if len(found) != expected:[0m
-2026-11-19T11:22:50.3578752Z [36;1m            print([0m
-2026-11-19T11:22:50.3579066Z [36;1m                f'ERROR: APK contains {len(found)} LingChat {group} assets, expected {expected}',[0m
-2026-11-19T11:22:50.3579408Z [36;1m                file=sys.stderr,[0m
-2026-11-19T11:22:50.3579720Z [36;1m            )[0m
-2026-11-19T11:22:50.3579898Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3580110Z [36;1m    if len(lingchat_entries) != 62:[0m
-2026-11-19T11:22:50.3580322Z [36;1m        print([0m
-2026-11-19T11:22:50.3580639Z [36;1m            f'ERROR: APK contains {len(lingchat_entries)} LingChat presentation assets, expected 62',[0m
-2026-11-19T11:22:50.3580993Z [36;1m            file=sys.stderr,[0m
-2026-11-19T11:22:50.3581192Z [36;1m        )[0m
-2026-11-19T11:22:50.3581364Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3581678Z [36;1m    print('Complete pinned 62-file LingChat presentation pack is present in the APK.')[0m
-2026-11-19T11:22:50.3582244Z [36;1m    reviewed_day = 'assets/flutter_assets/assets/lingchat/background/day.webp'[0m
-2026-11-19T11:22:50.3582790Z [36;1m    if hashlib.sha256(z.read(reviewed_day)).hexdigest() != '6b4296044fd5b882f459e3f66cb586f67d59949a3a49a786a343619149781fb7':[0m
-2026-11-19T11:22:50.3583401Z [36;1m        print('ERROR: reviewed day background changed during asset restoration or APK packaging', file=sys.stderr)[0m
-2026-11-19T11:22:50.3583809Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3584076Z [36;1m    print('Reviewed day background is SHA-256 exact in the APK.')[0m
-2026-11-19T11:22:50.3584349Z [36;1m[0m
-2026-11-19T11:22:50.3584610Z [36;1m    portrait_prefix = 'assets/flutter_assets/assets/portraits/large_whale/'[0m
-2026-11-19T11:22:50.3584919Z [36;1m    portraits = sorted([0m
-2026-11-19T11:22:50.3585131Z [36;1m        name for name in z.namelist()[0m
-2026-11-19T11:22:50.3585433Z [36;1m        if name.startswith(portrait_prefix) and name.endswith('.webp')[0m
-2026-11-19T11:22:50.3585721Z [36;1m    )[0m
-2026-11-19T11:22:50.3585888Z [36;1m    if len(portraits) != 20:[0m
-2026-11-19T11:22:50.3586380Z [36;1m        print(f'ERROR: APK contains {len(portraits)} large-whale portraits, expected 20', file=sys.stderr)[0m
-2026-11-19T11:22:50.3586758Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3587084Z [36;1m    if z.read(portrait_prefix + 'nervous.webp') != z.read(portrait_prefix + 'flustered.webp'):[0m
-2026-11-19T11:22:50.3587553Z [36;1m        print('ERROR: approved nervous/flustered shared source changed', file=sys.stderr)[0m
-2026-11-19T11:22:50.3587890Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3588215Z [36;1m    if any(name.startswith('assets/flutter_assets/assets_source/') for name in z.namelist()):[0m
-2026-11-19T11:22:50.3588644Z [36;1m        print('ERROR: source ZIP was packaged into the APK', file=sys.stderr)[0m
-2026-11-19T11:22:50.3588941Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3589221Z [36;1m    mirror = 'assets/flutter_assets/assets/appearance/large_whale_mirror.jpg'[0m
-2026-11-19T11:22:50.3589852Z [36;1m    if hashlib.sha256(z.read(mirror)).hexdigest() != '3eb20158a962f129adba4d7f732dd5526a2943d4139eea07078ea82c4b0f2071':[0m
-2026-11-19T11:22:50.3590387Z [36;1m        print('ERROR: untouched large-whale mirror image changed', file=sys.stderr)[0m
-2026-11-19T11:22:50.3590699Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3590970Z [36;1m    avatar = 'assets/flutter_assets/assets/appearance/chat_avatar.webp'[0m
-2026-11-19T11:22:50.3591470Z [36;1m    if hashlib.sha256(z.read(avatar)).hexdigest() != 'f5a5eac2c00fa8c15005adea269ed514d778222b8a005ed38693b51b535eda46':[0m
-2026-11-19T11:22:50.3592007Z [36;1m        print('ERROR: approved chat avatar changed during APK packaging', file=sys.stderr)[0m
-2026-11-19T11:22:50.3592341Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3592619Z [36;1m    old_avatar = 'assets/flutter_assets/assets/lingchat/deepseek/avatar.webp'[0m
-2026-11-19T11:22:50.3593130Z [36;1m    if hashlib.sha256(z.read(old_avatar)).hexdigest() != '68772d09789c9557509dad6ae64472fe0046b5cf35b91abffb5c3f03c2d0cb00':[0m
-2026-11-19T11:22:50.3593631Z [36;1m        print('ERROR: preserved LingChat avatar changed', file=sys.stderr)[0m
-2026-11-19T11:22:50.3593934Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3594300Z [36;1m    print('Optimized portraits, new chat avatar, preserved LingChat avatar and mirror are present in the APK.')[0m
-2026-11-19T11:22:50.3594684Z [36;1m[0m
-2026-11-19T11:22:50.3594839Z [36;1m    yawn_tiers = {[0m
-2026-11-19T11:22:50.3595172Z [36;1m        'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_187.png': (136, 160),[0m
-2026-11-19T11:22:50.3595662Z [36;1m        'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_238.png': (171, 202),[0m
-2026-11-19T11:22:50.3596134Z [36;1m        'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_306.png': (222, 261),[0m
-2026-11-19T11:22:50.3596464Z [36;1m    }[0m
-2026-11-19T11:22:50.3596658Z [36;1m    for name, expected in yawn_tiers.items():[0m
-2026-11-19T11:22:50.3597013Z [36;1m        data = z.read(name)[0m
-2026-11-19T11:22:50.3597262Z [36;1m        actual = struct.unpack('>II', data[16:24])[0m
-2026-11-19T11:22:50.3597515Z [36;1m        if actual != expected:[0m
-2026-11-19T11:22:50.3597824Z [36;1m            print(f'ERROR: {name} is {actual}, expected {expected}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3598131Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3598410Z [36;1m    # Frozen-source checks above run before the revision is applied.[0m
-2026-11-19T11:22:50.3598781Z [36;1m    # The actual APK must use the reviewed revision, including yawn.[0m
-2026-11-19T11:22:50.3599276Z [36;1m    revision = json.loads(pathlib.Path('app/asset_packs/dafeiyu_retouched/manifest.json').read_text(encoding='utf-8'))[0m
-2026-11-19T11:22:50.3599784Z [36;1m    yawn_hashes = {[0m
-2026-11-19T11:22:50.3600071Z [36;1m        'assets/pets/dafeiyu/source/' + output['target']: output['sha256'][0m
-2026-11-19T11:22:50.3600469Z [36;1m        for frame in revision['frames'] for output in frame['outputs'][0m
-2026-11-19T11:22:50.3600930Z [36;1m        if output['target'].startswith('runtime_overrides/yawning/')[0m
-2026-11-19T11:22:50.3601200Z [36;1m    }[0m
-2026-11-19T11:22:50.3601390Z [36;1m    if set(yawn_hashes) != set(yawn_tiers):[0m
-2026-11-19T11:22:50.3601786Z [36;1m        print('ERROR: reviewed yawn revision must contain exactly three existing tiers', file=sys.stderr)[0m
-2026-11-19T11:22:50.3602170Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3602517Z [36;1m    for name, expected_hash in yawn_hashes.items():[0m
-2026-11-19T11:22:50.3602965Z [36;1m        if hashlib.sha256(z.read(name)).hexdigest() != expected_hash:[0m
-2026-11-19T11:22:50.3603380Z [36;1m            print(f'ERROR: {name} does not match the approved aligned source', file=sys.stderr)[0m
-2026-11-19T11:22:50.3603724Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3604076Z [36;1m    appearance = 'assets/flutter_assets/assets/appearance/dafeiyu_reference.webp'[0m
-2026-11-19T11:22:50.3604451Z [36;1m    appearance_bytes = z.read(appearance)[0m
-2026-11-19T11:22:50.3604908Z [36;1m    if hashlib.sha256(appearance_bytes).hexdigest() != 'f8783e2f468a6b226962b33b34acc26e759416c5ca6175f76138cd7adb5a9c80':[0m
-2026-11-19T11:22:50.3605420Z [36;1m        print('ERROR: appearance reference bytes changed', file=sys.stderr)[0m
-2026-11-19T11:22:50.3605722Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3606053Z [36;1m    print('Approved three-tier yawn art and appearance reference are present in the APK.')[0m
-2026-11-19T11:22:50.3606398Z [36;1m[0m
-2026-11-19T11:22:50.3606656Z [36;1m    trial_root = 'assets/pets/dafeiyu/source/runtime_overrides/experimental/'[0m
-2026-11-19T11:22:50.3607042Z [36;1m    pet_catalog = json.loads(z.read(trial_root + 'catalog.json'))[0m
-2026-11-19T11:22:50.3607345Z [36;1m    pet_clips = pet_catalog['clips'][0m
-2026-11-19T11:22:50.3607647Z [36;1m    if len(pet_clips) != 96 or sum(c['frames'] for c in pet_clips) != 23013:[0m
-2026-11-19T11:22:50.3608000Z [36;1m        print('ERROR: incomplete pet catalog', file=sys.stderr)[0m
-2026-11-19T11:22:50.3608275Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3608470Z [36;1m    trial_bytes = 0[0m
-2026-11-19T11:22:50.3608660Z [36;1m    for clip in pet_clips:[0m
-2026-11-19T11:22:50.3608907Z [36;1m        folder, count = clip['folder'], clip['frames'][0m
-2026-11-19T11:22:50.3609188Z [36;1m        prefix = f'{trial_root}{folder}/packed/'[0m
-2026-11-19T11:22:50.3609615Z [36;1m        parts = sorted(name for name in z.namelist()[0m
-2026-11-19T11:22:50.3609956Z [36;1m            if name.startswith(prefix) and name.endswith('.bin'))[0m
-2026-11-19T11:22:50.3610368Z [36;1m        if not parts or parts != [f'{prefix}{i:03d}.bin' for i in range(len(parts))]:[0m
-2026-11-19T11:22:50.3610801Z [36;1m            print(f'ERROR: experimental {folder} frame pack is incomplete', file=sys.stderr)[0m
-2026-11-19T11:22:50.3611148Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3611524Z [36;1m        packed = b''.join(z.read(name) for name in parts)[0m
-2026-11-19T11:22:50.3611816Z [36;1m        old = packed.startswith(b'PET241\0')[0m
-2026-11-19T11:22:50.3612100Z [36;1m        if not old and not packed.startswith(b'PETCLIP'):[0m
-2026-11-19T11:22:50.3612464Z [36;1m            print(f'ERROR: experimental {folder} pack header is invalid', file=sys.stderr)[0m
-2026-11-19T11:22:50.3612792Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3612997Z [36;1m        offset = 7[0m
-2026-11-19T11:22:50.3613192Z [36;1m        if not old:[0m
-2026-11-19T11:22:50.3613442Z [36;1m            declared, = struct.unpack_from('>I', packed, offset)[0m
-2026-11-19T11:22:50.3613706Z [36;1m            offset += 4[0m
-2026-11-19T11:22:50.3613905Z [36;1m            if declared != count:[0m
-2026-11-19T11:22:50.3614230Z [36;1m                print(f'ERROR: experimental {folder} frame count changed', file=sys.stderr)[0m
-2026-11-19T11:22:50.3614554Z [36;1m                sys.exit(1)[0m
-2026-11-19T11:22:50.3614780Z [36;1m        for index in range(count):[0m
-2026-11-19T11:22:50.3615129Z [36;1m            if offset + 4 > len(packed):[0m
-2026-11-19T11:22:50.3615481Z [36;1m                print(f'ERROR: experimental {folder} frame {index} is missing', file=sys.stderr)[0m
-2026-11-19T11:22:50.3615825Z [36;1m                sys.exit(1)[0m
-2026-11-19T11:22:50.3616074Z [36;1m            length, = struct.unpack_from('>I', packed, offset)[0m
-2026-11-19T11:22:50.3616334Z [36;1m            offset += 4[0m
-2026-11-19T11:22:50.3616559Z [36;1m            data = packed[offset:offset + length][0m
-2026-11-19T11:22:50.3616831Z [36;1m            if data[:4] != b'RIFF' or data[8:12] != b'WEBP':[0m
-2026-11-19T11:22:50.3617191Z [36;1m                print(f'ERROR: invalid experimental {folder} frame {index}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3617521Z [36;1m                sys.exit(1)[0m
-2026-11-19T11:22:50.3617721Z [36;1m            offset += length[0m
-2026-11-19T11:22:50.3617939Z [36;1m            trial_bytes += len(data)[0m
-2026-11-19T11:22:50.3618168Z [36;1m        if offset != len(packed):[0m
-2026-11-19T11:22:50.3618496Z [36;1m            print(f'ERROR: extra experimental {folder} payload bytes', file=sys.stderr)[0m
-2026-11-19T11:22:50.3618826Z [36;1m            sys.exit(1)[0m
-2026-11-19T11:22:50.3619026Z [36;1m    if trial_bytes > 250_000_000:[0m
-2026-11-19T11:22:50.3619331Z [36;1m        print(f'ERROR: pet clips exceed budget: {trial_bytes}', file=sys.stderr)[0m
-2026-11-19T11:22:50.3619733Z [36;1m        sys.exit(1)[0m
-2026-11-19T11:22:50.3620037Z [36;1m    print(f'Experimental pet payload: 96 clips, 23013 frames, {trial_bytes} bytes.')[0m
-2026-11-19T11:22:50.3620466Z [36;1mprint('Pinned Genie TTS runtime payload and APK byte identity verified.')[0m
-2026-11-19T11:22:50.3620775Z [36;1mPY2[0m
-2026-11-19T11:22:50.3666625Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:50.3666899Z env:
-2026-11-19T11:22:50.3667143Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.3667490Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:50.3667841Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.3668140Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.3668430Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:50.3668724Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:50.3669059Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:50.3669512Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:50.3669890Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:50.3670182Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:50.3670602Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:50.3671382Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:50.3671653Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:50.3672000Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:50.3672351Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:50.3672723Z ##[endgroup]
-2026-11-19T11:22:56.9660092Z OpenJTalk ELF dependency closure is complete in the release APK.
-2026-11-19T11:22:56.9660540Z ONNX Runtime native library is byte-identical to verified Genie APK.
-2026-11-19T11:22:56.9660905Z Caicai Cubism runtime and private-model boundary verified.
-2026-11-19T11:22:56.9661343Z All 49 Genie/Jiuhu/OpenJTalk payload files are size/hash exact; Tiandou, Naiyou and Meju are absent.
-2026-11-19T11:22:56.9661773Z Complete 417-file pet source pack is present in the APK.
-2026-11-19T11:22:56.9662138Z DeepSeek 19-label contract retained; Genie ONNX Runtime is present without 19emo.
-2026-11-19T11:22:56.9662569Z Complete pinned 62-file LingChat presentation pack is present in the APK.
-2026-11-19T11:22:56.9663298Z Reviewed day background is SHA-256 exact in the APK.
-2026-11-19T11:22:56.9663721Z Optimized portraits, new chat avatar, preserved LingChat avatar and mirror are present in the APK.
-2026-11-19T11:22:56.9664187Z Approved three-tier yawn art and appearance reference are present in the APK.
-2026-11-19T11:22:56.9664586Z Experimental pet payload: 96 clips, 23013 frames, 193110738 bytes.
-2026-11-19T11:22:56.9664940Z Pinned Genie TTS runtime payload and APK byte identity verified.
-2026-11-19T11:22:56.9832277Z ##[group]Run set -euo pipefail
-2026-11-19T11:22:57.3852667Z [36;1mset -euo pipefail[0m
-2026-11-19T11:22:57.3857129Z [36;1mpython3 - <<'PY'[0m
-2026-11-19T11:22:57.3859342Z [36;1mfrom hashlib import sha256[0m
-2026-11-19T11:22:57.3861811Z [36;1mfrom pathlib import Path[0m
-2026-11-19T11:22:57.3864872Z [36;1mfrom zipfile import ZipFile[0m
-2026-11-19T11:22:57.3868734Z [36;1m[0m
-2026-11-19T11:22:57.3870698Z [36;1mapk = Path('app/build/app/outputs/flutter-apk/app-release.apk')[0m
-2026-11-19T11:22:57.3872418Z [36;1mmanifest = Path('app/assets/tarot/rws_major/SHA256SUMS')[0m
-2026-11-19T11:22:57.3874300Z [36;1mexpected = {[0m
-2026-11-19T11:22:57.3874581Z [36;1m    name: digest[0m
-2026-11-19T11:22:57.3874782Z [36;1m    for digest, name in ([0m
-2026-11-19T11:22:57.3875030Z [36;1m        line.split()[0m
-2026-11-19T11:22:57.3875314Z [36;1m        for line in manifest.read_text(encoding='utf-8').splitlines()[0m
-2026-11-19T11:22:57.3875655Z [36;1m        if line.strip()[0m
-2026-11-19T11:22:57.3875857Z [36;1m    )[0m
-2026-11-19T11:22:57.3876018Z [36;1m}[0m
-2026-11-19T11:22:57.3876188Z [36;1massert len(expected) == 22[0m
-2026-11-19T11:22:57.3876416Z [36;1mwith ZipFile(apk) as archive:[0m
-2026-11-19T11:22:57.3876662Z [36;1m    for name, digest in expected.items():[0m
-2026-11-19T11:22:57.3876972Z [36;1m        path = f'assets/flutter_assets/assets/tarot/rws_major/{name}'[0m
-2026-11-19T11:22:57.3877310Z [36;1m        actual = sha256(archive.read(path)).hexdigest()[0m
-2026-11-19T11:22:57.3877603Z [36;1m        assert actual == digest, (path, actual, digest)[0m
-2026-11-19T11:22:57.3877948Z [36;1mprint('All 22 pinned tarot JPGs are present and hash-exact in the APK.')[0m
-2026-11-19T11:22:57.3878250Z [36;1mPY[0m
-2026-11-19T11:22:57.3923842Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:57.3924122Z env:
-2026-11-19T11:22:57.3924351Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.3924704Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:57.3925040Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.3925341Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.3925634Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.3925932Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:57.3926492Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.3926869Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.3927239Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:57.3927530Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:57.3927957Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:57.3928541Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:57.3928810Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:57.3929150Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:57.3929609Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:57.3929969Z ##[endgroup]
-2026-11-19T11:22:57.4483466Z All 22 pinned tarot JPGs are present and hash-exact in the APK.
-2026-11-19T11:22:57.4558942Z ##[group]Run set -euo pipefail
-2026-11-19T11:22:57.4559205Z [36;1mset -euo pipefail[0m
-2026-11-19T11:22:57.4559417Z [36;1mpython3 - <<'PY_GALAXY'[0m
-2026-11-19T11:22:57.4559863Z [36;1mfrom hashlib import sha256[0m
-2026-11-19T11:22:57.4560089Z [36;1mfrom pathlib import Path[0m
-2026-11-19T11:22:57.4560311Z [36;1mfrom zipfile import ZipFile[0m
-2026-11-19T11:22:57.4560516Z [36;1m[0m
-2026-11-19T11:22:57.4560713Z [36;1mroot = Path('app/assets/memory_galaxy')[0m
-2026-11-19T11:22:57.4561038Z [36;1mfiles = sorted(path for path in root.rglob('*') if path.is_file())[0m
-2026-11-19T11:22:57.4561409Z [36;1massert files and any(path.suffix == '.html' for path in files)[0m
-2026-11-19T11:22:57.4561749Z [36;1massert any(path.suffix == '.woff2' for path in files)[0m
-2026-11-19T11:22:57.4562069Z [36;1massert any(path.name == 'LICENSE' for path in files)[0m
-2026-11-19T11:22:57.4562464Z [36;1mwith ZipFile('app/build/app/outputs/flutter-apk/app-release.apk') as archive:[0m
-2026-11-19T11:22:57.4562836Z [36;1m    for source in files:[0m
-2026-11-19T11:22:57.4563153Z [36;1m        target = 'assets/flutter_assets/' + source.relative_to('app').as_posix()[0m
-2026-11-19T11:22:57.4563532Z [36;1m        expected = sha256(source.read_bytes()).hexdigest()[0m
-2026-11-19T11:22:57.4563841Z [36;1m        actual = sha256(archive.read(target)).hexdigest()[0m
-2026-11-19T11:22:57.4564153Z [36;1m        assert actual == expected, (target, actual, expected)[0m
-2026-11-19T11:22:57.4564562Z [36;1mprint(f'All {len(files)} offline Memory Galaxy assets are hash-exact in the APK.')[0m
-2026-11-19T11:22:57.4564907Z [36;1mPY_GALAXY[0m
-2026-11-19T11:22:57.4610737Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:57.4611026Z env:
-2026-11-19T11:22:57.4611254Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.4611607Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:57.4611952Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.4612262Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.4612559Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.4612871Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:57.4613211Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.4613588Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.4613960Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:57.4614259Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:57.4614707Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:57.4615296Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:57.4615570Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:57.4618807Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:57.4619399Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:57.4619896Z ##[endgroup]
-2026-11-19T11:22:57.5439372Z All 131 offline Memory Galaxy assets are hash-exact in the APK.
-2026-11-19T11:22:57.5520031Z ##[group]Run python3 - <<'PY_DEPTH'
-2026-11-19T11:22:57.5520332Z [36;1mpython3 - <<'PY_DEPTH'[0m
-2026-11-19T11:22:57.5520553Z [36;1mfrom pathlib import Path[0m
-2026-11-19T11:22:57.5520778Z [36;1mfrom hashlib import sha256[0m
-2026-11-19T11:22:57.5521004Z [36;1mfrom zipfile import ZipFile[0m
-2026-11-19T11:22:57.5521326Z [36;1mwith ZipFile('app/build/app/outputs/flutter-apk/app-release.apk') as z:[0m
-2026-11-19T11:22:57.5521747Z [36;1m    for name in ('day.webp', 'night.webp', 'day_depth.png', 'night_depth.png'):[0m
-2026-11-19T11:22:57.5522125Z [36;1m        source = Path('app/assets/lingchat/background') / name[0m
-2026-11-19T11:22:57.5522526Z [36;1m        target = 'assets/flutter_assets/' + source.relative_to('app').as_posix()[0m
-2026-11-19T11:22:57.5522966Z [36;1m        assert sha256(z.read(target)).digest() == sha256(source.read_bytes()).digest()[0m
-2026-11-19T11:22:57.5523416Z [36;1m    assert len(z.read('assets/flutter_assets/shaders/room_depth.frag')) > 100[0m
-2026-11-19T11:22:57.5523837Z [36;1mprint('Original rooms, depth maps and compiled Flutter shader packaged.')[0m
-2026-11-19T11:22:57.5524256Z [36;1mwith ZipFile('app/build/app/outputs/flutter-apk/app-release.apk') as z:[0m
-2026-11-19T11:22:57.5524663Z [36;1m    original = Path('app/assets/model_dialogue/background.jpg').read_bytes()[0m
-2026-11-19T11:22:57.5525166Z [36;1m    assert sha256(original).hexdigest() == '2108cb1b63383f26dd5414a805c1bace8fd72d37790cbbb885d55f194da75e63'[0m
-2026-11-19T11:22:57.5525699Z [36;1m    assert z.read('assets/flutter_assets/assets/model_dialogue/background.jpg') == original[0m
-2026-11-19T11:22:57.5526147Z [36;1mprint('Original model dialogue trial background packaged byte-for-byte.')[0m
-2026-11-19T11:22:57.5526465Z [36;1msupplied = {[0m
-2026-11-19T11:22:57.5526828Z [36;1m    'assets/model_dialogue/deepseek.jpg': '40714757bca99567520eacf5f812bac2865209f19eab1c54078e7266397ea443',[0m
-2026-11-19T11:22:57.5527406Z [36;1m    'assets/model_dialogue/gemini.jpg': 'd8e8ae374de32884c6d302d736f02d0ba2ab231a6c82f391c267943a19f97408',[0m
-2026-11-19T11:22:57.5527985Z [36;1m    'assets/immersive/background.jpg': 'df727d708ba26d08f4f34af7e80fc99e48df1fff3322c04bd58944b57d3dc9db',[0m
-2026-11-19T11:22:57.5528374Z [36;1m}[0m
-2026-11-19T11:22:57.5528639Z [36;1mwith ZipFile('app/build/app/outputs/flutter-apk/app-release.apk') as z:[0m
-2026-11-19T11:22:57.5528993Z [36;1m    for path, expected in supplied.items():[0m
-2026-11-19T11:22:57.5529271Z [36;1m        original = Path('app', path).read_bytes()[0m
-2026-11-19T11:22:57.5529700Z [36;1m        assert sha256(original).hexdigest() == expected[0m
-2026-11-19T11:22:57.5530025Z [36;1m        assert z.read('assets/flutter_assets/' + path) == original[0m
-2026-11-19T11:22:57.5530439Z [36;1mprint('Supplied avatars and current immersive background packaged byte-for-byte.')[0m
-2026-11-19T11:22:57.5530853Z [36;1mPY_DEPTH[0m
-2026-11-19T11:22:57.6880569Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:57.6880907Z env:
-2026-11-19T11:22:57.6881155Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.6881519Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:57.6881855Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.6882155Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.6882452Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.6882751Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:57.6883095Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.6883476Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.6884108Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:57.6884407Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:57.6885028Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:57.6885661Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:57.6885925Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:57.6886272Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:57.6886626Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:57.6886990Z ##[endgroup]
-2026-11-19T11:22:57.7428941Z Original rooms, depth maps and compiled Flutter shader packaged.
-2026-11-19T11:22:57.7429725Z Original model dialogue trial background packaged byte-for-byte.
-2026-11-19T11:22:57.7430362Z Supplied avatars and current immersive background packaged byte-for-byte.
-2026-11-19T11:22:57.7504760Z ##[group]Run set -euo pipefail
-2026-11-19T11:22:57.7505009Z [36;1mset -euo pipefail[0m
-2026-11-19T11:22:57.7505281Z [36;1mAPK='app/build/app/outputs/flutter-apk/app-release.apk'[0m
-2026-11-19T11:22:57.7505594Z [36;1mstat -c "signed_apk_bytes=%s" "$APK"[0m
-2026-11-19T11:22:57.7505877Z [36;1msha256sum "$APK" | tee app/app-release.apk.sha256[0m
-2026-11-19T11:22:57.7551586Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:22:57.7551874Z env:
-2026-11-19T11:22:57.7552096Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.7552442Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:57.7552778Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.7553075Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.7553372Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:57.7553711Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:57.7554054Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.7554429Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:57.7554800Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:57.7555092Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:57.7555530Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:57.7556118Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:57.7556380Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:57.7556724Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:57.7557090Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:57.7557464Z ##[endgroup]
-2026-11-19T11:22:57.7651197Z signed_apk_bytes=769496072
-2026-11-19T11:22:58.2643237Z e5cc0172e6c3f55c253d8a62027f7bf2f95150c1198d782f1505b64db96db9b1  app/build/app/outputs/flutter-apk/app-release.apk
-2026-11-19T11:22:58.4073814Z ##[group]Run actions/upload-artifact@v4
-2026-11-19T11:22:58.4074055Z with:
-2026-11-19T11:22:58.4074287Z   name: AI-Companion-v0.42.216-460-Chat-Memory-Exam-APK
-2026-11-19T11:22:58.4074672Z   path: app/build/app/outputs/flutter-apk/app-release.apk
-app/app-release.apk.sha256
-
-2026-11-19T11:22:58.4075024Z   if-no-files-found: error
-2026-11-19T11:22:58.4075219Z   retention-days: 14
-2026-11-19T11:22:58.4075399Z   compression-level: 6
-2026-11-19T11:22:58.4075575Z   overwrite: false
-2026-11-19T11:22:58.4075758Z   include-hidden-files: false
-2026-11-19T11:22:58.4075951Z env:
-2026-11-19T11:22:58.4076164Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:58.4076507Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:22:58.4076840Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:58.4077308Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:58.4077637Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:22:58.4077939Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:22:58.4078294Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:58.4078671Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:22:58.4079053Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:22:58.4079352Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:22:58.4079904Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:22:58.4080479Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:22:58.4080747Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:22:58.4081092Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:22:58.4081457Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:22:58.4081814Z ##[endgroup]
-2026-11-19T11:22:58.5498719Z (node:15251) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-11-19T11:22:58.5499836Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-11-19T11:22:58.5547849Z Multiple search paths detected. Calculating the least common ancestor of all paths
-2026-11-19T11:22:58.5557665Z The least common ancestor is /home/runner/work/ai-companion-build/ai-companion-build/app. This will be the root directory of the artifact
-2026-11-19T11:22:58.5558521Z With the provided path, there will be 2 files uploaded
-2026-11-19T11:22:58.5559029Z Artifact name is valid!
-2026-11-19T11:22:58.5559271Z Root directory input is valid!
-2026-11-19T11:22:58.9764772Z Beginning upload of artifact content to blob storage
-2026-11-19T11:22:59.2035434Z (node:15251) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-2026-11-19T11:23:00.1110752Z Uploaded bytes 8388608
-2026-11-19T11:23:00.3347542Z Uploaded bytes 16777216
-2026-11-19T11:23:00.4753254Z Uploaded bytes 25165824
-2026-11-19T11:23:00.5314127Z Uploaded bytes 33554432
-2026-11-19T11:23:00.6063364Z Uploaded bytes 41943040
-2026-11-19T11:23:00.8487148Z Uploaded bytes 50331648
-2026-11-19T11:23:00.8637285Z Uploaded bytes 58720256
-2026-11-19T11:23:01.0973119Z Uploaded bytes 67108864
-2026-11-19T11:23:01.4144543Z Uploaded bytes 75497472
-2026-11-19T11:23:01.5134522Z Uploaded bytes 83886080
-2026-11-19T11:23:01.7587624Z Uploaded bytes 92274688
-2026-11-19T11:23:02.0035268Z Uploaded bytes 100663296
-2026-11-19T11:23:02.2024580Z Uploaded bytes 109051904
-2026-11-19T11:23:02.4229327Z Uploaded bytes 117440512
-2026-11-19T11:23:02.6492084Z Uploaded bytes 125829120
-2026-11-19T11:23:02.8704867Z Uploaded bytes 134217728
-2026-11-19T11:23:03.1261052Z Uploaded bytes 142606336
-2026-11-19T11:23:03.3642674Z Uploaded bytes 150994944
-2026-11-19T11:23:03.6243098Z Uploaded bytes 159383552
-2026-11-19T11:23:03.8769238Z Uploaded bytes 167772160
-2026-11-19T11:23:04.1039220Z Uploaded bytes 176160768
-2026-11-19T11:23:04.3389167Z Uploaded bytes 184549376
-2026-11-19T11:23:04.6364444Z Uploaded bytes 192937984
-2026-11-19T11:23:04.8381399Z Uploaded bytes 201326592
-2026-11-19T11:23:05.0672022Z Uploaded bytes 209715200
-2026-11-19T11:23:05.3658729Z Uploaded bytes 218103808
-2026-11-19T11:23:05.5443478Z Uploaded bytes 226492416
-2026-11-19T11:23:05.7730664Z Uploaded bytes 234881024
-2026-11-19T11:23:06.0748306Z Uploaded bytes 243269632
-2026-11-19T11:23:06.2213100Z Uploaded bytes 251658240
-2026-11-19T11:23:06.4471391Z Uploaded bytes 260046848
-2026-11-19T11:23:06.6836631Z Uploaded bytes 268435456
-2026-11-19T11:23:06.8843283Z Uploaded bytes 276824064
-2026-11-19T11:23:07.0867808Z Uploaded bytes 285212672
-2026-11-19T11:23:07.3831849Z Uploaded bytes 293601280
-2026-11-19T11:23:07.5181975Z Uploaded bytes 301989888
-2026-11-19T11:23:07.8335354Z Uploaded bytes 310378496
-2026-11-19T11:23:08.0044511Z Uploaded bytes 318767104
-2026-11-19T11:23:08.1765563Z Uploaded bytes 327155712
-2026-11-19T11:23:08.4052142Z Uploaded bytes 335544320
-2026-11-19T11:23:08.6838997Z Uploaded bytes 343932928
-2026-11-19T11:23:08.9266059Z Uploaded bytes 352321536
-2026-11-19T11:23:09.1217882Z Uploaded bytes 360710144
-2026-11-19T11:23:09.3513354Z Uploaded bytes 369098752
-2026-11-19T11:23:09.5121627Z Uploaded bytes 377487360
-2026-11-19T11:23:09.7250366Z Uploaded bytes 385875968
-2026-11-19T11:23:09.9414135Z Uploaded bytes 394264576
-2026-11-19T11:23:10.1934232Z Uploaded bytes 402653184
-2026-11-19T11:23:10.4512939Z Uploaded bytes 411041792
-2026-11-19T11:23:10.6049778Z Uploaded bytes 419430400
-2026-11-19T11:23:10.7803136Z Uploaded bytes 427819008
-2026-11-19T11:23:11.0499718Z Uploaded bytes 436207616
-2026-11-19T11:23:11.2091004Z Uploaded bytes 444596224
-2026-11-19T11:23:11.3780798Z Uploaded bytes 452984832
-2026-11-19T11:23:11.6014412Z Uploaded bytes 461373440
-2026-11-19T11:23:11.8631036Z Uploaded bytes 469762048
-2026-11-19T11:23:11.9947816Z Uploaded bytes 478150656
-2026-11-19T11:23:12.2172923Z Uploaded bytes 486539264
-2026-11-19T11:23:12.4615051Z Uploaded bytes 494927872
-2026-11-19T11:23:12.7129314Z Uploaded bytes 503316480
-2026-11-19T11:23:12.8296876Z Uploaded bytes 511705088
-2026-11-19T11:23:13.0579585Z Uploaded bytes 520093696
-2026-11-19T11:23:13.2676637Z Uploaded bytes 528482304
-2026-11-19T11:23:13.4979989Z Uploaded bytes 536870912
-2026-11-19T11:23:13.6890617Z Uploaded bytes 545259520
-2026-11-19T11:23:13.8849942Z Uploaded bytes 553648128
-2026-11-19T11:23:14.0925410Z Uploaded bytes 562036736
-2026-11-19T11:23:14.3130998Z Uploaded bytes 570425344
-2026-11-19T11:23:14.5657562Z Uploaded bytes 578813952
-2026-11-19T11:23:14.7253675Z Uploaded bytes 587202560
-2026-11-19T11:23:14.9687889Z Uploaded bytes 595591168
-2026-11-19T11:23:15.1532450Z Uploaded bytes 603979776
-2026-11-19T11:23:15.3664899Z Uploaded bytes 612368384
-2026-11-19T11:23:15.5747194Z Uploaded bytes 620756992
-2026-11-19T11:23:15.7711957Z Uploaded bytes 629145600
-2026-11-19T11:23:16.1172914Z Uploaded bytes 637534208
-2026-11-19T11:23:16.1727104Z Uploaded bytes 645922816
-2026-11-19T11:23:16.5860912Z Uploaded bytes 654311424
-2026-11-19T11:23:16.8063441Z Uploaded bytes 662700032
-2026-11-19T11:23:16.8245060Z Uploaded bytes 671088640
-2026-11-19T11:23:16.9928516Z Uploaded bytes 679477248
-2026-11-19T11:23:17.1313835Z Uploaded bytes 687865856
-2026-11-19T11:23:17.3348388Z Uploaded bytes 696254464
-2026-11-19T11:23:17.6215991Z Uploaded bytes 704643072
-2026-11-19T11:23:17.7704200Z Uploaded bytes 713031680
-2026-11-19T11:23:17.9463024Z Uploaded bytes 721420288
-2026-11-19T11:23:18.1548184Z Uploaded bytes 729808896
-2026-11-19T11:23:18.4285449Z Uploaded bytes 738197504
-2026-11-19T11:23:18.5997572Z Uploaded bytes 746586112
-2026-11-19T11:23:18.7562653Z Uploaded bytes 754974720
-2026-11-19T11:23:19.0718006Z Uploaded bytes 762145730
-2026-11-19T11:23:19.1477527Z Finished uploading artifact content to blob storage!
-2026-11-19T11:23:19.1480425Z SHA256 digest of uploaded artifact zip is 2c841effa3280850b9bc53945216c08bd09dd5316fb1c580819af471c7ba17ec
-2026-11-19T11:23:19.1482112Z Finalizing artifact upload
-2026-11-19T11:23:19.7100912Z Artifact AI-Companion-v0.42.216-460-Chat-Memory-Exam-APK.zip successfully finalized. Artifact ID 14524279834
-2026-11-19T11:23:19.7102147Z Artifact AI-Companion-v0.42.216-460-Chat-Memory-Exam-APK has been successfully uploaded! Final size is 762145730 bytes. Artifact ID is 14524279834
-2026-11-19T11:23:19.7107911Z Artifact download URL: https://github.com/catkiss62/ai-companion-build/actions/runs/44508162086/artifacts/14524279834
-2026-11-19T11:23:19.9150135Z ##[group]Run set -euo pipefail
-2026-11-19T11:23:19.9150493Z [36;1mset -euo pipefail[0m
-2026-11-19T11:23:19.9150740Z [36;1mTAG='v0.42.216-chat-memory-exam-test'[0m
-2026-11-19T11:23:19.9151078Z [36;1mAPK_NAME='AI-Companion-v0.42.216-460-Chat-Memory-Exam-APK.apk'[0m
-2026-11-19T11:23:19.9151593Z [36;1mSHA_NAME="${APK_NAME}.sha256"[0m
-2026-11-19T11:23:19.9151931Z [36;1mCI_NAME='AI-Companion-v0.42.216-460-Chat-Memory-Exam-CI-Monitor.txt'[0m
-2026-11-19T11:23:19.9152356Z [36;1mcp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"[0m
-2026-11-19T11:23:19.9152770Z [36;1msed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \[0m
-2026-11-19T11:23:19.9153136Z [36;1m  app/app-release.apk.sha256 > "app/${SHA_NAME}"[0m
-2026-11-19T11:23:19.9153393Z [36;1m{[0m
-2026-11-19T11:23:19.9153575Z [36;1m  echo 'status=success'[0m
-2026-11-19T11:23:19.9153797Z [36;1m  echo "run_id=${GITHUB_RUN_ID}"[0m
-2026-11-19T11:23:19.9154192Z [36;1m  echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"[0m
-2026-11-19T11:23:19.9154545Z [36;1m  echo "head_sha=${GITHUB_SHA}"[0m
-2026-11-19T11:23:19.9154811Z [36;1m  echo "signer_sha256=${AI_COMPANION_SIGNER_SHA256}"[0m
-2026-11-19T11:23:19.9155093Z [36;1m  cat "app/${SHA_NAME}"[0m
-2026-11-19T11:23:19.9155301Z [36;1m} > "app/${CI_NAME}"[0m
-2026-11-19T11:23:19.9155601Z [36;1mif ! gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then[0m
-2026-11-19T11:23:19.9155936Z [36;1m  gh release create "${TAG}" \[0m
-2026-11-19T11:23:19.9156180Z [36;1m    --repo "${GITHUB_REPOSITORY}" \[0m
-2026-11-19T11:23:19.9156422Z [36;1m    --target "${GITHUB_SHA}" \[0m
-2026-11-19T11:23:19.9156636Z [36;1m    --draft \[0m
-2026-11-19T11:23:19.9156894Z [36;1m    --title 'AI Companion v0.42.216+460 Chat Memory Exam' \[0m
-2026-11-19T11:23:19.9157630Z [36;1m    --notes 'Runs the unmodified 108-question demo and 714-question official 1.0 papers with isolated companion memory and upstream scoring. Adds per-model Live2D saved defaults and portable word-slice best score.'[0m
-2026-11-19T11:23:19.9158285Z [36;1melse[0m
-2026-11-19T11:23:19.9158614Z [36;1m  test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true[0m
-2026-11-19T11:23:19.9158991Z [36;1m  gh release edit "${TAG}" \[0m
-2026-11-19T11:23:19.9159232Z [36;1m    --repo "${GITHUB_REPOSITORY}" \[0m
-2026-11-19T11:23:19.9159571Z [36;1m    --target "${GITHUB_SHA}" \[0m
-2026-11-19T11:23:19.9159847Z [36;1m    --title 'AI Companion v0.42.216+460 Chat Memory Exam' \[0m
-2026-11-19T11:23:19.9160548Z [36;1m    --notes 'Runs the unmodified 108-question demo and 714-question official 1.0 papers with isolated companion memory and upstream scoring. Adds per-model Live2D saved defaults and portable word-slice best score.'[0m
-2026-11-19T11:23:19.9161214Z [36;1mfi[0m
-2026-11-19T11:23:19.9161577Z [36;1mtest "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1[0m
-2026-11-19T11:23:19.9162106Z [36;1mRELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"[0m
-2026-11-19T11:23:19.9162505Z [36;1mecho "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"[0m
-2026-11-19T11:23:19.9162773Z [36;1mupload_ok=0[0m
-2026-11-19T11:23:19.9162971Z [36;1mfor attempt in 1 2 3 4; do[0m
-2026-11-19T11:23:19.9163233Z [36;1m  if gh release upload "${TAG}" \[0m
-2026-11-19T11:23:19.9163473Z [36;1m    "app/${APK_NAME}" \[0m
-2026-11-19T11:23:19.9163684Z [36;1m    "app/${SHA_NAME}" \[0m
-2026-11-19T11:23:19.9163885Z [36;1m    "app/${CI_NAME}" \[0m
-2026-11-19T11:23:19.9164094Z [36;1m    --clobber \[0m
-2026-11-19T11:23:19.9164310Z [36;1m    --repo "${GITHUB_REPOSITORY}"; then[0m
-2026-11-19T11:23:19.9164549Z [36;1m    upload_ok=1[0m
-2026-11-19T11:23:19.9164732Z [36;1m    break[0m
-2026-11-19T11:23:19.9164900Z [36;1m  fi[0m
-2026-11-19T11:23:19.9165319Z [36;1m  echo "Draft Release upload attempt ${attempt}/4 failed; retrying shortly."[0m
-2026-11-19T11:23:19.9165668Z [36;1m  sleep $((attempt * 5))[0m
-2026-11-19T11:23:19.9165875Z [36;1mdone[0m
-2026-11-19T11:23:19.9166045Z [36;1mtest "${upload_ok}" = '1'[0m
-2026-11-19T11:23:19.9166281Z [36;1mMONITOR_BRANCH='ci-monitor-v0345'[0m
-2026-11-19T11:23:19.9166643Z [36;1mMONITOR_PATH='.ci/v042185-monitor.txt'[0m
-2026-11-19T11:23:19.9166898Z [36;1mMONITOR_CONTENT_FILE="$(mktemp)"[0m
-2026-11-19T11:23:19.9167185Z [36;1mbase64 -w0 "app/${CI_NAME}" > "${MONITOR_CONTENT_FILE}"[0m
-2026-11-19T11:23:19.9167698Z [36;1mMONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"[0m
-2026-11-19T11:23:19.9181199Z [36;1mif test -n "${MONITOR_SHA}"; then[0m
-2026-11-19T11:23:19.9181702Z [36;1m  gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \[0m
-2026-11-19T11:23:19.9182287Z [36;1m    -f message='Update v0.42.188 CI success monitor' \[0m
-2026-11-19T11:23:19.9182714Z [36;1m    -F "content=@${MONITOR_CONTENT_FILE}" \[0m
-2026-11-19T11:23:19.9183076Z [36;1m    -f branch="${MONITOR_BRANCH}" \[0m
-2026-11-19T11:23:19.9183404Z [36;1m    -f sha="${MONITOR_SHA}" >/dev/null[0m
-2026-11-19T11:23:19.9183632Z [36;1melse[0m
-2026-11-19T11:23:19.9183917Z [36;1m  gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \[0m
-2026-11-19T11:23:19.9184286Z [36;1m    -f message='Create v0.42.188 CI success monitor' \[0m
-2026-11-19T11:23:19.9184562Z [36;1m    -F "content=@${MONITOR_CONTENT_FILE}" \[0m
-2026-11-19T11:23:19.9184827Z [36;1m    -f branch="${MONITOR_BRANCH}" >/dev/null[0m
-2026-11-19T11:23:19.9185090Z [36;1mfi[0m
-2026-11-19T11:23:19.9232384Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-11-19T11:23:19.9232674Z env:
-2026-11-19T11:23:19.9232901Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:23:19.9233256Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
-2026-11-19T11:23:19.9233610Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:23:19.9233916Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:23:19.9234211Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
-2026-11-19T11:23:19.9234525Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
-2026-11-19T11:23:19.9234871Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:23:19.9235253Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
-2026-11-19T11:23:19.9235632Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
-2026-11-19T11:23:19.9235932Z   PUB_CACHE: /home/runner/.pub-cache
-2026-11-19T11:23:19.9236371Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
-2026-11-19T11:23:19.9236981Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
-2026-11-19T11:23:19.9237252Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
-2026-11-19T11:23:19.9237613Z   AI_COMPANION_KEY_PASSWORD: ***
-2026-11-19T11:23:19.9237973Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2026-11-19T11:23:19.9241900Z   GH_TOKEN: ***
-2026-11-19T11:23:19.9242108Z ##[endgroup]
-2026-11-19T11:23:21.9905824Z HTTP 403: Resource not accessible by integration (https://api.github.com/repos/catkiss62/ai-companion-build/releases/451200096)
-2026-11-19T11:23:21.9938381Z ##[error]Process completed with exit code 1.
-2026-11-19T11:23:22.0872807Z Post job cleanup.
-2026-11-19T11:23:22.0935150Z Post job cleanup.
-2026-11-19T11:23:22.2096810Z (node:15289) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-2026-11-19T11:23:22.2097793Z (Use `node --trace-deprecation ...` to show where the warning was created)
-2026-11-19T11:23:22.2254832Z Post job cleanup.
-2026-11-19T11:23:22.3043837Z [command]/usr/bin/git version
-2026-11-19T11:23:22.3086073Z git version 2.56.1
-2026-11-19T11:23:22.3119644Z Temporarily overriding HOME='/home/runner/work/_temp/3315d678-3371-4a98-9aef-0f893dda18a8' before making global git config changes
-2026-11-19T11:23:22.3120611Z Adding repository directory to the temporary git global config as a safe directory
-2026-11-19T11:23:22.3124729Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-11-19T11:23:22.3162923Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-11-19T11:23:22.3200132Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-11-19T11:23:22.3562507Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-11-19T11:23:22.3563321Z http.https://github.com/.extraheader
-2026-11-19T11:23:22.3564276Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-11-19T11:23:22.3600990Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-11-19T11:23:22.3878089Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-11-19T11:23:22.3909406Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-11-19T11:23:22.4356623Z Cleaning up orphan processes
-2026-11-19T11:23:23.1374430Z Terminate orphan process: pid (8689) (java)
-2026-11-19T11:23:23.1400135Z Terminate orphan process: pid (8799) (java)
-2026-11-19T11:23:23.1466092Z Terminate orphan process: pid (9187) (java)
-2026-11-19T11:23:23.1852570Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-26a9324e1b6178b8c2a9
+--- job=build-apk conclusion=failure id=135559249627 ---
+﻿2026-11-19T12:26:26.8014169Z Current runner version: '2.338.2'
+2026-11-19T12:26:26.8051342Z ##[group]Runner Image Provisioner
+2026-11-19T12:26:26.8052930Z Hosted Compute Agent
+2026-11-19T12:26:26.8054020Z Version: 20261103.629
+2026-11-19T12:26:26.8055169Z Commit: 15dbd9ccb5dbf34fae002b6ed1a2670f52df37bc
+2026-11-19T12:26:26.8056446Z Build Date: 2026-11-03T17:26:59Z
+2026-11-19T12:26:26.8057743Z Worker ID: {6a9b12d5-e485-43ee-8626-e58692b3830a}
+2026-11-19T12:26:26.8059111Z Region: eastus
+2026-11-19T12:26:26.8060170Z Cloud: Azure
+2026-11-19T12:26:26.8061101Z ##[endgroup]
+2026-11-19T12:26:26.8063863Z ##[group]Operating System
+2026-11-19T12:26:26.8065302Z Ubuntu
+2026-11-19T12:26:26.8066249Z 26.04.1
+2026-11-19T12:26:26.8067362Z LTS
+2026-11-19T12:26:26.8068234Z ##[endgroup]
+2026-11-19T12:26:26.8069314Z ##[group]Runner Image
+2026-11-19T12:26:26.8070349Z Image: ubuntu-26.04
+2026-11-19T12:26:26.8071474Z Version: 20261111.196.1
+2026-11-19T12:26:26.8073956Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261111.196/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-19T12:26:26.8076821Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261111.196
+2026-11-19T12:26:26.8078671Z ##[endgroup]
+2026-11-19T12:26:26.8081085Z ##[group]GITHUB_TOKEN Permissions
+2026-11-19T12:26:26.8084107Z Actions: read
+2026-11-19T12:26:26.8085088Z Contents: write
+2026-11-19T12:26:26.8086033Z Metadata: read
+2026-11-19T12:26:26.8087050Z ##[endgroup]
+2026-11-19T12:26:26.8090089Z Secret source: Actions
+2026-11-19T12:26:26.8092099Z Cache mode: write
+2026-11-19T12:26:26.8093680Z Prepare workflow directory
+2026-11-19T12:26:26.8598432Z Prepare all required actions
+2026-11-19T12:26:26.8675815Z Getting action download info
+2026-11-19T12:26:27.1253682Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-19T12:26:27.2270953Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-11-19T12:26:27.3000360Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-11-19T12:26:27.5020820Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+2026-11-19T12:26:27.5895835Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-19T12:26:27.7861399Z Getting action download info
+2026-11-19T12:26:27.8612905Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-11-19T12:26:27.9754035Z Complete job name: build-apk
+2026-11-19T12:26:28.0878870Z ##[group]Run actions/checkout@v4
+2026-11-19T12:26:28.0879765Z with:
+2026-11-19T12:26:28.0880235Z   repository: catkiss62/ai-companion-build
+2026-11-19T12:26:28.0884229Z   token: ***
+2026-11-19T12:26:28.0884661Z   ssh-strict: true
+2026-11-19T12:26:28.0885098Z   ssh-user: git
+2026-11-19T12:26:28.0885547Z   persist-credentials: true
+2026-11-19T12:26:28.0886028Z   clean: true
+2026-11-19T12:26:28.0886465Z   sparse-checkout-cone-mode: true
+2026-11-19T12:26:28.0887001Z   fetch-depth: 1
+2026-11-19T12:26:28.0887425Z   fetch-tags: false
+2026-11-19T12:26:28.0887863Z   show-progress: true
+2026-11-19T12:26:28.0888308Z   lfs: false
+2026-11-19T12:26:28.0888714Z   submodules: false
+2026-11-19T12:26:28.0889158Z   set-safe-directory: true
+2026-11-19T12:26:28.0889662Z   allow-unsafe-pr-checkout: false
+2026-11-19T12:26:28.0890435Z ##[endgroup]
+2026-11-19T12:26:28.3645677Z Syncing repository: catkiss62/ai-companion-build
+2026-11-19T12:26:28.3648341Z ##[group]Getting Git version info
+2026-11-19T12:26:28.3650052Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-11-19T12:26:28.3653123Z [command]/usr/bin/git version
+2026-11-19T12:26:28.3653752Z git version 2.56.1
+2026-11-19T12:26:28.3655616Z ##[endgroup]
+2026-11-19T12:26:28.3668078Z Temporarily overriding HOME='/home/runner/work/_temp/3b24a15d-8c28-4d5a-9004-67e86f3efede' before making global git config changes
+2026-11-19T12:26:28.3670706Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-19T12:26:28.3673816Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-19T12:26:28.3744777Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-11-19T12:26:28.3747966Z ##[group]Initializing the repository
+2026-11-19T12:26:28.3752941Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-19T12:26:28.3893562Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-19T12:26:28.3896221Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-19T12:26:28.3923003Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-19T12:26:28.3927359Z hint: call:
+2026-11-19T12:26:28.3928962Z hint:
+2026-11-19T12:26:28.3930886Z hint: 	git config --global init.defaultBranch <name>
+2026-11-19T12:26:28.3933182Z hint:
+2026-11-19T12:26:28.3934846Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-19T12:26:28.3937142Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-19T12:26:28.3938204Z hint:
+2026-11-19T12:26:28.3938701Z hint: 	git branch -m <name>
+2026-11-19T12:26:28.3939522Z hint:
+2026-11-19T12:26:28.3940854Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-19T12:26:28.3943350Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-11-19T12:26:28.3946399Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-11-19T12:26:28.3954742Z ##[endgroup]
+2026-11-19T12:26:28.3956325Z ##[group]Disabling automatic garbage collection
+2026-11-19T12:26:28.3959867Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-19T12:26:28.3997451Z ##[endgroup]
+2026-11-19T12:26:28.3999093Z ##[group]Setting up auth
+2026-11-19T12:26:28.4005751Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-19T12:26:28.4045944Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-19T12:26:28.4508668Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-19T12:26:28.4556605Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-19T12:26:28.4861939Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-19T12:26:28.4900262Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-19T12:26:28.5178769Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-19T12:26:28.5220048Z ##[endgroup]
+2026-11-19T12:26:28.5221178Z ##[group]Fetching the repository
+2026-11-19T12:26:28.5230764Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +fbeaf025a6cf06701ededf8964ee83d86e12b62d:refs/remotes/origin/agent/v042107-review-recovery
+2026-11-19T12:26:30.8628694Z From https://github.com/catkiss62/ai-companion-build
+2026-11-19T12:26:30.8631179Z  * [new ref]         fbeaf025a6cf06701ededf8964ee83d86e12b62d -> origin/agent/v042107-review-recovery
+2026-11-19T12:26:30.8635356Z ##[endgroup]
+2026-11-19T12:26:30.8636560Z ##[group]Determining the checkout info
+2026-11-19T12:26:30.8638406Z ##[endgroup]
+2026-11-19T12:26:30.8645022Z [command]/usr/bin/git sparse-checkout disable
+2026-11-19T12:26:30.8701444Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-19T12:26:30.8733880Z ##[group]Checking out the ref
+2026-11-19T12:26:30.8739318Z [command]/usr/bin/git checkout --progress --force -B agent/v042107-review-recovery refs/remotes/origin/agent/v042107-review-recovery
+2026-11-19T12:26:31.3333872Z Switched to a new branch 'agent/v042107-review-recovery'
+2026-11-19T12:26:31.3338455Z branch 'agent/v042107-review-recovery' set up to track 'origin/agent/v042107-review-recovery'.
+2026-11-19T12:26:31.3374158Z ##[endgroup]
+2026-11-19T12:26:31.3428723Z [command]/usr/bin/git log -1 --format=%H
+2026-11-19T12:26:31.3456226Z fbeaf025a6cf06701ededf8964ee83d86e12b62d
+2026-11-19T12:26:31.3710833Z ##[group]Run install -D -m 0644 app/tools/ci/maven-central.gradle ~/.gradle/init.d/companion-maven-central.gradle
+2026-11-19T12:26:31.3712055Z [36;1minstall -D -m 0644 app/tools/ci/maven-central.gradle ~/.gradle/init.d/companion-maven-central.gradle[0m
+2026-11-19T12:26:31.3764415Z shell: /usr/bin/bash -e {0}
+2026-11-19T12:26:31.3764707Z ##[endgroup]
+2026-11-19T12:26:31.3984141Z ##[group]Run actions/setup-python@v5
+2026-11-19T12:26:31.3984470Z with:
+2026-11-19T12:26:31.3984671Z   python-version: 3.11
+2026-11-19T12:26:31.3984930Z   check-latest: false
+2026-11-19T12:26:31.3987370Z   token: ***
+2026-11-19T12:26:31.3987603Z   update-environment: true
+2026-11-19T12:26:31.3987853Z   allow-prereleases: false
+2026-11-19T12:26:31.3988090Z   freethreaded: false
+2026-11-19T12:26:31.3988308Z ##[endgroup]
+2026-11-19T12:26:31.5355022Z ##[group]Installed versions
+2026-11-19T12:26:31.5481265Z (node:2436) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-19T12:26:31.5482418Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-19T12:26:31.5483545Z Successfully set up CPython (3.11.18)
+2026-11-19T12:26:31.5484448Z ##[endgroup]
+2026-11-19T12:26:31.5643327Z ##[group]Run set -euo pipefail
+2026-11-19T12:26:31.5644182Z [36;1mset -euo pipefail[0m
+2026-11-19T12:26:31.5644522Z [36;1mGENIE_TAG='genie-tts-private-runtime-v0.7.6-jiuhu'[0m
+2026-11-19T12:26:31.5645020Z [36;1mGENIE_APK='Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk'[0m
+2026-11-19T12:26:31.5645631Z [36;1mGENIE_APK_SHA256='af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'[0m
+2026-11-19T12:26:31.5646162Z [36;1mFRONTEND_TAG='genie-tts-private-runtime-v0.6.4'[0m
+2026-11-19T12:26:31.5646545Z [36;1mFRONTEND_APK='Genie-TTS-v0.6.4-Verified.apk'[0m
+2026-11-19T12:26:31.5646930Z [36;1mFRONTEND_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'[0m
+2026-11-19T12:26:31.5647299Z [36;1mmkdir -p .genie-payload/unpacked[0m
+2026-11-19T12:26:31.5647691Z [36;1m# GitHub's release-by-tag endpoint returns 404 for an unpublished[0m
+2026-11-19T12:26:31.5648176Z [36;1m# draft, even though authenticated release-list calls can see it.[0m
+2026-11-19T12:26:31.5648691Z [36;1m# Resolve the private draft by tag_name, then download each asset by[0m
+2026-11-19T12:26:31.5649195Z [36;1m# its authenticated release-asset ID without publishing the model.[0m
+2026-11-19T12:26:31.5649622Z [36;1mGENIE_RELEASE_ID="$(gh api --paginate \[0m
+2026-11-19T12:26:31.5650005Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-11-19T12:26:31.5650488Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${GENIE_TAG}\") | .id" | head -1)"[0m
+2026-11-19T12:26:31.5650903Z [36;1mtest -n "${GENIE_RELEASE_ID}"[0m
+2026-11-19T12:26:31.5651190Z [36;1mGENIE_ASSET_ID="$(gh api \[0m
+2026-11-19T12:26:31.5651900Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases/${GENIE_RELEASE_ID}/assets?per_page=100" \[0m
+2026-11-19T12:26:31.5652399Z [36;1m  --jq ".[] | select(.name == \"${GENIE_APK}\") | .id")"[0m
+2026-11-19T12:26:31.5652739Z [36;1mtest -n "${GENIE_ASSET_ID}"[0m
+2026-11-19T12:26:31.5653007Z [36;1mgh api --method GET \[0m
+2026-11-19T12:26:31.5653311Z [36;1m  -H 'Accept: application/octet-stream' \[0m
+2026-11-19T12:26:31.5653720Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \[0m
+2026-11-19T12:26:31.5654123Z [36;1m  > ".genie-payload/${GENIE_APK}"[0m
+2026-11-19T12:26:31.5654550Z [36;1mecho "${GENIE_APK_SHA256}  .genie-payload/${GENIE_APK}" | sha256sum -c -[0m
+2026-11-19T12:26:31.5655249Z [36;1m# The v0.7.6 Jiuhu candidate APK intentionally carries only the[0m
+2026-11-19T12:26:31.5655742Z [36;1m# acoustic pack. Keep the already built-and-verified multilingual[0m
+2026-11-19T12:26:31.5656246Z [36;1m# OpenJTalk dictionary/JNI adapter as a separate pinned dependency;[0m
+2026-11-19T12:26:31.5656727Z [36;1m# never extract its retired Tiandou benchmark into this build.[0m
+2026-11-19T12:26:31.5657144Z [36;1mFRONTEND_RELEASE_ID="$(gh api --paginate \[0m
+2026-11-19T12:26:31.5657526Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-11-19T12:26:31.5658005Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${FRONTEND_TAG}\") | .id" | head -1)"[0m
+2026-11-19T12:26:31.5658451Z [36;1mtest -n "${FRONTEND_RELEASE_ID}"[0m
+2026-11-19T12:26:31.5658828Z [36;1mfor FRONTEND_ASSET in "${FRONTEND_APK}" "${FRONTEND_SHA}"; do[0m
+2026-11-19T12:26:31.5659207Z [36;1m  FRONTEND_ASSET_ID="$(gh api \[0m
+2026-11-19T12:26:31.5659655Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/${FRONTEND_RELEASE_ID}/assets?per_page=100" \[0m
+2026-11-19T12:26:31.5660179Z [36;1m    --jq ".[] | select(.name == \"${FRONTEND_ASSET}\") | .id")"[0m
+2026-11-19T12:26:31.5660535Z [36;1m  test -n "${FRONTEND_ASSET_ID}"[0m
+2026-11-19T12:26:31.5660823Z [36;1m  gh api --method GET \[0m
+2026-11-19T12:26:31.5661149Z [36;1m    -H 'Accept: application/octet-stream' \[0m
+2026-11-19T12:26:31.5661775Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/assets/${FRONTEND_ASSET_ID}" \[0m
+2026-11-19T12:26:31.5662225Z [36;1m    > ".genie-payload/${FRONTEND_ASSET}"[0m
+2026-11-19T12:26:31.5662517Z [36;1mdone[0m
+2026-11-19T12:26:31.5662984Z [36;1msed "s#  ${FRONTEND_APK}#  .genie-payload/${FRONTEND_APK}#" \[0m
+2026-11-19T12:26:31.5663418Z [36;1m  ".genie-payload/${FRONTEND_SHA}" | sha256sum -c -[0m
+2026-11-19T12:26:31.5663783Z [36;1munzip -q ".genie-payload/${GENIE_APK}" \[0m
+2026-11-19T12:26:31.5664097Z [36;1m  'assets/benchmark_jiuhu/*' \[0m
+2026-11-19T12:26:31.5664401Z [36;1m  'lib/arm64-v8a/libonnxruntime.so' \[0m
+2026-11-19T12:26:31.5664709Z [36;1m  -d .genie-payload/unpacked[0m
+2026-11-19T12:26:31.5665077Z [36;1m# Keep the pinned Jiuhu ORT only as the post-build byte-identity[0m
+2026-11-19T12:26:31.5665570Z [36;1m# reference. The app dependency still supplies the packaged library.[0m
+2026-11-19T12:26:31.5666001Z [36;1munzip -q ".genie-payload/${FRONTEND_APK}" \[0m
+2026-11-19T12:26:31.5666317Z [36;1m  'assets/openjtalk/*' \[0m
+2026-11-19T12:26:31.5666622Z [36;1m  'lib/arm64-v8a/libopenjtalk_native.so' \[0m
+2026-11-19T12:26:31.5666958Z [36;1m  'lib/arm64-v8a/libgenie_frontend.so' \[0m
+2026-11-19T12:26:31.5667275Z [36;1m  'lib/arm64-v8a/libc++_shared.so' \[0m
+2026-11-19T12:26:31.5667571Z [36;1m  -d .genie-payload/unpacked[0m
+2026-11-19T12:26:31.5667992Z [36;1m# MAINTENANCE: base jiuhu_idle50 is historical, NOT the current lively reference.[0m
+2026-11-19T12:26:31.5668539Z [36;1m# +446 overlay and all six prompt tensors are required. Do not remove[0m
+2026-11-19T12:26:31.5669101Z [36;1m# this step or reuse old features unless the user explicitly requests rollback.[0m
+2026-11-19T12:26:31.5669676Z [36;1m# Replace only lively prompts; the encrypted payload is unlocked by[0m
+2026-11-19T12:26:31.5670181Z [36;1m# the already pinned private base APK, never by a source-tree secret.[0m
+2026-11-19T12:26:31.5670623Z [36;1mpython3 app/tools/test_jiuhu_lively_overlay.py[0m
+2026-11-19T12:26:31.5671003Z [36;1mpython3 app/tools/apply_jiuhu_lively_overlay.py \[0m
+2026-11-19T12:26:31.5671374Z [36;1m  --base-apk ".genie-payload/${GENIE_APK}" \[0m
+2026-11-19T12:26:31.5671973Z [36;1m  --root .genie-payload/unpacked/assets/benchmark_jiuhu \[0m
+2026-11-19T12:26:31.5672435Z [36;1m  --overlay app/private-overlays/jiuhu-lively-20261117.enc[0m
+2026-11-19T12:26:31.5672993Z [36;1mpython3 -m pip install --quiet --target .voice-verify numpy==2.2.6 onnxruntime==1.22.1[0m
+2026-11-19T12:26:31.5673593Z [36;1mPYTHONPATH=.voice-verify python3 app/tools/verify_jiuhu_voice_bundle.py \[0m
+2026-11-19T12:26:31.5674209Z [36;1m  .genie-payload/unpacked/assets/benchmark_jiuhu[0m
+2026-11-19T12:26:31.5674542Z [36;1mpython3 - <<'PY'[0m
+2026-11-19T12:26:31.5674839Z [36;1mimport hashlib, json, pathlib, math, struct, wave[0m
+2026-11-19T12:26:31.5675165Z [36;1m[0m
+2026-11-19T12:26:31.5675487Z [36;1mroot = pathlib.Path('.genie-payload/unpacked/assets/benchmark_jiuhu')[0m
+2026-11-19T12:26:31.5675907Z [36;1mpath = root / 'manifest.json'[0m
+2026-11-19T12:26:31.5676260Z [36;1mmanifest = json.loads(path.read_text(encoding='utf-8'))[0m
+2026-11-19T12:26:31.5676614Z [36;1mexpected_models = {[0m
+2026-11-19T12:26:31.5677123Z [36;1m    'models/t2s_encoder_fp32.bin': (11465732, '2729a0bc3bfa297b86dae07190f010653806a5f466ffe654a7cd9291445ee986'),[0m
+2026-11-19T12:26:31.5677910Z [36;1m    'models/t2s_encoder_fp32.onnx': (14568, 'f6eb1acd47c8e6d36b777886981a49122e8e070a5eb9888d458fb188dc139f75'),[0m
+2026-11-19T12:26:31.5678715Z [36;1m    'models/t2s_first_stage_decoder_fp32.onnx': (416803, '868f395999508905128c5325c5db4f4b37b2e70e04d6e2719fec64cbb60ee7f9'),[0m
+2026-11-19T12:26:31.5679527Z [36;1m    'models/t2s_shared_fp32.bin': (306827268, '07c40df473ddb08e259357ddf17173ffc3f82ce1a3e208cd1dd438f0dd01c445'),[0m
+2026-11-19T12:26:31.5680317Z [36;1m    'models/t2s_stage_decoder_fp32.onnx': (417625, '3f02881c517423deb610f86d5441bd9825937c5069f3887cacefa1e9dc403b0d'),[0m
+2026-11-19T12:26:31.5681088Z [36;1m    'models/vits_fp32.bin': (175582720, 'bfd6558dee03e06fafa2225d906f27e0f303395951d8cc4b8f2b26b3da2e99c2'),[0m
+2026-11-19T12:26:31.5682087Z [36;1m    'models/vits_fp32.onnx': (1654702, 'ce3495f0cd976270274d0f5c68377acb10e7347ca03e86346a42a0a99e769168'),[0m
+2026-11-19T12:26:31.5682741Z [36;1m}[0m
+2026-11-19T12:26:31.5682966Z [36;1massert manifest['models'] == {[0m
+2026-11-19T12:26:31.5683294Z [36;1m    'encoder': 'models/t2s_encoder_fp32.onnx',[0m
+2026-11-19T12:26:31.5683690Z [36;1m    'first_decoder': 'models/t2s_first_stage_decoder_fp32.onnx',[0m
+2026-11-19T12:26:31.5684118Z [36;1m    'stage_decoder': 'models/t2s_stage_decoder_fp32.onnx',[0m
+2026-11-19T12:26:31.5684488Z [36;1m    'vocoder': 'models/vits_fp32.onnx',[0m
+2026-11-19T12:26:31.5684766Z [36;1m}[0m
+2026-11-19T12:26:31.5684963Z [36;1m[0m
+2026-11-19T12:26:31.5685158Z [36;1mdef sha256(candidate):[0m
+2026-11-19T12:26:31.5685429Z [36;1m    digest = hashlib.sha256()[0m
+2026-11-19T12:26:31.5685732Z [36;1m    with candidate.open('rb') as source:[0m
+2026-11-19T12:26:31.5686110Z [36;1m        for chunk in iter(lambda: source.read(1024 * 1024), b''):[0m
+2026-11-19T12:26:31.5686479Z [36;1m            digest.update(chunk)[0m
+2026-11-19T12:26:31.5686766Z [36;1m    return digest.hexdigest()[0m
+2026-11-19T12:26:31.5687035Z [36;1m[0m
+2026-11-19T12:26:31.5687297Z [36;1msource_integrity = manifest.get('asset_integrity', {})[0m
+2026-11-19T12:26:31.5687702Z [36;1mfor relative, expected in expected_models.items():[0m
+2026-11-19T12:26:31.5688046Z [36;1m    candidate = root / relative[0m
+2026-11-19T12:26:31.5688353Z [36;1m    expected_bytes, expected_sha = expected[0m
+2026-11-19T12:26:31.5688751Z [36;1m    assert candidate.stat().st_size == expected_bytes, relative[0m
+2026-11-19T12:26:31.5689184Z [36;1m    assert sha256(candidate) == expected_sha, relative[0m
+2026-11-19T12:26:31.5689563Z [36;1m    declared = source_integrity.get(relative, {})[0m
+2026-11-19T12:26:31.5689960Z [36;1m    assert declared.get('bytes') == expected_bytes, relative[0m
+2026-11-19T12:26:31.5690387Z [36;1m    assert declared.get('sha256') == expected_sha, relative[0m
+2026-11-19T12:26:31.5690736Z [36;1mproduction_ids = {[0m
+2026-11-19T12:26:31.5690983Z [36;1m    'jiuhu_idle50',[0m
+2026-11-19T12:26:31.5691230Z [36;1m    'jiuhu_bento_tools',[0m
+2026-11-19T12:26:31.5691489Z [36;1m    'jiuhu_dream_days',[0m
+2026-11-19T12:26:31.5691991Z [36;1m    'jiuhu_devotion',[0m
+2026-11-19T12:26:31.5692231Z [36;1m}[0m
+2026-11-19T12:26:31.5692573Z [36;1mcases = [case for case in manifest['cases'] if case.get('id') in production_ids][0m
+2026-11-19T12:26:31.5693291Z [36;1massert {case['id'] for case in cases} == production_ids[0m
+2026-11-19T12:26:31.5693673Z [36;1massert [case['id'] for case in cases] == [[0m
+2026-11-19T12:26:31.5693978Z [36;1m    'jiuhu_idle50',[0m
+2026-11-19T12:26:31.5694223Z [36;1m    'jiuhu_bento_tools',[0m
+2026-11-19T12:26:31.5694487Z [36;1m    'jiuhu_dream_days',[0m
+2026-11-19T12:26:31.5694739Z [36;1m    'jiuhu_devotion',[0m
+2026-11-19T12:26:31.5694986Z [36;1m][0m
+2026-11-19T12:26:31.5695188Z [36;1mdef normalized(values):[0m
+2026-11-19T12:26:31.5695462Z [36;1m    mean = sum(values) / len(values)[0m
+2026-11-19T12:26:31.5695871Z [36;1m    variance = sum((value - mean) ** 2 for value in values) / len(values)[0m
+2026-11-19T12:26:31.5696295Z [36;1m    scale = max(math.sqrt(variance), 1e-9)[0m
+2026-11-19T12:26:31.5696693Z [36;1m    return [round((value - mean) / scale, 7) for value in values][0m
+2026-11-19T12:26:31.5697046Z [36;1m[0m
+2026-11-19T12:26:31.5697282Z [36;1mdef reference_features(candidate, bins=64):[0m
+2026-11-19T12:26:31.5697649Z [36;1m    with wave.open(str(candidate), 'rb') as source:[0m
+2026-11-19T12:26:31.5698005Z [36;1m        channels = source.getnchannels()[0m
+2026-11-19T12:26:31.5698325Z [36;1m        width = source.getsampwidth()[0m
+2026-11-19T12:26:31.5698645Z [36;1m        rate = source.getframerate()[0m
+2026-11-19T12:26:31.5698947Z [36;1m        frames = source.getnframes()[0m
+2026-11-19T12:26:31.5699255Z [36;1m        raw = source.readframes(frames)[0m
+2026-11-19T12:26:31.5699590Z [36;1m    assert width in (1, 2, 4), (candidate, width)[0m
+2026-11-19T12:26:31.5699917Z [36;1m    formats = {1: 'B', 2: 'h', 4: 'i'}[0m
+2026-11-19T12:26:31.5700364Z [36;1m    unit = struct.calcsize('<' + formats[width])[0m
+2026-11-19T12:26:31.5700795Z [36;1m    values = struct.unpack('<' + formats[width] * (len(raw) // unit), raw)[0m
+2026-11-19T12:26:31.5701219Z [36;1m    peak = float((1 << (width * 8 - 1)) - 1)[0m
+2026-11-19T12:26:31.5701726Z [36;1m    offset = 128.0 if width == 1 else 0.0[0m
+2026-11-19T12:26:31.5702113Z [36;1m    mono = [][0m
+2026-11-19T12:26:31.5702391Z [36;1m    for index in range(0, len(values), channels):[0m
+2026-11-19T12:26:31.5702945Z [36;1m        mono.append(sum((float(value) - offset) / peak for value in values[index:index + channels]) / channels)[0m
+2026-11-19T12:26:31.5703461Z [36;1m    envelope, crossing = [], [][0m
+2026-11-19T12:26:31.5703750Z [36;1m    for bin_index in range(bins):[0m
+2026-11-19T12:26:31.5704061Z [36;1m        start = len(mono) * bin_index // bins[0m
+2026-11-19T12:26:31.5704467Z [36;1m        end = min(len(mono), max(start + 1, len(mono) * (bin_index + 1) // bins))[0m
+2026-11-19T12:26:31.5704880Z [36;1m        chunk = mono[start:end][0m
+2026-11-19T12:26:31.5705248Z [36;1m        rms = math.sqrt(sum(value * value for value in chunk) / len(chunk))[0m
+2026-11-19T12:26:31.5705767Z [36;1m        changes = sum((chunk[i] >= 0) != (chunk[i - 1] >= 0) for i in range(1, len(chunk)))[0m
+2026-11-19T12:26:31.5706240Z [36;1m        envelope.append(math.log(1.0 + 1000.0 * rms))[0m
+2026-11-19T12:26:31.5706627Z [36;1m        crossing.append(changes / max(1, len(chunk) - 1))[0m
+2026-11-19T12:26:31.5706964Z [36;1m    return {[0m
+2026-11-19T12:26:31.5707212Z [36;1m        'duration_ms': frames * 1000 // rate,[0m
+2026-11-19T12:26:31.5707580Z [36;1m        'envelope': normalized(envelope),[0m
+2026-11-19T12:26:31.5707909Z [36;1m        'zero_crossing': normalized(crossing),[0m
+2026-11-19T12:26:31.5708199Z [36;1m    }[0m
+2026-11-19T12:26:31.5708389Z [36;1m[0m
+2026-11-19T12:26:31.5708779Z [36;1mecho_guard = {'version': 1, 'cases': {}}[0m
+2026-11-19T12:26:31.5709285Z [36;1mfor case in cases:[0m
+2026-11-19T12:26:31.5709785Z [36;1m    reference_audio = case.get('reference_audio')[0m
+2026-11-19T12:26:31.5710460Z [36;1m    reference_text = case.get('reference_text', '').strip()[0m
+2026-11-19T12:26:31.5711100Z [36;1m    assert reference_audio, case['id'][0m
+2026-11-19T12:26:31.5711895Z [36;1m    features = reference_features(root / reference_audio)[0m
+2026-11-19T12:26:31.5712984Z [36;1m    features['input_text_sha256'] = hashlib.sha256(reference_text.encode('utf-8')).hexdigest()[0m
+2026-11-19T12:26:31.5713812Z [36;1m    echo_guard['cases'][case['id']] = features[0m
+2026-11-19T12:26:31.5714355Z [36;1m    case.pop('reference_audio', None)[0m
+2026-11-19T12:26:31.5714879Z [36;1m    case.pop('feature_tensors', None)[0m
+2026-11-19T12:26:31.5715453Z [36;1mguard_path = root / 'reference_echo_guard.json'[0m
+2026-11-19T12:26:31.5716405Z [36;1mguard_path.write_text(json.dumps(echo_guard, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')[0m
+2026-11-19T12:26:31.5717422Z [36;1mmanifest['reference_echo_guard'] = guard_path.name[0m
+2026-11-19T12:26:31.5717821Z [36;1mmanifest['cases'] = cases[0m
+2026-11-19T12:26:31.5718093Z [36;1mmanifest['presets'] = [][0m
+2026-11-19T12:26:31.5718431Z [36;1mmanifest['feature_modes'] = [][0m
+2026-11-19T12:26:31.5718903Z [36;1m[0m
+2026-11-19T12:26:31.5719237Z [36;1mdef strings(value):[0m
+2026-11-19T12:26:31.5719515Z [36;1m    if isinstance(value, str):[0m
+2026-11-19T12:26:31.5719784Z [36;1m        yield value[0m
+2026-11-19T12:26:31.5720039Z [36;1m    elif isinstance(value, dict):[0m
+2026-11-19T12:26:31.5720340Z [36;1m        for item in value.values():[0m
+2026-11-19T12:26:31.5720650Z [36;1m            yield from strings(item)[0m
+2026-11-19T12:26:31.5720945Z [36;1m    elif isinstance(value, list):[0m
+2026-11-19T12:26:31.5721438Z [36;1m        for item in value:[0m
+2026-11-19T12:26:31.5722022Z [36;1m            yield from strings(item)[0m
+2026-11-19T12:26:31.5722296Z [36;1m[0m
+2026-11-19T12:26:31.5722511Z [36;1mreferenced = set(strings({[0m
+2026-11-19T12:26:31.5723355Z [36;1m    key: value for key, value in manifest.items() if key != 'asset_files'[0m
+2026-11-19T12:26:31.5723948Z [36;1m}))[0m
+2026-11-19T12:26:31.5724322Z [36;1mexternal_roberta = manifest['frontend']['roberta'][0m
+2026-11-19T12:26:31.5724789Z [36;1mfor candidate in tuple(root.rglob('*')):[0m
+2026-11-19T12:26:31.5725428Z [36;1m    if not candidate.is_file() or candidate == path:[0m
+2026-11-19T12:26:31.5725954Z [36;1m        continue[0m
+2026-11-19T12:26:31.5726423Z [36;1m    relative = candidate.relative_to(root).as_posix()[0m
+2026-11-19T12:26:31.5727107Z [36;1m    # Keep only the seven exact model assets whose graph/data hashes[0m
+2026-11-19T12:26:31.5727642Z [36;1m    # were validated above. In particular, reject interrupted atomic[0m
+2026-11-19T12:26:31.5728110Z [36;1m    # write remnants such as models/.vits_fp32.bin.* rather than[0m
+2026-11-19T12:26:31.5728581Z [36;1m    # copying every file found under models/ into the production APK.[0m
+2026-11-19T12:26:31.5728964Z [36;1m    if ([0m
+2026-11-19T12:26:31.5729198Z [36;1m        relative == external_roberta[0m
+2026-11-19T12:26:31.5729625Z [36;1m        or (relative.startswith('models/') and relative not in expected_models)[0m
+2026-11-19T12:26:31.5730165Z [36;1m        or (not relative.startswith('models/') and relative not in referenced)[0m
+2026-11-19T12:26:31.5730571Z [36;1m    ):[0m
+2026-11-19T12:26:31.5730790Z [36;1m        candidate.unlink()[0m
+2026-11-19T12:26:31.5731145Z [36;1mfor directory in sorted([0m
+2026-11-19T12:26:31.5732136Z [36;1m    (candidate for candidate in root.rglob('*') if candidate.is_dir()),[0m
+2026-11-19T12:26:31.5733132Z [36;1m    key=lambda candidate: len(candidate.parts),[0m
+2026-11-19T12:26:31.5733861Z [36;1m    reverse=True,[0m
+2026-11-19T12:26:31.5734377Z [36;1m):[0m
+2026-11-19T12:26:31.5734814Z [36;1m    try:[0m
+2026-11-19T12:26:31.5735271Z [36;1m        directory.rmdir()[0m
+2026-11-19T12:26:31.5735881Z [36;1m    except OSError:[0m
+2026-11-19T12:26:31.5736460Z [36;1m        pass[0m
+2026-11-19T12:26:31.5737012Z [36;1mmanifest['asset_files'] = sorted([0m
+2026-11-19T12:26:31.5737742Z [36;1m    candidate.relative_to(root).as_posix()[0m
+2026-11-19T12:26:31.5738509Z [36;1m    for candidate in root.rglob('*')[0m
+2026-11-19T12:26:31.5739221Z [36;1m    if candidate.is_file() and candidate != path[0m
+2026-11-19T12:26:31.5740080Z [36;1m) + ['manifest.json'][0m
+2026-11-19T12:26:31.5740523Z [36;1mexpected_reference_inputs = {[0m
+2026-11-19T12:26:31.5741159Z [36;1m    'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'[0m
+2026-11-19T12:26:31.5741955Z [36;1m}[0m
+2026-11-19T12:26:31.5742280Z [36;1mfor case in cases:[0m
+2026-11-19T12:26:31.5742825Z [36;1m    actual_inputs = {item['name'] for item in case['tensors']}[0m
+2026-11-19T12:26:31.5743564Z [36;1m    assert actual_inputs == expected_reference_inputs, ([0m
+2026-11-19T12:26:31.5744371Z [36;1m        f"incomplete Jiuhu V2Pro prompt tensors: {case['id']} {actual_inputs}"[0m
+2026-11-19T12:26:31.5745066Z [36;1m    )[0m
+2026-11-19T12:26:31.5745401Z [36;1mactual_models = {[0m
+2026-11-19T12:26:31.5745853Z [36;1m    candidate.relative_to(root).as_posix()[0m
+2026-11-19T12:26:31.5746436Z [36;1m    for candidate in (root / 'models').iterdir()[0m
+2026-11-19T12:26:31.5746971Z [36;1m    if candidate.is_file()[0m
+2026-11-19T12:26:31.5747395Z [36;1m}[0m
+2026-11-19T12:26:31.5747860Z [36;1massert actual_models == set(expected_models), actual_models[0m
+2026-11-19T12:26:31.5748489Z [36;1mprompt_signatures = {}[0m
+2026-11-19T12:26:31.5749146Z [36;1mindependent_prompt_names = {'ssl_content', 'ref_audio', 'ge', 'ge_advanced'}[0m
+2026-11-19T12:26:31.5749868Z [36;1mfor case in cases:[0m
+2026-11-19T12:26:31.5750298Z [36;1m    signature = tuple([0m
+2026-11-19T12:26:31.5750578Z [36;1m        sha256(root / item['file'])[0m
+2026-11-19T12:26:31.5751196Z [36;1m        for item in case['tensors'][0m
+2026-11-19T12:26:31.5752127Z [36;1m        if item['name'] in independent_prompt_names[0m
+2026-11-19T12:26:31.5752922Z [36;1m    )[0m
+2026-11-19T12:26:31.5753495Z [36;1m    assert len(signature) == len(independent_prompt_names), case['id'][0m
+2026-11-19T12:26:31.5753939Z [36;1m    prompt_signatures[case['id']] = signature[0m
+2026-11-19T12:26:31.5754413Z [36;1massert len(set(prompt_signatures.values())) == len(cases), prompt_signatures[0m
+2026-11-19T12:26:31.5754852Z [36;1m[0m
+2026-11-19T12:26:31.5755112Z [36;1mmanifest['asset_integrity'] = {[0m
+2026-11-19T12:26:31.5755481Z [36;1m    relative: {[0m
+2026-11-19T12:26:31.5755801Z [36;1m        'bytes': (root / relative).stat().st_size,[0m
+2026-11-19T12:26:31.5756157Z [36;1m        'sha256': sha256(root / relative),[0m
+2026-11-19T12:26:31.5756438Z [36;1m    }[0m
+2026-11-19T12:26:31.5756674Z [36;1m    for relative in manifest['asset_files'][0m
+2026-11-19T12:26:31.5756991Z [36;1m    if relative != 'manifest.json'[0m
+2026-11-19T12:26:31.5757284Z [36;1m}[0m
+2026-11-19T12:26:31.5757484Z [36;1mpath.write_text([0m
+2026-11-19T12:26:31.5757802Z [36;1m    json.dumps(manifest, ensure_ascii=False, indent=2),[0m
+2026-11-19T12:26:31.5758149Z [36;1m    encoding='utf-8',[0m
+2026-11-19T12:26:31.5758508Z [36;1m)[0m
+2026-11-19T12:26:31.5758852Z [36;1massert not any([0m
+2026-11-19T12:26:31.5759370Z [36;1m    token in candidate.as_posix().lower()[0m
+2026-11-19T12:26:31.5759982Z [36;1m    for candidate in root.rglob('*')[0m
+2026-11-19T12:26:31.5760719Z [36;1m    for token in ('naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup')[0m
+2026-11-19T12:26:31.5761418Z [36;1m)[0m
+2026-11-19T12:26:31.5762467Z [36;1mprint('Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent voices; discarded model temp remnants.')[0m
+2026-11-19T12:26:31.5763514Z [36;1mPY[0m
+2026-11-19T12:26:31.5763905Z [36;1mTTS_MAIN='app/android/app/src/main'[0m
+2026-11-19T12:26:31.5764505Z [36;1mmkdir -p "${TTS_MAIN}/assets" "${TTS_MAIN}/jniLibs/arm64-v8a"[0m
+2026-11-19T12:26:31.5765493Z [36;1mcp -a .genie-payload/unpacked/assets/benchmark_jiuhu "${TTS_MAIN}/assets/benchmark"[0m
+2026-11-19T12:26:31.5766534Z [36;1mcp -a .genie-payload/unpacked/assets/openjtalk "${TTS_MAIN}/assets/"[0m
+2026-11-19T12:26:31.5767485Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libopenjtalk_native.so \[0m
+2026-11-19T12:26:31.5768399Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-11-19T12:26:31.5769573Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libgenie_frontend.so \[0m
+2026-11-19T12:26:31.5770264Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-11-19T12:26:31.5770894Z [36;1mcp .genie-payload/unpacked/lib/arm64-v8a/libc++_shared.so \[0m
+2026-11-19T12:26:31.5771754Z [36;1m  "${TTS_MAIN}/jniLibs/arm64-v8a/"[0m
+2026-11-19T12:26:31.5772213Z [36;1mpython3 - <<'PY'[0m
+2026-11-19T12:26:31.5772477Z [36;1mimport hashlib, json, pathlib[0m
+2026-11-19T12:26:31.5772810Z [36;1mroot = pathlib.Path('app/android/app/src/main')[0m
+2026-11-19T12:26:31.5773360Z [36;1mfiles = [[0m
+2026-11-19T12:26:31.5773876Z [36;1m    path for base in (root / 'assets' / 'benchmark', root / 'assets' / 'openjtalk')[0m
+2026-11-19T12:26:31.5774352Z [36;1m    for path in base.rglob('*') if path.is_file()[0m
+2026-11-19T12:26:31.5774660Z [36;1m][0m
+2026-11-19T12:26:31.5774968Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libopenjtalk_native.so')[0m
+2026-11-19T12:26:31.5775445Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libgenie_frontend.so')[0m
+2026-11-19T12:26:31.5776185Z [36;1mfiles.append(root / 'jniLibs/arm64-v8a/libc++_shared.so')[0m
+2026-11-19T12:26:31.5776574Z [36;1mmanifest = {[0m
+2026-11-19T12:26:31.5777016Z [36;1m    str(path.relative_to(root)): {[0m
+2026-11-19T12:26:31.5777404Z [36;1m        'size': path.stat().st_size,[0m
+2026-11-19T12:26:31.5777896Z [36;1m        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),[0m
+2026-11-19T12:26:31.5778488Z [36;1m    }[0m
+2026-11-19T12:26:31.5778906Z [36;1m    for path in files[0m
+2026-11-19T12:26:31.5779340Z [36;1m}[0m
+2026-11-19T12:26:31.5780221Z [36;1mpathlib.Path('.genie-payload/extracted-manifest.json').write_text([0m
+2026-11-19T12:26:31.5781110Z [36;1m    json.dumps(manifest, sort_keys=True), encoding='utf-8'[0m
+2026-11-19T12:26:31.5781979Z [36;1m)[0m
+2026-11-19T12:26:31.5782896Z [36;1mprint(f'Restored {len(manifest)} curated Genie/OpenJTalk payload files.')[0m
+2026-11-19T12:26:31.5784030Z [36;1mPY[0m
+2026-11-19T12:26:31.5853591Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-19T12:26:31.5853971Z env:
+2026-11-19T12:26:31.5854268Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:26:31.5854743Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T12:26:31.5855188Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:26:31.5855584Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:26:31.5855980Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:26:31.5856371Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T12:26:31.5859039Z   GH_TOKEN: ***
+2026-11-19T12:26:31.5859273Z ##[endgroup]
+2026-11-19T12:26:37.6767534Z .genie-payload/Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk: OK
+2026-11-19T12:26:42.0768403Z .genie-payload/Genie-TTS-v0.6.4-Verified.apk: OK
+2026-11-19T12:26:48.1125126Z .......
+2026-11-19T12:26:48.1125522Z ----------------------------------------------------------------------
+2026-11-19T12:26:48.1125939Z Ran 7 tests in 0.036s
+2026-11-19T12:26:48.1126083Z 
+2026-11-19T12:26:48.1126165Z OK
+2026-11-19T12:26:48.1126542Z Lively reference and six tensors updated; three other voices and model paths unchanged.
+2026-11-19T12:26:48.6712646Z Lively reference and six tensors updated; three other voices and model paths unchanged.
+2026-11-19T12:27:13.2451758Z benchmark_jiuhu:jiuhu_idle50: PASS · 92 decoder steps · 116480 samples · 3.64s
+2026-11-19T12:27:14.5614060Z benchmark_jiuhu:jiuhu_bento_tools: PASS · 96 decoder steps · 121600 samples · 3.80s
+2026-11-19T12:27:14.5615415Z benchmark_jiuhu:jiuhu_dream_days: PASS · 113 decoder steps · 143360 samples · 4.48s
+2026-11-19T12:27:14.5616490Z benchmark_jiuhu:jiuhu_devotion: PASS · 91 decoder steps · 115200 samples · 3.60s
+2026-11-19T12:27:14.5617603Z Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent voices; discarded model temp remnants.
+2026-11-19T12:27:15.5150713Z Restored 49 curated Genie/OpenJTalk payload files.
+2026-11-19T12:27:15.5266234Z ##[group]Run set -euo pipefail
+2026-11-19T12:27:15.5266578Z [36;1mset -euo pipefail[0m
+2026-11-19T12:27:15.5266833Z [36;1mtest -f app/pubspec.yaml[0m
+2026-11-19T12:27:15.5267159Z [36;1mgrep -Fqx 'version: 0.42.217+461' app/pubspec.yaml[0m
+2026-11-19T12:27:15.5267676Z [36;1mgrep -Fqx '  static const int schemaVersion = 67;' app/lib/core/database/app_database.dart[0m
+2026-11-19T12:27:15.5268144Z [36;1mtest -d app/lib[0m
+2026-11-19T12:27:15.5268383Z [36;1mtest -d app/android[0m
+2026-11-19T12:27:15.5268621Z [36;1mtest -d app/test[0m
+2026-11-19T12:27:15.5268856Z [36;1mtest -d app/tools[0m
+2026-11-19T12:27:15.5269220Z [36;1mtest ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx[0m
+2026-11-19T12:27:15.5269724Z [36;1mtest -f app/android/app/src/main/assets/benchmark/manifest.json[0m
+2026-11-19T12:27:15.5270386Z [36;1mtest -n "$(find app/android/app/src/main/assets/benchmark/models -maxdepth 1 -type f -name '*.onnx' -print -quit)"[0m
+2026-11-19T12:27:15.5271114Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so[0m
+2026-11-19T12:27:15.5271790Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libgenie_frontend.so[0m
+2026-11-19T12:27:15.5272299Z [36;1mtest -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so[0m
+2026-11-19T12:27:15.5272752Z [36;1mtest ! -d app/android/app/src/main/assets/tts_models[0m
+2026-11-19T12:27:15.5273138Z [36;1mtest ! -d app/android/app/src/main/assets/legacy_tts[0m
+2026-11-19T12:27:15.5273623Z [36;1mecho 'Building v0.42.217+461 Chat Memory Exam after focused regression verification.'[0m
+2026-11-19T12:27:15.5324129Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-19T12:27:15.5324470Z env:
+2026-11-19T12:27:15.5324731Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5325167Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T12:27:15.5325606Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5325986Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5326367Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5326748Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T12:27:15.5327074Z ##[endgroup]
+2026-11-19T12:27:15.5441055Z Building v0.42.217+461 Chat Memory Exam after focused regression verification.
+2026-11-19T12:27:15.5477567Z ##[group]Run set -euo pipefail
+2026-11-19T12:27:15.5477873Z [36;1mset -euo pipefail[0m
+2026-11-19T12:27:15.5478166Z [36;1mSOURCE="${RUNNER_TEMP}/pet-source-v04229.zip"[0m
+2026-11-19T12:27:15.5478575Z [36;1mcurl --fail --location --silent --show-error --retry 3 \[0m
+2026-11-19T12:27:15.5479070Z [36;1m  --connect-timeout 30 --max-time 300 --speed-limit 1024 --speed-time 60 \[0m
+2026-11-19T12:27:15.5479639Z [36;1m  -H "Authorization: ***" \[0m
+2026-11-19T12:27:15.5479964Z [36;1m  -H 'Accept: application/octet-stream' \[0m
+2026-11-19T12:27:15.5480326Z [36;1m  -H 'X-GitHub-Api-Version: 2022-11-28' \[0m
+2026-11-19T12:27:15.5480788Z [36;1m  "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/591363139" \[0m
+2026-11-19T12:27:15.5481224Z [36;1m  --output "${SOURCE}"[0m
+2026-11-19T12:27:15.5481968Z [36;1mecho 'ad94e2aa8829ddb5b8f0640e383b29bbccfbb5a77d9a957559e34cff17aea489  '"${SOURCE}" | sha256sum --check --status[0m
+2026-11-19T12:27:15.5482572Z [36;1msudo apt-get update -qq[0m
+2026-11-19T12:27:15.5482877Z [36;1msudo apt-get install -y -qq ffmpeg >/dev/null[0m
+2026-11-19T12:27:15.5483263Z [36;1mpython3 app/tools/prepare_full_pet_clips.py "${SOURCE}"[0m
+2026-11-19T12:27:15.5483603Z [36;1mrm -f "${SOURCE}"[0m
+2026-11-19T12:27:15.5528798Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-19T12:27:15.5529146Z env:
+2026-11-19T12:27:15.5529413Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5529862Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T12:27:15.5530460Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5530848Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5531234Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T12:27:15.5531832Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T12:27:15.5534485Z   GH_TOKEN: ***
+2026-11-19T12:27:15.5534688Z ##[endgroup]
+2026-11-19T12:28:51.3235672Z W: Failed to fetch mirror+file:/etc/apt/apt-mirrors.txt/dists/resolute/InRelease  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.83 443]
+2026-11-19T12:28:51.3237859Z W: Failed to fetch mirror+file:/etc/apt/apt-mirrors.txt/dists/resolute-updates/InRelease  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.83 443]
+2026-11-19T12:28:51.3240116Z W: Failed to fetch mirror+file:/etc/apt/apt-mirrors.txt/dists/resolute-backports/InRelease  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.83 443]
+2026-11-19T12:28:51.3242283Z W: Failed to fetch mirror+file:/etc/apt/apt-mirrors.txt/dists/resolute-security/InRelease  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 185.125.190.83 443]
+2026-11-19T12:28:51.3243937Z W: Some index files failed to download. They have been ignored, or old ones used instead.
+2026-11-19T12:36:01.2660407Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/libv/libva/libva2_2.23.0-1ubuntu1_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.92.23 443]
+2026-11-19T12:36:01.2663330Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/libv/libvdpau/libvdpau1_1.5-4_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.82 443]
+2026-11-19T12:36:01.2666049Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/universe/libv/libvpl/libvpl2_2.16.0-1_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.82 443]
+2026-11-19T12:36:01.2668777Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/o/ocl-icd/ocl-icd-libopencl1_2.3.4-1_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.82 443]
+2026-11-19T12:36:01.2672055Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavutil60_8.0.1-3ubuntu2_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.82 443]
+2026-11-19T12:36:01.2674640Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/universe/c/codec2/libcodec2-1.2_1.2.0-4_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 185.125.190.83 443]
+2026-11-19T12:36:01.2676990Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/universe/d/dav1d/libdav1d7_1.5.3-1_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 185.125.190.81 443]
+2026-11-19T12:36:01.2679394Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/universe/libg/libgsm/libgsm1_1.0.23-2_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 185.125.190.81 443]
+2026-11-19T12:36:01.2681991Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/m/mpg123/libmpg123-0t64_1.33.3-2_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.92.23 443]
+2026-11-19T12:36:01.2683664Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/t/twolame/libtwolame0_0.4.0-2build4_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 185.125.190.81 443]
+2026-11-19T12:36:01.2685813Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/libd/libdecor-0/libdecor-0-plugin-1-gtk_0.2.5-1_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.81 443]
+2026-11-19T12:36:01.2688800Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/f/fftw3/libfftw3-single3_3.3.10-2fakesync1build3_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 185.125.190.82 443]
+2026-11-19T12:36:01.2693404Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/w/webrtc-audio-processing/libwebrtc-audio-processing-1-3_1.3-3build2_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.92.24 443]
+2026-11-19T12:36:01.2695258Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/p/pipewire/libspa-0.2-modules_1.6.2-1ubuntu1.2_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.92.24 443]
+2026-11-19T12:36:01.2697568Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/p/pipewire/libpipewire-0.3-0t64_1.6.2-1ubuntu1.2_amd64v3.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.82 443]
+2026-11-19T12:36:01.2699061Z E: Failed to fetch https://security.ubuntu.com/ubuntu/pool/main/p/pipewire/libpipewire-0.3-common_1.6.2-1ubuntu1.2_all.deb  Could not wait for server fd - select (11: Resource temporarily unavailable) [IP: 91.189.91.82 443]
+2026-11-19T12:36:01.2700069Z E: Unable to fetch some archives, maybe run apt update or try with --fix-missing?
+2026-11-19T12:36:01.2711359Z ##[error]Process completed with exit code 100.
+2026-11-19T12:36:01.3038987Z Post job cleanup.
+2026-11-19T12:36:01.4162581Z [command]/usr/bin/git version
+2026-11-19T12:36:01.4219683Z git version 2.56.1
+2026-11-19T12:36:01.4283423Z Temporarily overriding HOME='/home/runner/work/_temp/a7880e15-1145-45ca-8062-0b544118f07b' before making global git config changes
+2026-11-19T12:36:01.4284961Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-19T12:36:01.4302681Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-19T12:36:01.4384547Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-19T12:36:01.4433580Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-19T12:36:01.4752774Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-19T12:36:01.4798930Z http.https://github.com/.extraheader
+2026-11-19T12:36:01.4823800Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-19T12:36:01.4874727Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-19T12:36:01.5228603Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-19T12:36:01.5273776Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-19T12:36:01.5786232Z Cleaning up orphan processes
+2026-11-19T12:36:01.6138069Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0d737934c3145b3206cd
