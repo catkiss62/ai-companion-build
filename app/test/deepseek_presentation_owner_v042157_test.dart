@@ -104,14 +104,23 @@ void main() {
     expect(h.cues.first['frames'], isEmpty);
     expect(h.planner.calls, 1);
   });
-  test('new lease replays the cue without purchasing another plan', () async {
-    final h = _Harness(); addTearDown(h.motion.stop);
-    await h.present(); h.audio(); await tick();
-    final before = h.cues.length;
-    h.audio(lease: 2); await tick();
-    expect(h.cues[before]['cue'], '2:0');
-    expect(h.cues[before]['frames'], isNotEmpty);
-    expect(h.planner.calls, 1);
+  testWidgets('new lease replays the cue without purchasing another plan', (tester) async {
+    final h = _Harness();
+    try {
+      await h.present();
+      h.audio();
+      await tester.pump(h.motion.pollInterval);
+      expect(h.cues.single['cue'], '1:0');
+      final before = h.cues.length;
+      h.audio(lease: 2);
+      await tester.pump(h.motion.pollInterval);
+      final replay = h.cues.skip(before).single;
+      expect(replay['cue'], '2:0');
+      expect(replay['frames'], isNotEmpty);
+      expect(h.planner.calls, 1);
+    } finally {
+      await h.motion.stop();
+    }
   });
   test('changed spoken text or another message cannot borrow the plan', () async {
     final h = _Harness(); addTearDown(h.motion.stop);
