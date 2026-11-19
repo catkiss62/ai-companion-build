@@ -20,3 +20,11 @@ gradle.beforeProject { project ->
     configureCentral(project.buildscript.repositories)
     configureCentral(project.repositories)
 }
+
+// Robolectric fetches its Android runtime inside the test JVM, outside
+// Gradle's dependency repositories.
+gradle.beforeProject { project ->
+    project.tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {
+        systemProperty 'robolectric.dependency.repo.url', mirror
+    }
+}
