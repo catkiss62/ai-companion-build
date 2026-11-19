@@ -1,0 +1,21 @@
+// GitHub-hosted runners share a Maven Central rate limit. Use Google's public
+// Central mirror for the same coordinates, including Flutter's included build.
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+def configureCentral = { repositories ->
+    repositories.withType(MavenArtifactRepository).all { repository ->
+        if (repository.url?.host in ['repo.maven.apache.org', 'repo1.maven.org']) {
+            repository.setUrl(mirror)
+        }
+    }
+}
+gradle.beforeSettings { settings ->
+    settings.pluginManagement.repositories.maven { setUrl(mirror) }
+    configureCentral(settings.pluginManagement.repositories)
+    configureCentral(settings.dependencyResolutionManagement.repositories)
+}
+gradle.beforeProject { project ->
+    configureCentral(project.buildscript.repositories)
+    configureCentral(project.repositories)
+}

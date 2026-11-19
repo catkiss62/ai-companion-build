@@ -745,6 +745,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Route Maven Central downloads through the Google Cloud mirror
+        run: install -D -m 0644 app/tools/ci/maven-central.gradle ~/.gradle/init.d/companion-maven-central.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -781,6 +783,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Route Maven Central downloads through the Google Cloud mirror
+        run: install -D -m 0644 app/tools/ci/maven-central.gradle ~/.gradle/init.d/companion-maven-central.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -806,6 +810,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Route Maven Central downloads through the Google Cloud mirror
+        run: install -D -m 0644 app/tools/ci/maven-central.gradle ~/.gradle/init.d/companion-maven-central.gradle
 
       - name: Set compatible Python for pinned voice verification
         uses: actions/setup-python@v5
