@@ -1,7 +1,1210 @@
-status=success
-run_id=44463845516
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44463845516
-head_sha=dc583e50ae2e38c159b797142a412557eecb5afb
-signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-84ad4d4c9e6f00d4c7760024ad9bf185f086fa424447771c4c288ad8b53af64b  AI-Companion-v0.42.214-458-Playback-Diary-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c0c4a13bcfffbfec9f2
+status=failure
+build_result=failure
+run_id=44500177250
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44500177250
+head_sha=65540dbdd83cd66f517899f3457c090b8e608d8c
+
+=== failed or cancelled job logs ===
+
+--- job=build-apk conclusion=failure id=135480865386 ---
+2026-11-19T10:06:41.8098449Z [============                           ] 33% Unzipping... android-ndk-r28c/READ
+2026-11-19T10:06:41.8118256Z [=============                          ] 33% Unzipping... android-ndk-r28c/READ
+2026-11-19T10:06:41.8148285Z [=============                          ] 33% Unzipping... android-ndk-r28c/meta
+2026-11-19T10:06:41.9379405Z [=============                          ] 33% Unzipping... android-ndk-r28c/shad
+2026-11-19T10:06:41.9392391Z [=============                          ] 33% Unzipping... android-ndk-r28c/ndk-
+2026-11-19T10:06:41.9418733Z [=============                          ] 33% Unzipping... android-ndk-r28c/wrap
+2026-11-19T10:06:41.9438667Z [=============                          ] 33% Unzipping... android-ndk-r28c/ndk-
+2026-11-19T10:06:42.3287993Z [=============                          ] 33% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:42.8110358Z [=============                          ] 34% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:43.0158329Z [=============                          ] 35% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:43.2571361Z [==============                         ] 35% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:43.6520351Z [==============                         ] 36% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:44.1938091Z [==============                         ] 37% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:44.5415663Z [===============                        ] 38% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:44.9624321Z [===============                        ] 39% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:45.1759181Z [===============                        ] 40% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:45.4086379Z [================                       ] 40% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:45.8948862Z [================                       ] 41% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:46.3524258Z [================                       ] 42% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:47.1569519Z [=================                      ] 43% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:47.6835854Z [=================                      ] 44% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:47.9866411Z [=================                      ] 45% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:48.6138992Z [==================                     ] 45% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:49.0399945Z [==================                     ] 46% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:49.4457003Z [==================                     ] 47% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:49.8501750Z [===================                    ] 48% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:50.2796539Z [===================                    ] 49% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:50.4664674Z [===================                    ] 50% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:50.6599604Z [====================                   ] 50% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:51.1086459Z [====================                   ] 51% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:51.4836173Z [====================                   ] 52% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:51.9113686Z [=====================                  ] 53% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:52.1575444Z [=====================                  ] 54% Unzipping... android-ndk-r28c/tool
+2026-11-19T10:06:52.1729693Z [=====================                  ] 54% Unzipping... android-ndk-r28c/buil
+2026-11-19T10:06:52.4165518Z [=====================                  ] 54% Unzipping... android-ndk-r28c/sour
+2026-11-19T10:06:52.4186843Z [=====================                  ] 54% Unzipping... android-ndk-r28c/NOTI
+2026-11-19T10:06:52.4188562Z [=====================                  ] 54% Unzipping... android-ndk-r28c/ndk-
+2026-11-19T10:06:52.4201653Z [=====================                  ] 54% Unzipping... android-ndk-r28c/NOTI
+2026-11-19T10:06:52.4241349Z [=====================                  ] 54% Unzipping... android-ndk-r28c/pyth
+2026-11-19T10:06:52.4646576Z [=====================                  ] 54% Unzipping... android-ndk-r28c/preb
+2026-11-19T10:06:52.4649519Z [=====================                  ] 54% Unzipping... android-ndk-r28c/ndk-
+2026-11-19T10:06:52.4651136Z [=====================                  ] 54% Unzipping... android-ndk-r28c/sour
+2026-11-19T10:06:52.5234404Z [=====================                  ] 54% Unzipping... android-ndk-r28c/simp
+2026-11-19T10:06:52.6773542Z [=====================                  ] 55% Unzipping... android-ndk-r28c/simp
+2026-11-19T10:06:52.8170504Z [=====================                  ] 55% Unzipping... android-ndk-r28c/CHAN
+2026-11-19T10:06:52.8171631Z [=======================================] 100% Unzipping... android-ndk-r28c/CHA
+2026-11-19T10:06:52.9748394Z 
+2026-11-19T10:06:53.0181674Z NDK 28.2.13676358 revision and executable verified.
+2026-11-19T10:06:53.0233562Z ##[group]Run set -euo pipefail
+2026-11-19T10:06:53.0234165Z [36;1mset -euo pipefail[0m
+2026-11-19T10:06:53.0234718Z [36;1mSIGNING_TAG='ai-companion-private-signing-v1'[0m
+2026-11-19T10:06:53.0235471Z [36;1mSIGNING_ASSET='AI-Companion-Private-Test-Signing-v1.p12'[0m
+2026-11-19T10:06:53.0236355Z [36;1mSIGNER_INFO='AI-Companion-Private-Test-Signing-v1.sha256.txt'[0m
+2026-11-19T10:06:53.0237155Z [36;1mSIGNING_DIR="${RUNNER_TEMP}/ai-companion-signing"[0m
+2026-11-19T10:06:53.0238022Z [36;1mKEYSTORE="${SIGNING_DIR}/${SIGNING_ASSET}"[0m
+2026-11-19T10:06:53.0238622Z [36;1mINFO_FILE="${SIGNING_DIR}/${SIGNER_INFO}"[0m
+2026-11-19T10:06:53.0239630Z [36;1mSTORE_PASSWORD="${AI_COMPANION_SIGNING_PASSWORD:?missing AI_COMPANION_SIGNING_PASSWORD repository secret}"[0m
+2026-11-19T10:06:53.0240899Z [36;1mKEY_ALIAS='ai-companion-private-test-v1'[0m
+2026-11-19T10:06:53.0241465Z [36;1mmkdir -p "${SIGNING_DIR}"[0m
+2026-11-19T10:06:53.0241913Z [36;1m[0m
+2026-11-19T10:06:53.0242517Z [36;1m# Resolve only the existing private draft. Lookup or download failure[0m
+2026-11-19T10:06:53.0243362Z [36;1m# must never create a replacement key and break update continuity.[0m
+2026-11-19T10:06:53.0244074Z [36;1mSIGNING_RELEASE_ID="$(gh api --paginate \[0m
+2026-11-19T10:06:53.0244725Z [36;1m  "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \[0m
+2026-11-19T10:06:53.0245485Z [36;1m  --jq ".[] | select(.draft and .tag_name == \"${SIGNING_TAG}\") | .id")"[0m
+2026-11-19T10:06:53.0246192Z [36;1m[[ "${SIGNING_RELEASE_ID}" =~ ^[1-9][0-9]*$ ]][0m
+2026-11-19T10:06:53.0246910Z [36;1mfor SIGNING_FILE in "${SIGNING_ASSET}" "${SIGNER_INFO}"; do[0m
+2026-11-19T10:06:53.0247801Z [36;1m  SIGNING_ASSET_ID="$(gh api --paginate \[0m
+2026-11-19T10:06:53.0248667Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/${SIGNING_RELEASE_ID}/assets?per_page=100" \[0m
+2026-11-19T10:06:53.0249593Z [36;1m    --jq ".[] | select(.name == \"${SIGNING_FILE}\") | .id")"[0m
+2026-11-19T10:06:53.0250266Z [36;1m  [[ "${SIGNING_ASSET_ID}" =~ ^[1-9][0-9]*$ ]][0m
+2026-11-19T10:06:53.0250948Z [36;1m  gh api --method GET -H 'Accept: application/octet-stream' \[0m
+2026-11-19T10:06:53.0251769Z [36;1m    "/repos/${GITHUB_REPOSITORY}/releases/assets/${SIGNING_ASSET_ID}" \[0m
+2026-11-19T10:06:53.0252472Z [36;1m    > "${SIGNING_DIR}/${SIGNING_FILE}"[0m
+2026-11-19T10:06:53.0253030Z [36;1m  test -s "${SIGNING_DIR}/${SIGNING_FILE}"[0m
+2026-11-19T10:06:53.0253581Z [36;1mdone[0m
+2026-11-19T10:06:53.0253919Z [36;1m[0m
+2026-11-19T10:06:53.0254266Z [36;1mchmod 600 "${KEYSTORE}"[0m
+2026-11-19T10:06:53.0254882Z [36;1mSIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \[0m
+2026-11-19T10:06:53.0255683Z [36;1m  -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |[0m
+2026-11-19T10:06:53.0256388Z [36;1m  sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"[0m
+2026-11-19T10:06:53.0256964Z [36;1mtest -n "${SIGNER_SHA256}"[0m
+2026-11-19T10:06:53.0257765Z [36;1mgrep -Fqx "sha256=${SIGNER_SHA256}" "${INFO_FILE}"[0m
+2026-11-19T10:06:53.0258768Z [36;1mEXPECTED_SIGNER_SHA256='30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48'[0m
+2026-11-19T10:06:53.0259778Z [36;1mtest "${SIGNER_SHA256}" = "${EXPECTED_SIGNER_SHA256}"[0m
+2026-11-19T10:06:53.0260576Z [36;1mecho "AI_COMPANION_KEYSTORE_PATH=${KEYSTORE}" >> "${GITHUB_ENV}"[0m
+2026-11-19T10:06:53.0261510Z [36;1mecho "AI_COMPANION_KEYSTORE_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-11-19T10:06:53.0262442Z [36;1mecho "AI_COMPANION_KEY_ALIAS=${KEY_ALIAS}" >> "${GITHUB_ENV}"[0m
+2026-11-19T10:06:53.0263315Z [36;1mecho "AI_COMPANION_KEY_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-11-19T10:06:53.0264244Z [36;1mecho "AI_COMPANION_SIGNER_SHA256=${SIGNER_SHA256}" >> "${GITHUB_ENV}"[0m
+2026-11-19T10:06:53.0265204Z [36;1mecho "Persistent private test signer ready: ${SIGNER_SHA256}"[0m
+2026-11-19T10:06:53.0301272Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-19T10:06:53.0301619Z env:
+2026-11-19T10:06:53.0302092Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:53.0302551Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:06:53.0302985Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:53.0303374Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:53.0303769Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:53.0304167Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:06:53.0304617Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:06:53.0305117Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:06:53.0305767Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:06:53.0306149Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:06:53.0309081Z   GH_TOKEN: ***
+2026-11-19T10:06:53.0309816Z   AI_COMPANION_SIGNING_PASSWORD: ***
+2026-11-19T10:06:53.0310167Z ##[endgroup]
+2026-11-19T10:06:56.4370304Z Persistent private test signer ready: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:06:56.4418667Z ##[group]Run set -euo pipefail
+2026-11-19T10:06:56.4419290Z [36;1mset -euo pipefail[0m
+2026-11-19T10:06:56.4419963Z [36;1m# Legacy validator compatibility tokens. Historical gates inspect[0m
+2026-11-19T10:06:56.4420876Z [36;1m# this workflow by filename; execution order now has one source of[0m
+2026-11-19T10:06:56.4421631Z [36;1m# truth in tools/validation_suite.txt.[0m
+2026-11-19T10:06:56.4422655Z [36;1m# validate_v04128_immersive_identity_rendering.py validate_v04129_proactive_rendering_rule_editor_emotion.py[0m
+2026-11-19T10:06:56.4424240Z [36;1m# validate_v04130_presentation_ablation_upload_diagnostics.py validate_v04131_phase2a5_verifier_anr_diagnostics.py[0m
+2026-11-19T10:06:56.4425717Z [36;1m# validate_v04132_phase2b_learning_association.py validate_v04133_competence_curation_emotion.py[0m
+2026-11-19T10:06:56.4427090Z [36;1m# validate_v04134_memory_grounding_agent_foundation.py validate_v04135_interrupted_turn_system_command.py[0m
+2026-11-19T10:06:56.4428799Z [36;1m# validate_v04136_immersive_boundary_stop_style.py validate_v04146_sticker_agent_continuation_identity.py[0m
+2026-11-19T10:06:56.4430073Z [36;1m# validate_v04150_agent_v2_bounded_loop.py validate_v0401_album_identity_closure.py[0m
+2026-11-19T10:06:56.4431295Z [36;1m# validate_v0405_album_image_binding.py validate_v0374_audio_presentation_stabilization.py[0m
+2026-11-19T10:06:56.4432549Z [36;1m# validate_v0376_chat_recovery_presentation.py validate_v04111_personality_learning_semantic_verifier.py[0m
+2026-11-19T10:06:56.4433918Z [36;1m# validate_v04113_phase01_time_audit_hardening.py validate_v04114_agent_truth_screen_observation.py[0m
+2026-11-19T10:06:56.4435188Z [36;1m# validate_v04155_genie_direct_port_lazy_language.py validate_v04156_worldbook_media_refs.py[0m
+2026-11-19T10:06:56.4436357Z [36;1m# validate_v04157_chat_media_expression.py validate_v04158_backup_naiyou_runtime.py[0m
+2026-11-19T10:06:56.4437408Z [36;1m# validate_v04166_phase3c_phone_pacing.py validate_v04167_cedar_toy_mcp.py[0m
+2026-11-19T10:06:56.4438684Z [36;1m# validate_v04168_cedar_game_experience.py validate_v04169_cedar_game_switching.py[0m
+2026-11-19T10:06:56.4439859Z [36;1m# validate_v04170_agent_mcp_runtime_hardening.py validate_v04171_cedar_realtime_room_chat.py[0m
+2026-11-19T10:06:56.4441080Z [36;1m# validate_v04172_cedar_trust_watch_modes.py validate_v04173_cedar_reply_completion.py[0m
+2026-11-19T10:06:56.4442272Z [36;1m# validate_v04174_cedar_game_hall_protocol.py validate_v04175_cedar_agentic_blind_play.py[0m
+2026-11-19T10:06:56.4443554Z [36;1m# validate_v04176_cedar_protocol_continuation.py validate_v04177_cedar_background_turn_loop.py[0m
+2026-11-19T10:06:56.4444783Z [36;1m# validate_v04178_stop_transfer_interlock.py validate_v04179_cedar_runtime_preemption.py[0m
+2026-11-19T10:06:56.4445947Z [36;1m# validate_v04180_cedar_agent_loop.py validate_v04181_cedar_background_agent_tools.py[0m
+2026-11-19T10:06:56.4447099Z [36;1m# validate_v04182_cedar_state_machine_e2e.py validate_v04183_cedar_native_agent_loop.py[0m
+2026-11-19T10:06:56.4448254Z [36;1m# validate_v04184_agent_loop_autonomy_closure.py[0m
+2026-11-19T10:06:56.4449022Z [36;1m# Exact historical command tokens retained for three gates that[0m
+2026-11-19T10:06:56.4449920Z [36;1m# predate the manifest runner and assert their old literal command.[0m
+2026-11-19T10:06:56.4450795Z [36;1m# python3 tools/validate_v04150_agent_v2_bounded_loop.py[0m
+2026-11-19T10:06:56.4451567Z [36;1m# python3 tools/validate_v0401_album_identity_closure.py[0m
+2026-11-19T10:06:56.4452684Z [36;1m# python3 tools/validate_v0405_album_image_binding.py[0m
+2026-11-19T10:06:56.4453417Z [36;1mpython3 tools/test_release_identity_workflow.py[0m
+2026-11-19T10:06:56.4454071Z [36;1mpython3 tools/test_ci_ndk_bootstrap.py[0m
+2026-11-19T10:06:56.4454665Z [36;1mpython3 tools/run_validation_suite.py[0m
+2026-11-19T10:06:56.4503864Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-19T10:06:56.4504478Z env:
+2026-11-19T10:06:56.4505231Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:56.4506059Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:06:56.4506835Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:56.4507813Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:56.4508525Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:06:56.4509228Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:06:56.4510054Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:06:56.4510938Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:06:56.4511914Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:06:56.4512601Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:06:56.4513579Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:06:56.4514958Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:06:56.4515554Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:06:56.4516365Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:06:56.4517207Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:06:56.4518288Z ##[endgroup]
+2026-11-19T10:06:58.9375195Z 23 isolated release identity/workflow cases passed; no live keys or network used.
+2026-11-19T10:06:59.4616839Z ....
+2026-11-19T10:06:59.4617392Z ----------------------------------------------------------------------
+2026-11-19T10:06:59.4618233Z Ran 4 tests in 0.472s
+2026-11-19T10:06:59.4618468Z 
+2026-11-19T10:06:59.4618582Z OK
+2026-11-19T10:06:59.5027800Z [1/167] tools/validate_v04233_pet_window_jev_caicai.py
+2026-11-19T10:06:59.5272642Z single pet layer, fixed idle-alpha input, deferred Caicai load and Jev guard passed
+2026-11-19T10:06:59.5310480Z [2/167] tools/validate_v04231_caicai_native_idle.py
+2026-11-19T10:06:59.5775997Z Caicai native idle source and assets pinned; model remains private.
+2026-11-19T10:06:59.5830937Z [3/167] tools/validate_v04128_immersive_identity_rendering.py
+2026-11-19T10:06:59.6145550Z v0.41.28 immersive identity/rendering validation passed
+2026-11-19T10:06:59.6190086Z [4/167] tools/validate_v04129_proactive_rendering_rule_editor_emotion.py
+2026-11-19T10:06:59.6471059Z v0.41.29 proactive/rendering/editor/emotion validation passed
+2026-11-19T10:06:59.6510688Z [5/167] tools/validate_v04130_presentation_ablation_upload_diagnostics.py
+2026-11-19T10:06:59.6895328Z v0.41.30 presentation/ablation/upload diagnostics validation passed
+2026-11-19T10:06:59.6942777Z [6/167] tools/validate_v04131_phase2a5_verifier_anr_diagnostics.py
+2026-11-19T10:06:59.7283410Z v0.41.31 Phase 2A.5 verifier/ANR diagnostics validation passed
+2026-11-19T10:06:59.7327495Z [7/167] tools/validate_v04132_phase2b_learning_association.py
+2026-11-19T10:06:59.7706683Z v0.41.32 Phase 2B learning association validation passed
+2026-11-19T10:06:59.7750020Z [8/167] tools/validate_v04133_competence_curation_emotion.py
+2026-11-19T10:06:59.8121993Z v0.41.33 competence curation emotion validation passed
+2026-11-19T10:06:59.8167063Z [9/167] tools/validate_v04134_memory_grounding_agent_foundation.py
+2026-11-19T10:07:00.0003203Z v0.41.34 memory grounding and Agent foundation validation passed
+2026-11-19T10:07:00.0062211Z [10/167] tools/validate_v04135_interrupted_turn_system_command.py
+2026-11-19T10:07:00.0452346Z v0.41.35 interrupted turn and system command validation passed
+2026-11-19T10:07:00.0499982Z [11/167] tools/validate_v04136_immersive_boundary_stop_style.py
+2026-11-19T10:07:00.0864910Z v0.41.36 immersive boundary and stop style validation passed
+2026-11-19T10:07:00.0910838Z [12/167] tools/validate_v04137_memory_lifecycle.py
+2026-11-19T10:07:00.1165884Z v0.41.37 Memory 2D source contract validated
+2026-11-19T10:07:00.1203578Z [13/167] tools/validate_v04138_worldbook_roleplay.py
+2026-11-19T10:07:00.1463109Z v0.41.38 WorldBook 2D roleplay provenance source contract validated
+2026-11-19T10:07:00.1498651Z [14/167] tools/validate_v04139_public_web_reading.py
+2026-11-19T10:07:00.1774714Z v0.41.39 public-web reading and narrow-fix source contract validated
+2026-11-19T10:07:00.1813449Z [15/167] tools/validate_v04140_expression_album_browser.py
+2026-11-19T10:07:00.2107128Z v0.41.40 expression, album-original and browser source contract validated
+2026-11-19T10:07:00.2148232Z [16/167] tools/validate_v04141_roleplay_pronoun_priority.py
+2026-11-19T10:07:00.2400367Z v0.41.41 roleplay/pronoun/priority validation passed
+2026-11-19T10:07:00.2436385Z [17/167] tools/validate_v04142_ai_interest_evidence.py
+2026-11-19T10:07:00.3173145Z v0.41.42 Phase 3A AI-interest evidence validation passed
+2026-11-19T10:07:00.3223778Z [18/167] tools/validate_v04143_phase3b_question_autonomy.py
+2026-11-19T10:07:00.3553812Z v0.41.43 Phase 3B question-autonomy validation passed
+2026-11-19T10:07:00.3595783Z [19/167] tools/validate_v04144_autonomy_arbitration_rework.py
+2026-11-19T10:07:00.3858614Z v0.41.44 autonomy arbitration rework validation passed
+2026-11-19T10:07:00.3894882Z [20/167] tools/validate_v04145_sticker_expression.py
+2026-11-19T10:07:00.4204875Z v0.41.45 sticker expression validation passed
+2026-11-19T10:07:00.4243060Z [21/167] tools/validate_v04146_sticker_agent_continuation_identity.py
+2026-11-19T10:07:00.4529831Z v0.41.46 sticker Agent + continuation identity validation passed
+2026-11-19T10:07:00.4569401Z [22/167] tools/validate_v04147_user_sticker_image_send.py
+2026-11-19T10:07:00.4895477Z v0.41.47 user sticker + image send validation passed
+2026-11-19T10:07:00.4936796Z [23/167] tools/validate_v04148_agent_image_reliability.py
+2026-11-19T10:07:00.5268878Z v0.41.48 Agent image reliability validation passed
+2026-11-19T10:07:00.5310345Z [24/167] tools/validate_v04149_subjective_search_humor.py
+2026-11-19T10:07:00.5643755Z v0.41.49 subjective search + humor restoration validation passed
+2026-11-19T10:07:00.5686058Z [25/167] tools/validate_v04150_agent_v2_bounded_loop.py
+2026-11-19T10:07:00.6088288Z v0.41.50 Agent v2 bounded loop validation passed
+2026-11-19T10:07:00.6134874Z [26/167] tools/validate_current_ledger_handoff.py
+2026-11-19T10:07:00.9445303Z current handoff: OK (v0.42.215+459, schema67)
+2026-11-19T10:07:00.9446025Z historical ledger v2 and frozen archives: OK
+2026-11-19T10:07:00.9446618Z current bytes: 805896
+2026-11-19T10:07:00.9447069Z quick index bytes: 99523
+2026-11-19T10:07:00.9447744Z frozen archive bytes: 1587679
+2026-11-19T10:07:00.9448613Z frozen archive sha256: 602c712f0fb06e70c054c2d54fe0e280f312923864040a3a177ee8e7da67ed70
+2026-11-19T10:07:00.9449301Z recent frozen archive bytes: 98372
+2026-11-19T10:07:00.9449891Z recent frozen archive sha256: 47d053d842a73e3ff8107dabe867bd503e8a7e77daaecc2afb1867068faa952c
+2026-11-19T10:07:00.9497204Z [27/167] tools/validate_v0401_album_identity_closure.py
+2026-11-19T10:07:00.9849628Z v0.40.1 album identity closure validation passed
+2026-11-19T10:07:00.9902229Z [28/167] tools/validate_v0405_album_image_binding.py
+2026-11-19T10:07:01.0189360Z v0.40.5 album image binding validation passed
+2026-11-19T10:07:01.0233596Z [29/167] tools/validate_v0331_desktop_pet_source_parity.py
+2026-11-19T10:07:01.1781174Z v0.33.1 desktop-pet source parity validated: 417 complete source files, 18 actions, 210 preserved runtime frames (201 manifest-referenced).
+2026-11-19T10:07:01.1841490Z [30/167] tools/validate_v0332_desktop_pet_overlay_d2.py
+2026-11-19T10:07:01.2077735Z v0.33.2 overlay pet D2 validated: one shared foreground service, pet/bubble exclusive modes, real three-size windows, single-tap body reactions, double-tap options, drag/fall/land physics.
+2026-11-19T10:07:01.2115990Z [31/167] tools/validate_v0338_pet_semantic_autonomy.py
+2026-11-19T10:07:01.2338528Z v0.33.8 compatibility validated: durable Desire/Thought projection remains read-only and TTS-safe.
+2026-11-19T10:07:01.2378741Z [32/167] tools/validate_v0340_image_messages.py
+2026-11-19T10:07:01.2670337Z v0.34.0 image-message and sleep-frame contracts verified
+2026-11-19T10:07:01.2710411Z [33/167] tools/validate_current_schema24_a.py
+2026-11-19T10:07:01.2982283Z v0.34.1 image vision source contract verified
+2026-11-19T10:07:01.3023284Z [34/167] tools/validate_v0349_layered_web_discovery.py
+2026-11-19T10:07:01.3306918Z v0.34.9 layered public-web discovery validation passed
+2026-11-19T10:07:01.3351168Z [35/167] tools/validate_v0352_prompt_workbench.py
+2026-11-19T10:07:01.3695897Z v0.35.2 prompt workbench static validation passed
+2026-11-19T10:07:01.3738491Z [36/167] tools/validate_v0358_native_tool_runtime.py
+2026-11-19T10:07:01.3973624Z v0.35.8 native tool calling and shared runtime validation passed
+2026-11-19T10:07:01.4009370Z [37/167] tools/validate_v0359_shared_conversation_runtime.py
+2026-11-19T10:07:01.4304880Z v0.35.9 shared conversation runtime validation passed
+2026-11-19T10:07:01.4341771Z [38/167] tools/validate_v0360_ui_relationship_age.py
+2026-11-19T10:07:01.4627005Z v0.36.0 UI domains, relationship age, action tint and overlay Stop validation passed
+2026-11-19T10:07:01.4663758Z [39/167] tools/validate_v0361_cross_app_contact.py
+2026-11-19T10:07:01.4952035Z v0.36.1 cross-App contact, popup sound and delayed probe validation passed
+2026-11-19T10:07:01.4990157Z [40/167] tools/validate_v0362_foreground_tracker_conversation_banner.py
+2026-11-19T10:07:01.5221327Z v0.36.2 foreground tracker, conversation banner and tint validation passed
+2026-11-19T10:07:01.5254854Z [41/167] tools/validate_v0363_hyperos_cover_alarm_guard.py
+2026-11-19T10:07:01.5459140Z v0.36.3 HyperOS cover and delayed-test cancellation guard validation passed
+2026-11-19T10:07:01.5495278Z [42/167] tools/validate_current_chat_visual_stage.py
+2026-11-19T10:07:01.6444053Z current App chat 19-expression visual parity validation passed
+2026-11-19T10:07:01.6496164Z [43/167] tools/validate_v0374_audio_presentation_stabilization.py
+2026-11-19T10:07:01.6792131Z v0.37.4 audio, presentation cursor and rendering validation passed
+2026-11-19T10:07:01.6828857Z [44/167] tools/validate_v0376_chat_recovery_presentation.py
+2026-11-19T10:07:01.7170505Z v0.37.6 chat recovery and presentation validation passed
+2026-11-19T10:07:01.7216757Z [45/167] tools/validate_v0381_adult_relationship_capability.py
+2026-11-19T10:07:01.7501640Z v0.38.1 adult relationship capability validation passed.
+2026-11-19T10:07:01.7546515Z [46/167] tools/validate_v0388_simulated_phone_foundation.py
+2026-11-19T10:07:01.7777981Z v0.38.8 simulated phone foundation validation passed
+2026-11-19T10:07:01.7815040Z [47/167] tools/validate_v0390_immersive_room.py
+2026-11-19T10:07:01.8122167Z v0.39.0 immersive room static contracts passed
+2026-11-19T10:07:01.8167333Z [48/167] tools/validate_v0392_immersive_nsfw_stream.py
+2026-11-19T10:07:01.8432523Z v0.39.2 immersive fullscreen/NSFW/stream contracts passed
+2026-11-19T10:07:01.8471628Z [49/167] tools/validate_v0402_provider_diagnostics.py
+2026-11-19T10:07:01.8790205Z v0.40.2 provider diagnostics validation passed
+2026-11-19T10:07:01.8835553Z [50/167] tools/validate_v04111_personality_learning_semantic_verifier.py
+2026-11-19T10:07:01.9137462Z v0.41.11 personality learning semantic verifier validation passed
+2026-11-19T10:07:01.9181006Z [51/167] tools/validate_v04112_ordinary_time_scene_boundary.py
+2026-11-19T10:07:01.9551071Z v0.41.12 ordinary time scene boundary validation passed
+2026-11-19T10:07:01.9597135Z [52/167] tools/validate_v04113_phase01_time_audit_hardening.py
+2026-11-19T10:07:01.9970984Z v0.41.13 Phase 0+1 time audit hardening validation passed
+2026-11-19T10:07:02.0017997Z [53/167] tools/validate_v04114_agent_truth_screen_observation.py
+2026-11-19T10:07:02.0470833Z Agent truth and screen capture retirement validation passed
+2026-11-19T10:07:02.0519490Z [54/167] tools/validate_v0322_overlay_time_diagnostics.py
+2026-11-19T10:07:02.0793895Z v0.32.2 overlay time and diagnostic contracts validated.
+2026-11-19T10:07:02.0830259Z [55/167] tools/validate_v0321_ai_to_self.py
+2026-11-19T10:07:02.1098152Z v0.32.1 AI-to-self somatic contract validated.
+2026-11-19T10:07:02.1138147Z [56/167] tools/validate_v0319_tts_state_cancel_retract.py
+2026-11-19T10:07:02.1435625Z v0.31.9 TTS state and cancelled-turn withdrawal validation passed
+2026-11-19T10:07:02.1486122Z [57/167] tools/validate_v0318_overlay_stop_stream.py
+2026-11-19T10:07:02.1753801Z v0.31.8 overlay stop and live stream validation passed
+2026-11-19T10:07:02.1789998Z [58/167] tools/validate_v0317_true_stop_generation.py
+2026-11-19T10:07:02.2063184Z v0.31.7 true stop generation validation passed
+2026-11-19T10:07:02.2103672Z [59/167] tools/validate_v0316_rule_grouping.py
+2026-11-19T10:07:02.2302128Z v0.31.6 rule grouping validation passed
+2026-11-19T10:07:02.2336138Z [60/167] tools/validate_desire_v20_sql.py
+2026-11-19T10:07:02.2484726Z schema v20 message cleanup preserves visible history and removes retired state
+2026-11-19T10:07:02.2513277Z [61/167] tools/validate_current_schema24_c.py
+2026-11-19T10:07:02.3037257Z v0.31.3 HyperOS file-picker overlay recovery validation passed.
+2026-11-19T10:07:02.3079331Z [62/167] tools/validate_v031_policy_math.py
+2026-11-19T10:07:02.3929260Z v0.31 Desire policy numeric long-run validation passed.
+2026-11-19T10:07:02.3961362Z [63/167] tools/validate_manual_crypto_v26.py
+2026-11-19T10:07:10.3275367Z [OK] AES-256-GCM manual snapshot roundtrip / wrong-pass / truncation
+2026-11-19T10:07:10.3481738Z [64/167] tools/validate_durable_generation_sql.py
+2026-11-19T10:07:10.3697293Z v0.14 durable generation SQLite ownership/atomicity checks passed.
+2026-11-19T10:07:10.3730660Z [65/167] tools/validate_recovery_orchestration_sql.py
+2026-11-19T10:07:10.3910667Z [OK] failed generation attention only targets latest unanswered user turn
+2026-11-19T10:07:10.3911565Z [OK] manual generation retry respects Active Brain and transfer freeze
+2026-11-19T10:07:10.3912191Z [OK] manual generation retry cannot create a second blocking generation
+2026-11-19T10:07:10.3912746Z [OK] manual post-turn retry respects device ownership
+2026-11-19T10:07:10.3913326Z [OK] effective post-turn next-due selection is not tied to oldest created job
+2026-11-19T10:07:10.3913935Z v0.16 recovery orchestration SQLite simulation passed.
+2026-11-19T10:07:10.3941973Z [66/167] tools/validate_reference_library_sql.py
+2026-11-19T10:07:10.4107689Z [OK] disabled document stays excluded after rechunk
+2026-11-19T10:07:10.4108496Z [OK] editing preserves document created_at and updates full raw text
+2026-11-19T10:07:10.4109120Z [OK] rechunk does not mutate full raw text or silently re-enable retrieval
+2026-11-19T10:07:10.4109737Z [OK] document edit + chunk replacement rolls back atomically on failure
+2026-11-19T10:07:10.4110319Z [OK] re-enable keeps document and retrieval chunks in sync
+2026-11-19T10:07:10.4110849Z [OK] delete removes full document and all derived chunks together
+2026-11-19T10:07:10.4111378Z v0.19 Reference Library SQLite consistency checks passed.
+2026-11-19T10:07:10.4137708Z [67/167] tools/validate_awareness_sql.py
+2026-11-19T10:07:10.4362242Z v0.20 awareness SQLite migration/dedupe/expiry/Active-Brain checks passed.
+2026-11-19T10:07:10.4397004Z [68/167] tools/validate_relationship_presentation_sql.py
+2026-11-19T10:07:10.4551157Z [OK] companion-facing Thought SQL excludes residual/acted/dormant/snoozed before LIMIT
+2026-11-19T10:07:10.4551995Z v0.21 relationship presentation SQLite read-model checks passed.
+2026-11-19T10:07:10.4581166Z [69/167] tools/validate_memory_v15_sql.py
+2026-11-19T10:07:10.4755721Z [OK] v14 -> v15 memory semantic migration preserves rows and classifies shared experience
+2026-11-19T10:07:10.4756773Z [OK] current fact replacement preserves historical version and monotonic version number
+2026-11-19T10:07:10.4758310Z [OK] uncertain inference coexists without superseding current fact
+2026-11-19T10:07:10.4759126Z [OK] evidence uniqueness prevents retry from double-reinforcing a memory
+2026-11-19T10:07:10.4759951Z [OK] pinned current fact exposes a deterministic automatic-replacement block
+2026-11-19T10:07:10.4760796Z [OK] manual restore guard prevents two current facts with the same subject key
+2026-11-19T10:07:10.4762174Z [OK] manual edit preserves migrated pre-v15 content as evidence before replacement
+2026-11-19T10:07:10.4762901Z [OK] manual subject edit guard detects an existing active current fact
+2026-11-19T10:07:10.4763525Z [OK] repeated full-state import remains idempotent with memory evidence
+2026-11-19T10:07:10.4764084Z v0.22 long-term memory semantics SQLite checks passed.
+2026-11-19T10:07:10.4786488Z [70/167] tools/validate_proactive_rhythm_v16_sql.py
+2026-11-19T10:07:10.4978162Z [OK] v15 -> v16 proactive rhythm migration preserves legacy rows
+2026-11-19T10:07:10.4979002Z [OK] no-response is weak timing evidence, not topic rejection
+2026-11-19T10:07:10.4979569Z [OK] timing rejection and topic rejection adapt different dimensions
+2026-11-19T10:07:10.4980155Z [OK] short negative streak cannot cause a large personality swing
+2026-11-19T10:07:10.4980798Z [OK] repeated no-response remains bounded and does not become topic suppression
+2026-11-19T10:07:10.4981471Z [OK] anti-silence threshold recovery and 2h/24h spam ceilings stay bounded
+2026-11-19T10:07:10.4982111Z [OK] time-of-day and activity contexts learn independent comfort windows
+2026-11-19T10:07:10.4982636Z [OK] rhythm evidence decays with a 45-day half-life
+2026-11-19T10:07:10.4983203Z [OK] v16 phone/tablet state transfer preserves rhythm context and feedback signals
+2026-11-19T10:07:10.4983862Z v0.23 Proactive Rhythm Learning SQLite/simulation validation passed.
+2026-11-19T10:07:10.5008284Z [71/167] tools/validate_daily_continuity_v17_sql.py
+2026-11-19T10:07:10.5320370Z [OK] v16 -> v17 additive daily continuity table contract
+2026-11-19T10:07:10.5321204Z [OK] retry/exactly-once keeps one UNIQUE row per local day
+2026-11-19T10:07:10.5321698Z [OK] finalized yesterday is immutable across later retries
+2026-11-19T10:07:10.5322274Z [OK] standby/transfer lock blocks durable continuity writes inside transaction
+2026-11-19T10:07:10.5322987Z [OK] unresolved thread carry-forward avoids daily repetition but allows real updates
+2026-11-19T10:07:10.5323684Z [OK] quiet day is stored as neutral continuity, not relationship regression
+2026-11-19T10:07:10.5324309Z [OK] phone/tablet full-state transfer preserves daily continuity rows
+2026-11-19T10:07:10.5324902Z [OK] continuity retention remains bounded to the recent bridge window
+2026-11-19T10:07:10.5325458Z v0.24 Daily Continuity SQLite/simulation validation passed.
+2026-11-19T10:07:10.5369682Z [72/167] tools/validate_transfer_v18_sql.py
+2026-11-19T10:07:10.5632148Z [OK] v18 transfer generation / replay / rollback / fencing SQLite simulation
+2026-11-19T10:07:10.5672787Z [73/167] tools/validate_preflight_redaction_v27.py
+2026-11-19T10:07:15.9749990Z [OK] native diagnostic redaction is deterministic and bounded
+2026-11-19T10:07:15.9891754Z [74/167] tools/validate_preflight_kotlin_v27.py
+2026-11-19T10:07:21.4445253Z [OK] NativePreflightProbe Kotlin compiles against Android/Play-services API stubs
+2026-11-19T10:07:21.4512245Z [75/167] tools/validate_runtime_diagnostic_store_kotlin_v27.py
+2026-11-19T10:07:27.3901356Z [OK] RuntimeDiagnosticStore Kotlin compiles against SharedPreferences/JSON stubs
+2026-11-19T10:07:27.3960792Z [76/167] tools/validate_v0285_coroutine_proxy_jvm.py
+2026-11-19T10:07:36.1064931Z [OK] child-first policy / coroutine proxy / suspend marker / redacted failure evidence
+2026-11-19T10:07:36.1121427Z [77/167] tools/validate_transfer_kotlin_v26.py
+2026-11-19T10:07:42.4361357Z [OK] NativeEventStore ownership + manual crypto (Nearby retired in +324) Kotlin compile against API stubs
+2026-11-19T10:07:42.4416519Z [78/167] tools/validate_v04151_sticker_semantics_gallery.py
+2026-11-19T10:07:42.4626906Z v0.41.51 sticker semantics with v0.41.52 gallery cleanup: PASS
+2026-11-19T10:07:42.4660507Z [79/167] tools/validate_v04152_diary_fresh_topic_balance.py
+2026-11-19T10:07:42.4975541Z v0.41.52 diary and fresh-topic balance validation passed
+2026-11-19T10:07:42.5014365Z [80/167] tools/validate_v04155_genie_direct_port_lazy_language.py
+2026-11-19T10:07:42.5529853Z v0.41.55 pinned Genie direct-port and lazy-language contracts passed
+2026-11-19T10:07:42.5574916Z [81/167] tools/validate_v04156_worldbook_media_refs.py
+2026-11-19T10:07:42.5934377Z v0.41.56 worldbook and shared media reference contracts passed
+2026-11-19T10:07:42.5980051Z [82/167] tools/validate_v04157_chat_media_expression.py
+2026-11-19T10:07:42.6290205Z v0.41.57 chat, media and expression contracts passed
+2026-11-19T10:07:42.6330919Z [83/167] tools/validate_v04158_backup_naiyou_runtime.py
+2026-11-19T10:07:42.6667500Z v0.41.58 backup and Naiyou runtime hotfix contracts passed
+2026-11-19T10:07:42.6707967Z [84/167] tools/validate_v04159_tiandou_pitch_recovery.py
+2026-11-19T10:07:42.6959209Z v0.41.59 integrity and independent-pitch compatibility contract passed
+2026-11-19T10:07:42.6993873Z [85/167] tools/validate_v04160_jiuhu_four_voice_auto.py
+2026-11-19T10:07:42.7265441Z v0.41.60 Jiuhu, automatic-routing, streaming and Gemini relay contract passed
+2026-11-19T10:07:42.7300700Z [86/167] tools/validate_v04161_shuaiapi_immersive_language.py
+2026-11-19T10:07:42.7557055Z v0.41.61 retained immersive language and reasoning contracts passed
+2026-11-19T10:07:42.7592339Z [87/167] tools/validate_v04162_hybrid_final_fallback.py
+2026-11-19T10:07:42.7876374Z v0.41.62 hybrid final reply, fallback, safe drafts and TTS guard contracts passed
+2026-11-19T10:07:42.7910468Z [88/167] tools/validate_v04163_immersive_tts_settings_hardening.py
+2026-11-19T10:07:42.8137317Z v0.41.63 immersive TTS, diagnostics, settings and routing contracts passed
+2026-11-19T10:07:42.8170529Z [89/167] tools/validate_v04164_settings_rollback.py
+2026-11-19T10:07:42.8396673Z v0.41.64 exact +206 settings rollback and Seven Rules reachability passed
+2026-11-19T10:07:42.8433852Z [90/167] tools/validate_v04165_refresh_settings_phone_media.py
+2026-11-19T10:07:42.8738102Z v0.41.65 refresh, settings, phone, media and immersive contracts passed
+2026-11-19T10:07:42.8776740Z [91/167] tools/validate_v04166_phase3c_phone_pacing.py
+2026-11-19T10:07:42.9081500Z v0.41.66 Phase 3C and phone pacing contracts passed
+2026-11-19T10:07:42.9120994Z [92/167] tools/validate_v04167_cedar_toy_mcp.py
+2026-11-19T10:07:42.9461317Z v0.41.67+211 Cedar Toy MCP validation passed.
+2026-11-19T10:07:42.9499929Z [93/167] tools/validate_v04168_cedar_game_experience.py
+2026-11-19T10:07:42.9850867Z v0.41.68+212 Cedar game experience validation passed.
+2026-11-19T10:07:42.9889447Z [94/167] tools/validate_v04169_cedar_game_switching.py
+2026-11-19T10:07:43.0218780Z v0.41.69+213 Cedar game switching validation passed.
+2026-11-19T10:07:43.0255444Z [95/167] tools/validate_v04170_agent_mcp_runtime_hardening.py
+2026-11-19T10:07:43.0583163Z v0.41.70+214 Agent/MCP runtime hardening validation passed.
+2026-11-19T10:07:43.0619241Z [96/167] tools/validate_v04171_cedar_realtime_room_chat.py
+2026-11-19T10:07:43.0956332Z v0.41.71+215 Cedar realtime room chat validation passed.
+2026-11-19T10:07:43.0993288Z [97/167] tools/validate_v04172_cedar_trust_watch_modes.py
+2026-11-19T10:07:43.1328788Z v0.41.72+216 Cedar trust/watch modes validation passed.
+2026-11-19T10:07:43.1366619Z [98/167] tools/validate_v04172_jiuhu_manual_candidates.py
+2026-11-19T10:07:43.1569973Z v0.41.73+217 retired Jiuhu ASMR trials; four-voice regression passed.
+2026-11-19T10:07:43.1603047Z [99/167] tools/validate_v04173_cedar_reply_completion.py
+2026-11-19T10:07:43.1940098Z v0.41.73+217 Cedar entry/reply completion validation passed.
+2026-11-19T10:07:43.1981943Z [100/167] tools/validate_v04174_cedar_game_hall_protocol.py
+2026-11-19T10:07:43.2319650Z v0.41.74+218 Cedar game-hall protocol validation passed.
+2026-11-19T10:07:43.2361354Z [101/167] tools/validate_v04175_cedar_agentic_blind_play.py
+2026-11-19T10:07:43.2626983Z v0.41.81+225 Cedar agentic blind-play validation passed.
+2026-11-19T10:07:43.2662904Z [102/167] tools/validate_v04176_cedar_protocol_continuation.py
+2026-11-19T10:07:43.2972824Z v0.41.81+225 Cedar protocol-continuation validation passed.
+2026-11-19T10:07:43.3010465Z [103/167] tools/validate_v04177_cedar_background_turn_loop.py
+2026-11-19T10:07:43.3261785Z v0.41.81+225 Cedar background turn-loop validation passed.
+2026-11-19T10:07:43.3296311Z [104/167] tools/validate_v04178_stop_transfer_interlock.py
+2026-11-19T10:07:43.3608473Z v0.41.81+225 Stop/transfer interlock validation passed.
+2026-11-19T10:07:43.3644765Z [105/167] tools/validate_v04179_cedar_runtime_preemption.py
+2026-11-19T10:07:43.3951438Z v0.41.81+225 Cedar runtime-preemption validation passed.
+2026-11-19T10:07:43.3986415Z [106/167] tools/validate_v04180_cedar_agent_loop.py
+2026-11-19T10:07:43.4255061Z v0.41.81+225 Cedar Agent-loop validation passed.
+2026-11-19T10:07:43.4290954Z [107/167] tools/validate_v04181_cedar_background_agent_tools.py
+2026-11-19T10:07:43.4559399Z v0.41.81+225 Cedar background Agent-tools validation passed.
+2026-11-19T10:07:43.4596439Z [108/167] tools/validate_v04182_cedar_state_machine_e2e.py
+2026-11-19T10:07:43.4929862Z v0.41.82+226 Cedar state-machine E2E validation passed.
+2026-11-19T10:07:43.4964954Z [109/167] tools/validate_v04183_cedar_native_agent_loop.py
+2026-11-19T10:07:43.5243272Z v0.41.83+227 Cedar native Agent-loop validation passed.
+2026-11-19T10:07:43.5276995Z [110/167] tools/validate_v04184_agent_loop_autonomy_closure.py
+2026-11-19T10:07:43.5608482Z v0.41.84+228 Agent-loop autonomy closure validation passed.
+2026-11-19T10:07:43.5644541Z [111/167] tools/validate_v04185_cedar_outcome_media.py
+2026-11-19T10:07:43.5929796Z v0.41.85+229 Cedar outcome-media validation passed.
+2026-11-19T10:07:43.5965500Z [112/167] tools/validate_v04186_autonomy_tts_diagnostics.py
+2026-11-19T10:07:43.6223359Z v0.41.86+230 autonomy and TTS diagnostics validation passed.
+2026-11-19T10:07:43.6257310Z [113/167] tools/validate_v04187_help_cedar_activity_ui.py
+2026-11-19T10:07:43.6490293Z v0.41.87+231 help and Cedar activity UI validation passed.
+2026-11-19T10:07:43.6524118Z [114/167] tools/validate_v04188_wishlist_cedar_card_guardrails.py
+2026-11-19T10:07:43.6762100Z v0.41.88+232 wishlist, Cedar card, and guardrails validation passed.
+2026-11-19T10:07:43.6795489Z [115/167] tools/validate_v04189_cedar_event_temporal_truth.py
+2026-11-19T10:07:43.6998430Z v0.41.89 Cedar event temporal truth validation passed
+2026-11-19T10:07:43.7032804Z [116/167] tools/validate_v04189_wishlist_safe_subject.py
+2026-11-19T10:07:43.7223550Z v0.41.89 wishlist safe-subject validation passed
+2026-11-19T10:07:43.7256804Z [117/167] tools/validate_v04189_prompt_cache_observability.py
+2026-11-19T10:07:43.7515837Z v0.41.89 prompt cache observability validation passed
+2026-11-19T10:07:43.7550697Z [118/167] tools/validate_v04190_cedar_save_slots_custom_final_model.py
+2026-11-19T10:07:43.7819126Z v0.41.90 Cedar save-slot and custom final-reply validation passed
+2026-11-19T10:07:43.7859632Z [119/167] tools/validate_v04191_fatigue_affect_debt.py
+2026-11-19T10:07:43.8133241Z v0.41.91 fatigue-affect and sleep-debt validation passed
+2026-11-19T10:07:43.8177275Z [120/167] tools/validate_v04192_desire_game_interest.py
+2026-11-19T10:07:43.8483395Z v0.41.92 desire ledger and dynamic game-interest validation passed
+2026-11-19T10:07:43.8528098Z [121/167] tools/validate_v04193_game_reality_grounding.py
+2026-11-19T10:07:43.8845255Z v0.41.93 game reality-grounding validation passed
+2026-11-19T10:07:43.8889688Z [122/167] tools/validate_v04197_natural_reply_liveness.py
+2026-11-19T10:07:43.9183771Z v0.41.97 natural reply liveness validation passed
+2026-11-19T10:07:43.9226203Z [123/167] tools/validate_v04200_live2d_clean_rollback.py
+2026-11-19T10:07:43.9453673Z Legacy Sen adapter stays removed; new Caicai runtime is permitted
+2026-11-19T10:07:43.9493057Z [124/167] tools/validate_v04201_autonomy_media_hardening.py
+2026-11-19T10:07:43.9733747Z v0.42.1 autonomy, vision and TTS media hardening contract remains preserved
+2026-11-19T10:07:43.9775242Z [125/167] tools/validate_v04202_media_transaction_recovery.py
+2026-11-19T10:07:43.9983715Z v0.42.2 media transaction recovery contract passed
+2026-11-19T10:07:44.0022139Z [126/167] tools/validate_v04203_media_empty_turn_hotfix.py
+2026-11-19T10:07:44.0267442Z v0.42.3 media-only empty-turn routing hotfix contract passed
+2026-11-19T10:07:44.0309288Z [127/167] tools/validate_v04204_tts_affinity_tool_activity.py
+2026-11-19T10:07:44.0636669Z v0.42.4 TTS auto-affinity and tool activity contract passed
+2026-11-19T10:07:44.0683602Z [128/167] tools/validate_v04241_caicai_and_final_route.py
+2026-11-19T10:07:44.0950046Z Caicai native host, canonical import, visible final-reply routes and screenshot defaults wired
+2026-11-19T10:07:44.0991626Z [129/167] tools/validate_v04242_caicai_performance.py
+2026-11-19T10:07:44.1209244Z Caicai resize, final composite transform, inverse hit and pat ownership wired
+2026-11-19T10:07:44.1247749Z [130/167] tools/validate_v04243_caicai_interaction.py
+2026-11-19T10:07:44.1469852Z Caicai full-scene crop, post-physics head ownership, event leases, held pat, diagnostics and 60/512 wired
+2026-11-19T10:07:44.1507509Z [131/167] tools/validate_v04253_room_game_session.py
+2026-11-19T10:07:44.1775461Z v0.42.53 immersive isolation, independent emotion, game sessions and facts wired
+2026-11-19T10:07:44.1814657Z [132/167] tools/validate_v04254_timed_game_sharing.py
+2026-11-19T10:07:44.2124859Z v0.42.54 explicit timed task, durable report and native progress sharing wired
+2026-11-19T10:07:44.2185992Z [133/167] tools/validate_v04255_backup_settings.py
+2026-11-19T10:07:44.3437831Z v0.42.55 bounded settings: 3.85 MiB Unicode/NUL SQL roundtrip and day asset OK
+2026-11-19T10:07:44.3535040Z [134/167] tools/validate_v04256_share_portable_state.py
+2026-11-19T10:07:44.3875939Z v0.42.56 rounds, lower-leg tilt, held pat, sidebar and v7 portable inventory wired
+2026-11-19T10:07:44.3919697Z [135/167] tools/validate_v04257_memory_galaxy.py
+2026-11-19T10:07:44.4532328Z v0.42.57 offline galaxy closure: 13 modules; read-only entry/lifecycle wired
+2026-11-19T10:07:44.4584302Z [136/167] tools/validate_v04258_backup_focus_memory.py
+2026-11-19T10:07:44.7628242Z v0.42.58 read-only export refresh, editor unfocus, five colors and 13 pointer tests: OK
+2026-11-19T10:07:44.7678779Z [137/167] tools/validate_v04259_game_cadence_settings_backup.py
+2026-11-19T10:07:44.7894296Z v0.42.59 settings-only export, legacy resource import and unified game sharing wired
+2026-11-19T10:07:44.7931196Z [138/167] tools/validate_v04260_settings_import_live2d.py
+2026-11-19T10:07:44.8151804Z v0.42.60 settings restore keeps the view, syncs final preferences and retains legacy model reload
+2026-11-19T10:07:44.8189284Z [139/167] tools/validate_v04261_timed_play_recovery.py
+2026-11-19T10:07:44.8450138Z v0.42.61 timed recovery, task clock, writer fencing and neutral manual Stop wired
+2026-11-19T10:07:44.8490119Z [140/167] tools/validate_v04265_playful_integrity.py
+2026-11-19T10:07:44.8757797Z v04265 grouped judgments, committed heat and contextual queries wired
+2026-11-19T10:07:44.8798441Z [141/167] tools/validate_v04266_memory_continuity.py
+2026-11-19T10:07:44.9055322Z v04266 bounded recall, explicit-only expansion and optional expression hints wired
+2026-11-19T10:07:44.9098608Z [142/167] tools/validate_v04267_persistent_mood.py
+2026-11-19T10:07:44.9439024Z v04267 mood module, existing batch, commit lifecycle and cached weather boundaries wired
+2026-11-19T10:07:44.9485007Z [143/167] tools/validate_v04268_deep_web.py
+2026-11-19T10:07:44.9841471Z v04268: mode snapshots, shared reading boundary, source evidence, cancellation and build version wired
+2026-11-19T10:07:44.9886467Z [144/167] tools/validate_v04270_wish_lifecycle.py
+2026-11-19T10:07:45.0164770Z v04270 wish generation, evidence, routing, pause, restore and behavioral tests wired
+2026-11-19T10:07:45.0206631Z [145/167] tools/validate_v04271_deep_reflection.py
+2026-11-19T10:07:45.0524102Z v04271 bounded reflection, single final writer, atomic state, hidden sidecar and lightbulb: OK
+2026-11-19T10:07:45.0571086Z [146/167] tools/validate_v04272_proactive_windows.py
+2026-11-19T10:07:45.0883557Z v04272 cumulative local windows, night motivation, atomic shared history and final eligibility: OK
+2026-11-19T10:07:45.0930303Z [147/167] tools/validate_v04273_phone_activity_evidence.py
+2026-11-19T10:07:45.1144349Z v04273: new evidence intervals, baseline/reset scope, lock boundary and diagnostics OK
+2026-11-19T10:07:45.1181606Z [148/167] tools/validate_v04275_daily_wake.py
+2026-11-19T10:07:45.1504308Z v04275 shared atomic wake, fatigue, prompt and autonomous boundaries: OK
+2026-11-19T10:07:45.1549484Z [149/167] tools/validate_v04280_connection_retirement.py
+2026-11-19T10:07:45.1789717Z Nearby retired; +328 reminder commit guards reviewed; shared restore/ownership core preserved
+2026-11-19T10:07:45.1830565Z [150/167] tools/validate_v04290_pet_retouched_assets.py
+2026-11-19T10:07:45.3018996Z v0.42.90 pet revision: complete existing frame coverage and build/verify order OK
+2026-11-19T10:07:45.3082306Z [151/167] tools/validate_v042110_game_arrangements.py
+2026-11-19T10:07:45.3400725Z game arrangements: original sources, captured game/save, late real result and existing-request wiring passed
+2026-11-19T10:07:45.3441120Z [152/167] tools/validate_v042111_game_notebook.py
+2026-11-19T10:07:45.3714867Z independent game notebook, archived migration, read/completion separation and ordinary source boundary wired
+2026-11-19T10:07:45.3757107Z [153/167] tools/validate_v042112_notebook_planning.py
+2026-11-19T10:07:45.3981451Z notebook target IDs, independent pending rotation and atomic dispatch fence wired
+2026-11-19T10:07:45.4021308Z [154/167] tools/validate_v042113_model_dialogue_trial.py
+2026-11-19T10:07:45.4273550Z isolated model dialogue, fixed same-model retry, lifecycle fences and exact background wired
+2026-11-19T10:07:45.4316700Z [155/167] tools/validate_v042154_dual_live2d.py
+2026-11-19T10:07:45.4519869Z Dual Live2D boundaries, original textures and independent import/restore wired
+2026-11-19T10:07:45.4557768Z [156/167] tools/validate_v042157_deepseek_performance.py
+2026-11-19T10:07:45.4773435Z DeepSeek stage 2 isolated planner, authored gestures, PCM ownership and generation guards wired
+2026-11-19T10:07:45.4815826Z [157/167] tools/validate_v042158_conservative_transport_smallform.py
+2026-11-19T10:07:45.5029088Z Conservative third transport and saved DeepSeek small form restoration wired
+2026-11-19T10:07:45.5067043Z [158/167] tools/validate_v042159_deepseek_stage3.py
+2026-11-19T10:07:45.5282556Z DeepSeek stage 3 local idle, blink, independent pats, transform and lifecycle guards wired
+2026-11-19T10:07:45.5318983Z [159/167] tools/validate_v042163_cache_morph.py
+2026-11-19T10:07:45.5522919Z v042163 cache/morph wiring passed; behavior remains covered by Dart/JVM/Android tests
+2026-11-19T10:07:45.5561512Z [160/167] tools/validate_v042164_gaze_relationship.py
+2026-11-19T10:07:45.5775155Z v042164 gaze, read-only probe, version and relationship refresh wiring passed
+2026-11-19T10:07:45.5813467Z [161/167] tools/validate_v042165_offpeak_lower_leg.py
+2026-11-19T10:07:45.6026515Z v042165 paid/local separation, atomic scan continuation and small-form axis wiring passed
+2026-11-19T10:07:45.6064674Z [162/167] tools/validate_v042168_dream_gaze.py
+2026-11-19T10:07:45.6261560Z v042168 eye-only focus, speech mouth and resumable private-draft wiring passed
+2026-11-19T10:07:45.6297496Z [163/167] tools/validate_v042169_layered_expression.py
+2026-11-19T10:07:45.6509037Z v042169 composable expressions, independent posture, PCM opening and transient accessories wired
+2026-11-19T10:07:45.6545926Z [164/167] tools/validate_v042170_mouth_rollback.py
+2026-11-19T10:07:45.6753642Z v042170 rig-default mouth centering: static mode, pre/post physics and expressive shape ownership wired
+2026-11-19T10:07:45.6791826Z [165/167] tools/validate_v042171_background_continuity.py
+2026-11-19T10:07:45.7015440Z v042171 bounded wake recovery, permission confirmation and pre-query load shedding wired
+2026-11-19T10:07:45.7055056Z [166/167] tools/validate_v042172_acoustic_mouth.py
+2026-11-19T10:07:45.7285648Z v042172 read-only PCM shape, actual playback head, isolated model dispatch and bounded release wired
+2026-11-19T10:07:45.7326004Z [167/167] tools/validate_v042173_media_design.py
+2026-11-19T10:07:45.7559124Z v042173 bounded QQ format repair, confirmed voice enums and durable optional visual review wired
+2026-11-19T10:07:45.7599732Z validation suite: OK (167 validators)
+2026-11-19T10:07:45.7696853Z ##[group]Run python3 tools/prepare_retouched_pet_frames.py --apply
+2026-11-19T10:07:45.7697392Z [36;1mpython3 tools/prepare_retouched_pet_frames.py --apply[0m
+2026-11-19T10:07:45.7731305Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:07:45.7731562Z env:
+2026-11-19T10:07:45.7731837Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:45.7732281Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:07:45.7732721Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:45.7733119Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:45.7733507Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:45.7733895Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:07:45.7734340Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:07:45.7734862Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:07:45.7735345Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:07:45.7735718Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:07:45.7736258Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:07:45.7737064Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:07:45.7737394Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:07:45.7738097Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:07:45.7738558Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:07:45.7739025Z ##[endgroup]
+2026-11-19T10:07:46.1028684Z Pet retouch: 59 preserved 306 sources, 118 derived frames, 177 PNGs verified.
+2026-11-19T10:07:46.1136413Z ##[group]Run flutter pub get
+2026-11-19T10:07:46.1136758Z [36;1mflutter pub get[0m
+2026-11-19T10:07:46.1170955Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:07:46.1171213Z env:
+2026-11-19T10:07:46.1171488Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:46.1171939Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:07:46.1172379Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:46.1172760Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:46.1173158Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:46.1173557Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:07:46.1174025Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:07:46.1174521Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:07:46.1175027Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:07:46.1175404Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:07:46.1175947Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:07:46.1176747Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:07:46.1177081Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:07:46.1177711Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:07:46.1178196Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:07:46.1178658Z ##[endgroup]
+2026-11-19T10:07:50.4338584Z Resolving dependencies...
+2026-11-19T10:07:50.7940697Z Downloading packages...
+2026-11-19T10:07:54.0135917Z   archive 4.0.9 (4.7.1 available)
+2026-11-19T10:07:54.0136615Z   clock 1.1.2 (1.1.3 available)
+2026-11-19T10:07:54.0137167Z   code_assets 1.2.1 (2.2.0 available)
+2026-11-19T10:07:54.0138065Z + cross_file 0.3.5+5 (0.4.0 available)
+2026-11-19T10:07:54.0138652Z   crypto 3.0.7 (3.0.8 available)
+2026-11-19T10:07:54.0139213Z + file 7.0.1
+2026-11-19T10:07:54.0139659Z + file_selector_linux 0.9.4+1
+2026-11-19T10:07:54.0140244Z + file_selector_macos 0.9.5+1 (0.9.5+2 available)
+2026-11-19T10:07:54.0140823Z + file_selector_platform_interface 2.7.0
+2026-11-19T10:07:54.0141217Z + file_selector_windows 0.9.3+6
+2026-11-19T10:07:54.0141592Z + flutter_localizations 0.0.0 from sdk flutter
+2026-11-19T10:07:54.0142031Z + flutter_plugin_android_lifecycle 2.0.35
+2026-11-19T10:07:54.0142459Z   flutter_secure_storage 10.3.1 (11.2.0 available)
+2026-11-19T10:07:54.0143032Z   flutter_secure_storage_darwin 0.3.2 (0.4.3 available)
+2026-11-19T10:07:54.0143577Z   flutter_secure_storage_linux 3.0.2 (3.0.3 available)
+2026-11-19T10:07:54.0144135Z   flutter_secure_storage_platform_interface 2.0.3 (2.1.1 available)
+2026-11-19T10:07:54.0144616Z + glob 2.2.0
+2026-11-19T10:07:54.0144903Z   hooks 2.0.2 (2.2.0 available)
+2026-11-19T10:07:54.0145326Z + image_picker 1.2.4
+2026-11-19T10:07:54.0145661Z + image_picker_android 0.8.13+25
+2026-11-19T10:07:54.0146034Z + image_picker_for_web 3.1.1
+2026-11-19T10:07:54.0146414Z + image_picker_ios 0.8.13+10 (0.8.13+15 available)
+2026-11-19T10:07:54.0146836Z + image_picker_linux 0.2.2
+2026-11-19T10:07:54.0147177Z + image_picker_macos 0.2.2+1
+2026-11-19T10:07:54.0147734Z + image_picker_platform_interface 2.11.2
+2026-11-19T10:07:54.0148281Z + image_picker_windows 0.2.2
+2026-11-19T10:07:54.0148619Z + intl 0.20.2 (0.20.3 available)
+2026-11-19T10:07:54.0148967Z   jni 1.0.3 (1.1.2 available)
+2026-11-19T10:07:54.0149312Z   jni_flutter 1.0.2 (1.1.0 available)
+2026-11-19T10:07:54.0149680Z   lunar 1.7.8 (1.7.9 available)
+2026-11-19T10:07:54.0150024Z   matcher 0.12.19 (0.12.20 available)
+2026-11-19T10:07:54.0150453Z   material_color_utilities 0.13.0 (0.13.1 available)
+2026-11-19T10:07:54.0150885Z   meta 1.18.0 (1.19.0 available)
+2026-11-19T10:07:54.0151222Z + mime 2.1.0
+2026-11-19T10:07:54.0151532Z + native_toolchain_c 0.19.2 (0.19.6 available)
+2026-11-19T10:07:54.0152231Z   objective_c 9.5.0 (9.6.4 available)
+2026-11-19T10:07:54.0152622Z   platform 3.1.6 (3.2.0 available)
+2026-11-19T10:07:54.0152986Z   posix 6.5.2 (6.5.4 available)
+2026-11-19T10:07:54.0153336Z   pub_semver 2.2.0 (2.2.1 available)
+2026-11-19T10:07:54.0153714Z   record_use 0.6.0 (1.1.1 available)
+2026-11-19T10:07:54.0154082Z   sqflite 2.4.3 (2.4.6 available)
+2026-11-19T10:07:54.0154456Z   sqflite_android 2.4.3 (2.4.6 available)
+2026-11-19T10:07:54.0154863Z   sqflite_common 2.5.11 (2.5.17 available)
+2026-11-19T10:07:54.0155253Z + sqflite_common_ffi 2.4.7
+2026-11-19T10:07:54.0155606Z   sqflite_darwin 2.4.3+1 (2.4.6 available)
+2026-11-19T10:07:54.0156024Z   sqflite_platform_interface 2.4.1 (2.4.4 available)
+2026-11-19T10:07:54.0156541Z + sqlite3 3.5.2 (3.9.1 available)
+2026-11-19T10:07:54.0156802Z   stack_trace 1.12.1 (1.12.2 available)
+2026-11-19T10:07:54.0157076Z   synchronized 3.4.1+1 (3.6.1+1 available)
+2026-11-19T10:07:54.0157354Z   test_api 0.7.11 (0.7.15 available)
+2026-11-19T10:07:54.0157867Z   vector_math 2.2.0 (2.4.4 available)
+2026-11-19T10:07:54.0158147Z   vm_service 15.2.0 (15.4.0 available)
+2026-11-19T10:07:54.0158405Z   web 1.1.1 (1.1.2 available)
+2026-11-19T10:07:54.0158640Z   yaml 3.1.3 (3.1.4 available)
+2026-11-19T10:07:54.0158910Z Changed 22 dependencies!
+2026-11-19T10:07:54.0159573Z 38 packages have newer versions incompatible with dependency constraints.
+2026-11-19T10:07:54.0160014Z Try `flutter pub outdated` for more information.
+2026-11-19T10:07:54.3366225Z ##[group]Run flutter test --timeout 60s --reporter expanded test/conservative_third_channel_v042158_test.dart test/third_transport_v042153_test.dart test/third_channel_network_v042152_test.dart test/third_channel_v042149_test.dart
+2026-11-19T10:07:54.3368558Z [36;1mflutter test --timeout 60s --reporter expanded test/conservative_third_channel_v042158_test.dart test/third_transport_v042153_test.dart test/third_channel_network_v042152_test.dart test/third_channel_v042149_test.dart[0m
+2026-11-19T10:07:54.3402406Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:07:54.3402664Z env:
+2026-11-19T10:07:54.3402931Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:54.3403396Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:07:54.3403828Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:54.3404227Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:54.3404666Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:07:54.3405069Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:07:54.3405501Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:07:54.3405988Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:07:54.3406477Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:07:54.3406856Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:07:54.3407399Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:07:54.3408559Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:07:54.3408958Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:07:54.3409524Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:07:54.3409977Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:07:54.3410452Z ##[endgroup]
+2026-11-19T10:07:58.1700537Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart
+2026-11-19T10:08:07.6954718Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: short test and enabled reply share endpoint auth network despite different effort
+2026-11-19T10:08:07.7712010Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: health cache expires at 60 seconds and a cache read never extends it
+2026-11-19T10:08:07.7769312Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: key retires reachability and a late old lease cannot repopulate it
+2026-11-19T10:08:07.7779441Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: endpoint retires reachability and a late old lease cannot repopulate it
+2026-11-19T10:08:07.7801268Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: network retires reachability and a late old lease cannot repopulate it
+2026-11-19T10:08:07.7824353Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: unknown-network retires reachability and a late old lease cannot repopulate it
+2026-11-19T10:08:07.7879444Z 00:00 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: HTTP 200 without usage still fails and invalidates cached health before the next reply
+2026-11-19T10:08:07.8098424Z 00:00 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: cache expiry runs health again while the total deadline remains 120 seconds
+2026-11-19T10:08:07.8164161Z 00:00 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/conservative_third_channel_v042158_test.dart: test status distinguishes unsaved inputs, disabled routing and short success without leaking secrets
+2026-11-19T10:08:07.8501872Z 00:00 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: health and SSE reuse one actual TCP connection across disposable wrappers
+2026-11-19T10:08:07.9909803Z 00:00 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: token stops one active stream without closing another pooled request
+2026-11-19T10:08:08.0237520Z 00:00 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: wrapper_close stops one active stream without closing another pooled request
+2026-11-19T10:08:08.0439840Z 00:00 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-19T10:08:09.6720430Z 00:01 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-19T10:08:09.6774169Z 00:01 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-19T10:08:09.6795918Z 00:01 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_transport_v042153_test.dart: a hanging HTTP tail after complete usage/DONE is bounded to two seconds
+2026-11-19T10:08:10.0655687Z 00:02 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.0729146Z 00:04 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.0760679Z 00:04 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.0785895Z 00:04 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.0809607Z 00:04 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.0869120Z 00:04 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.0904774Z 00:04 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: real HTTP 2.8-second health response succeeds and immediately proceeds to one model request
+2026-11-19T10:08:12.5686672Z 00:04 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: health_timeout during health never sends a model request or waits for the delayed response
+2026-11-19T10:08:12.6459182Z 00:04 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: total_timeout during health never sends a model request or waits for the delayed response
+2026-11-19T10:08:12.7120921Z 00:05 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: cancel during health never sends a model request or waits for the delayed response
+2026-11-19T10:08:12.7167162Z 00:05 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: source_changed during health never sends a model request or waits for the delayed response
+2026-11-19T10:08:12.9209140Z 00:05 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9263389Z 00:05 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9298074Z 00:05 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9365301Z 00:05 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9410058Z 00:05 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9446146Z 00:05 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9493805Z 00:05 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning
+2026-11-19T10:08:12.9537197Z 00:05 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: HTTP 503 is attributed to health and does not add paid retries
+2026-11-19T10:08:12.9549484Z 00:05 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: HTTP 503 is attributed to model and does not add paid retries
+2026-11-19T10:08:12.9619518Z 00:05 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: tool calls accumulate interleaved indices, JSON arguments and legal DONE terminal
+2026-11-19T10:08:12.9671323Z 00:05 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: tool calls accumulate interleaved indices, JSON arguments and legal DONE terminal
+2026-11-19T10:08:12.9796499Z 00:05 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:12.9938173Z 00:05 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0091866Z 00:05 +40: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0240773Z 00:05 +41: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0374627Z 00:05 +42: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0534958Z 00:05 +43: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0627879Z 00:05 +44: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0660644Z 00:05 +45: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0695474Z 00:05 +46: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.0863745Z 00:05 +47: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.1047210Z 00:05 +48: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.1201726Z 00:05 +49: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.2081422Z 00:05 +50: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.8118545Z 00:06 +51: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: diagnostic storage retains only bounded whitelisted facts including after import-style malformed data
+2026-11-19T10:08:13.8230383Z 00:06 +52: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes QQ third failure preserves second retry then first fallback, with no third replay
+2026-11-19T10:08:14.2137440Z 00:06 +53: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes QQ third failure preserves second retry then first fallback, with no third replay
+2026-11-19T10:08:14.2592042Z 00:06 +54: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: failed third channel status reaches chat even when its message tail has not changed, and can be dismissed
+2026-11-19T10:08:14.6408601Z 00:06 +55: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes App Qwen switch true chooses the base chain and Qwen failure uses first
+2026-11-19T10:08:14.6861860Z 00:06 +56: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: cancelled is not a third-channel failure banner
+2026-11-19T10:08:14.9844320Z 00:07 +57: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes App Qwen switch false chooses the base chain and Qwen failure uses first
+2026-11-19T10:08:15.0485751Z 00:07 +58: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: suspended is not a third-channel failure banner
+2026-11-19T10:08:15.3315104Z 00:07 +59: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes saved image choice is independent of settings and remains scoped across retries
+2026-11-19T10:08:15.5167413Z 00:07 +60: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: success is not a third-channel failure banner
+2026-11-19T10:08:15.6744146Z 00:07 +61: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes QQ image bypasses Qwen independently of the App switch
+2026-11-19T10:08:15.8890215Z 00:08 +62: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: incomplete is not a third-channel failure banner
+2026-11-19T10:08:16.0118741Z 00:08 +63: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qwen_on vision
+2026-11-19T10:08:16.2546013Z 00:08 +64: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_network_v042152_test.dart: connection-test errors remain local and cannot replace an existing runtime banner
+2026-11-19T10:08:16.3480629Z 00:08 +65: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qwen_off vision
+2026-11-19T10:08:16.3503092Z 00:08 +66: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qwen_off vision
+2026-11-19T10:08:16.5354946Z 00:08 +67: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes enabled third channel is bypassed entirely for qq vision
+2026-11-19T10:08:16.7833738Z 00:09 +68: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes first vision keeps exact image, album and match observations with third enabled
+2026-11-19T10:08:17.0587037Z 00:09 +69: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes third-only configuration does not falsely advertise usable vision
+2026-11-19T10:08:17.3273830Z 00:09 +70: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes lost source prevents a fallback after the Qwen request
+2026-11-19T10:08:17.5745991Z 00:09 +71: /home/runner/work/ai-companion-build/ai-companion-build/app/test/third_channel_v042149_test.dart: shared production routes completed restore cannot authorize first fallback from the old Qwen request
+2026-11-19T10:08:17.8598907Z 00:10 +72: All tests passed!
+2026-11-19T10:08:17.9514839Z ##[group]Run flutter test --timeout 60s --reporter expanded test/avatar_wish_parity_v042167_test.dart test/deepseek_stage3_v042159_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/caicai_stage_editor_test.dart test/live2d_settings_page_test.dart test/caicai_live2d_stage_test.dart
+2026-11-19T10:08:17.9517236Z [36;1mflutter test --timeout 60s --reporter expanded test/avatar_wish_parity_v042167_test.dart test/deepseek_stage3_v042159_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/caicai_stage_editor_test.dart test/live2d_settings_page_test.dart test/caicai_live2d_stage_test.dart[0m
+2026-11-19T10:08:17.9551969Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:08:17.9552241Z env:
+2026-11-19T10:08:17.9552508Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:17.9552995Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:08:17.9553439Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:17.9553820Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:17.9554203Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:17.9554579Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:08:17.9555009Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:08:17.9555498Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:08:17.9555973Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:08:17.9556347Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:08:17.9556881Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:08:17.9558150Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:08:17.9558487Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:08:17.9559059Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:08:17.9559509Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:08:17.9559976Z ##[endgroup]
+2026-11-19T10:08:18.8732484Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart
+2026-11-19T10:08:20.8832945Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:21.1490075Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:21.6211539Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:21.6674249Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:21.6765260Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.2984838Z 00:01 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3022564Z 00:01 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3054993Z 00:01 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3102235Z 00:01 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3131174Z 00:01 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3179668Z 00:01 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3210083Z 00:01 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:22.3239246Z 00:01 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: null
+2026-11-19T10:08:22.6941577Z 00:01 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: 0.0
+2026-11-19T10:08:22.9263080Z 00:02 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: -1.0
+2026-11-19T10:08:23.1008184Z 00:02 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: opening plays during synthesis and speech needs actual matching audio
+2026-11-19T10:08:23.1486015Z 00:02 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: 1.0
+2026-11-19T10:08:23.2165748Z 00:02 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: 1.0
+2026-11-19T10:08:23.2640013Z 00:02 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: unmuting in a later hold inherits the skipped planned emotion
+2026-11-19T10:08:23.2666949Z 00:02 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek exposes its own two pats, local idle previews and freeze commands
+2026-11-19T10:08:23.4381891Z 00:02 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: new lease replays the cue without purchasing another plan
+2026-11-19T10:08:23.5396029Z 00:02 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: busy DeepSeek controls do not submit interaction or idle work
+2026-11-19T10:08:23.5424338Z 00:02 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:08:23.5950087Z 00:02 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek head-box editing keeps profile ownership and save=true
+2026-11-19T10:08:23.6345059Z 00:02 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: stop during planning prevents late opening and speech resurrection
+2026-11-19T10:08:23.6405441Z 00:02 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek head-box editing keeps profile ownership and save=false
+2026-11-19T10:08:23.6790018Z 00:02 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: late plan attaches at audio position instead of replaying its opening
+2026-11-19T10:08:23.6873302Z 00:02 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: TTS off preserves immediate plan and omits speech planning context
+2026-11-19T10:08:23.7129104Z 00:02 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: same message source revision can receive a fresh presentation owner
+2026-11-19T10:08:23.7194200Z 00:02 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a later chat turn invalidates a delayed motion plan even before an explicit stop notification
+2026-11-19T10:08:23.7656204Z 00:02 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-19T10:08:23.7922222Z 00:02 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a replaced avatar revision cannot receive a delayed DeepSeek plan
+2026-11-19T10:08:23.8390224Z 00:02 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: DeepSeek JEV disabled still shows its own base emotion without a request
+2026-11-19T10:08:23.8430923Z 00:02 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a fast reply waits for model readiness and only purchases one plan
+2026-11-19T10:08:24.1022395Z 00:03 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-19T10:08:24.3572160Z 00:03 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/caicai_stage_editor_test.dart: stage preview finishes transaction with save=false
+2026-11-19T10:08:24.6143561Z 00:03 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/caicai_stage_editor_test.dart: stage preview finishes transaction with save=false
+2026-11-19T10:08:25.0662641Z 00:04 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/caicai_stage_editor_test.dart: stage preview finishes transaction with save=true
+2026-11-19T10:08:25.1383203Z 00:04 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/caicai_stage_editor_test.dart: late finish from old avatar does not close the new editor
+2026-11-19T10:08:25.2309774Z 00:04 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/caicai_stage_editor_test.dart: old editor cannot submit cancellation to another avatar
+2026-11-19T10:08:25.2790038Z 00:04 +40: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-19T10:08:26.5578408Z 00:05 +41: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: an action returns from nested settings directly to chat
+2026-11-19T10:08:27.5078652Z 00:06 +42: /home/runner/work/ai-companion-build/ai-companion-build/app/test/live2d_settings_page_test.dart: deletion requires confirmation and disables Live2D only after confirmation
+2026-11-19T10:08:28.6547035Z 00:07 +43: All tests passed!
+2026-11-19T10:08:28.7305272Z ##[group]Run flutter test --timeout 60s --reporter expanded test/deepseek_layered_v042169_test.dart test/avatar_wish_parity_v042167_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/deepseek_stage3_v042159_test.dart
+2026-11-19T10:08:28.7307202Z [36;1mflutter test --timeout 60s --reporter expanded test/deepseek_layered_v042169_test.dart test/avatar_wish_parity_v042167_test.dart test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/deepseek_stage3_v042159_test.dart[0m
+2026-11-19T10:08:28.7341623Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:08:28.7341881Z env:
+2026-11-19T10:08:28.7342157Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:28.7342615Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:08:28.7343054Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:28.7343489Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:28.7343884Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:28.7344269Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:08:28.7344700Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:08:28.7345188Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:08:28.7345666Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:08:28.7346047Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:08:28.7346599Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:08:28.7347342Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:08:28.7347970Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:08:28.7348427Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:08:28.7348881Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:08:28.7349343Z ##[endgroup]
+2026-11-19T10:08:29.6542250Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_layered_v042169_test.dart
+2026-11-19T10:08:31.6589624Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_layered_v042169_test.dart: independent effects preserve combinations and eye style no longer erases wink
+2026-11-19T10:08:31.6844585Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_layered_v042169_test.dart: new effect decisions round trip to speech and one lean does not consume nod
+2026-11-19T10:08:31.7611886Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_layered_v042169_test.dart: speech keeps fixed-mouth contempt excluded without banning its ordinary emotion
+2026-11-19T10:08:31.7713558Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_layered_v042169_test.dart: three authored smiles open only off audio and all targets obey Core bounds
+2026-11-19T10:08:31.9665935Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4430808Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4469806Z 00:00 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4505783Z 00:00 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4547052Z 00:00 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4584559Z 00:00 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4625472Z 00:00 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.4658934Z 00:00 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: real wish refresh accepts a shared non-game intention and keeps history as dedup only
+2026-11-19T10:08:32.6852619Z 00:01 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: DeepSeek exposes complete presets and the same visible beat template as Caicai
+2026-11-19T10:08:32.7301456Z 00:01 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/avatar_wish_parity_v042167_test.dart: dedup history keeps original goals while live criteria and protected archive remain intact
+2026-11-19T10:08:33.1308960Z 00:01 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: opening plays during synthesis and speech needs actual matching audio
+2026-11-19T10:08:33.2176752Z 00:01 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: mute releases only owned speech, resume skips already used accents
+2026-11-19T10:08:33.2865439Z 00:01 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: unmuting in a later hold inherits the skipped planned emotion
+2026-11-19T10:08:33.3348653Z 00:01 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: new lease replays the cue without purchasing another plan
+2026-11-19T10:08:33.4432246Z 00:01 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: new lease replays the cue without purchasing another plan
+2026-11-19T10:08:33.5496056Z 00:01 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.6042834Z 00:01 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.6506606Z 00:01 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.6955987Z 00:02 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.7226486Z 00:02 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.7279503Z 00:02 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.7728470Z 00:02 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.7983922Z 00:02 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.8436835Z 00:02 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:33.8472763Z 00:02 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:34.1060098Z 00:02 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:34.3609510Z 00:02 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: lean preview returns full authored target and final standing pose
+2026-11-19T10:08:34.4837073Z 00:02 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:08:34.6161324Z 00:02 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: null
+2026-11-19T10:08:34.8060257Z 00:03 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: 0.0
+2026-11-19T10:08:34.9992040Z 00:03 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: -1.0
+2026-11-19T10:08:35.1726186Z 00:03 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: mouth style has only two choices and preserves saved arc: 1.0
+2026-11-19T10:08:35.3268571Z 00:03 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek exposes its own two pats, local idle previews and freeze commands
+2026-11-19T10:08:35.4868736Z 00:03 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: busy DeepSeek controls do not submit interaction or idle work
+2026-11-19T10:08:35.5925105Z 00:03 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek head-box editing keeps profile ownership and save=true
+2026-11-19T10:08:35.6780890Z 00:04 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_stage3_v042159_test.dart: DeepSeek head-box editing keeps profile ownership and save=false
+2026-11-19T10:08:35.7449587Z 00:04 +40: All tests passed!
+2026-11-19T10:08:35.8227885Z ##[group]Run flutter test --timeout 90s --reporter expanded test/dream_catchup_v042168_test.dart test/memory_reaudit_v042168_test.dart test/nightly_dream_test.dart test/dream_source_continuity_test.dart test/memory_revision_continuity_test.dart
+2026-11-19T10:08:35.8229802Z [36;1mflutter test --timeout 90s --reporter expanded test/dream_catchup_v042168_test.dart test/memory_reaudit_v042168_test.dart test/nightly_dream_test.dart test/dream_source_continuity_test.dart test/memory_revision_continuity_test.dart[0m
+2026-11-19T10:08:35.8263473Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:08:35.8263728Z env:
+2026-11-19T10:08:35.8264001Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:35.8264458Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:08:35.8264895Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:35.8265312Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:35.8265744Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:08:35.8266152Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:08:35.8266608Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:08:35.8267112Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:08:35.8267805Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:08:35.8268221Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:08:35.8268773Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:08:35.8269623Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:08:35.8269951Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:08:35.8270392Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:08:35.8270864Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:08:35.8271343Z ##[endgroup]
+2026-11-19T10:08:36.7309641Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart
+2026-11-19T10:08:38.6908605Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:39.5145132Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:40.1923977Z 00:01 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:40.6036400Z 00:01 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:40.9759777Z 00:02 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5023343Z 00:03 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5109444Z 00:03 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5135736Z 00:03 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5168822Z 00:03 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5188084Z 00:03 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5210372Z 00:03 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5232328Z 00:03 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5252207Z 00:03 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5275537Z 00:03 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5306321Z 00:03 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5328389Z 00:03 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5350844Z 00:03 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5383329Z 00:03 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5408067Z 00:03 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5431524Z 00:03 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:42.5479223Z 00:03 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:43.2394694Z 00:04 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:43.9683082Z 00:05 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:44.4591026Z 00:05 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:45.0622402Z 00:06 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:45.6448372Z 00:06 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:46.5559384Z 00:07 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:47.1454631Z 00:08 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:47.7411798Z 00:09 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:48.1875085Z 00:09 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:48.6140245Z 00:09 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:49.0326020Z 00:10 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:49.4528385Z 00:10 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:49.8419189Z 00:11 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:50.1973557Z 00:11 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:50.5698126Z 00:11 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:50.9392668Z 00:12 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:51.3121574Z 00:12 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:51.6889536Z 00:12 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:52.0469051Z 00:13 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:52.4549465Z 00:13 +40: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:52.9322726Z 00:14 +41: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:53.2137513Z 00:14 +42: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:53.4935477Z 00:14 +43: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:56.0101054Z 00:17 +44: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:56.5017065Z 00:17 +45: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:56.8974708Z 00:18 +46: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:57.2859837Z 00:18 +47: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:58.6001046Z 00:19 +48: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:58.9363974Z 00:20 +49: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: 1974 old rows are covered once in the same day; candidates stay private until integration
+2026-11-19T10:08:59.6161733Z 00:20 +50: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: new arrivals are ordinary material while old source ranges remain private
+2026-11-19T10:09:00.6195833Z 00:21 +51: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: new arrivals are ordinary material while old source ranges remain private
+2026-11-19T10:09:01.1887310Z 00:22 +52: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: new arrivals are ordinary material while old source ranges remain private
+2026-11-19T10:09:01.7400944Z 00:23 +53: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: new arrivals are ordinary material while old source ranges remain private
+2026-11-19T10:09:02.2381115Z 00:23 +54: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: new arrivals are ordinary material while old source ranges remain private
+2026-11-19T10:09:02.5592010Z 00:23 +55: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_source_continuity_test.dart: q fresh and related sources commit, empty=false
+2026-11-19T10:09:02.7139963Z 00:24 +56: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: no-change historical reading completes without a paid integration or forced personality
+2026-11-19T10:09:03.1546466Z 00:24 +57: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: no-change historical reading completes without a paid integration or forced personality
+2026-11-19T10:09:03.7688195Z 00:25 +58: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: no-change historical reading completes without a paid integration or forced personality
+2026-11-19T10:09:04.3748118Z 00:25 +59: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: no-change historical reading completes without a paid integration or forced personality
+2026-11-19T10:09:04.9491800Z 00:26 +60: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: no-change historical reading completes without a paid integration or forced personality
+2026-11-19T10:09:05.5232943Z 00:26 +61: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: no-change historical reading completes without a paid integration or forced personality
+2026-11-19T10:09:05.6335809Z 00:26 +62: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_source_continuity_test.dart: deleted evidence repairs from fresh support without new growth
+2026-11-19T10:09:06.0812086Z 00:27 +63: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:06.6451343Z 00:27 +64: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:07.2226483Z 00:28 +65: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:07.7463379Z 00:29 +66: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:08.3819824Z 00:29 +67: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:08.6572481Z 00:29 +68: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:08.9359949Z 00:30 +69: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:09.2124523Z 00:30 +70: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:09.5065509Z 00:30 +71: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:09.7789935Z 00:31 +72: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:10.0716503Z 00:31 +73: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: real snapshot roundtrip resumes source coverage and never exposes a private draft
+2026-11-19T10:09:10.3303045Z 00:31 +74: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: output truncation shrinks historical input and does not advance the journal
+2026-11-19T10:09:11.6528255Z 00:32 +75: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: output truncation shrinks historical input and does not advance the journal
+2026-11-19T10:09:12.1837507Z 00:33 +76: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: output truncation shrinks historical input and does not advance the journal
+2026-11-19T10:09:12.6538863Z 00:33 +77: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: output truncation shrinks historical input and does not advance the journal
+2026-11-19T10:09:13.0591744Z 00:34 +78: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: output truncation shrinks historical input and does not advance the journal
+2026-11-19T10:09:13.3851692Z 00:34 +79: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: wrong target, evidence, subject, mode and pinned rows cannot be revised
+2026-11-19T10:09:13.4721612Z 00:34 +80: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: repeated invalid evidence pauses identical paid requests, even when manual
+2026-11-19T10:09:13.8493158Z 00:35 +81: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: repeated invalid evidence pauses identical paid requests, even when manual
+2026-11-19T10:09:14.2089413Z 00:35 +82: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: repeated invalid evidence pauses identical paid requests, even when manual
+2026-11-19T10:09:14.4519352Z 00:35 +83: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: stale work cannot overwrite a manual edit or a newer replacement
+2026-11-19T10:09:14.5829605Z 00:35 +84: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: daily request ceiling includes failures and cannot be bypassed by a manual run
+2026-11-19T10:09:14.8274955Z 00:36 +85: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: accepted replay is idempotent and stale maintenance cannot archive its history
+2026-11-19T10:09:14.9397120Z 00:36 +86: /home/runner/work/ai-companion-build/ai-companion-build/app/test/dream_catchup_v042168_test.dart: speech rejects fixed-mouth special eyes while the opening plan keeps them
+2026-11-19T10:09:15.1179557Z 00:36 +87: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: denied correction cannot route through reinforce/duplicate (snapshot=true)
+2026-11-19T10:09:15.2735745Z 00:36 +88: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: denied correction cannot route through reinforce/duplicate (snapshot=false)
+2026-11-19T10:09:15.5634266Z 00:36 +89: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: model cannot replace the local pre-request version token while it is waiting
+2026-11-19T10:09:16.0253357Z 00:37 +90: /home/runner/work/ai-companion-build/ai-companion-build/app/test/memory_revision_continuity_test.dart: archive roundtrip retains revision chain, evidence and source form snapshots
+2026-11-19T10:09:16.4778651Z 00:37 +91: All tests passed!
+2026-11-19T10:09:16.5532587Z ##[group]Run flutter test --timeout 60s --reporter expanded test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/dual_live2d_profiles_v042154_test.dart test/speech_presentation_owner_v042121_test.dart
+2026-11-19T10:09:16.5534302Z [36;1mflutter test --timeout 60s --reporter expanded test/deepseek_motion_planner_v042157_test.dart test/deepseek_presentation_owner_v042157_test.dart test/dual_live2d_profiles_v042154_test.dart test/speech_presentation_owner_v042121_test.dart[0m
+2026-11-19T10:09:16.5568343Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:09:16.5568597Z env:
+2026-11-19T10:09:16.5568867Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:16.5569328Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:09:16.5569788Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:16.5570189Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:16.5570607Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:16.5571007Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:09:16.5571448Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:16.5571945Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:16.5572434Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:09:16.5572813Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:09:16.5573348Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:09:16.5574083Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:09:16.5574403Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:09:16.5575144Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:09:16.5575603Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:09:16.5576078Z ##[endgroup]
+2026-11-19T10:09:17.4531298Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart
+2026-11-19T10:09:19.3177212Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: four beats use real DeepSeek channels and Core bounds
+2026-11-19T10:09:19.3426917Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: tongue cue reaches its full value and keeps clothing out of the plan
+2026-11-19T10:09:19.3455952Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: missing gates fail closed while eye style and wink can compose
+2026-11-19T10:09:19.3483468Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: real speech motion never writes mouth, clothes or morph
+2026-11-19T10:09:19.3518599Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: ordinary or incomplete gates cannot lean through old per-beat or speech choices
+2026-11-19T10:09:19.3549500Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: one semantic gate selects an opening interval or a single audio cue
+2026-11-19T10:09:19.3587341Z 00:00 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_motion_planner_v042157_test.dart: reduced rig skips unsupported channels and nonfinite metadata
+2026-11-19T10:09:19.5632180Z 00:00 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: opening plays during synthesis and speech needs actual matching audio
+2026-11-19T10:09:19.6475217Z 00:00 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: mute releases only owned speech, resume skips already used accents
+2026-11-19T10:09:19.7160445Z 00:00 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: unmuting in a later hold inherits the skipped planned emotion
+2026-11-19T10:09:19.7642259Z 00:00 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: new lease replays the cue without purchasing another plan
+2026-11-19T10:09:19.9713933Z 00:00 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:19.9971176Z 00:00 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0002278Z 00:00 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0028462Z 00:00 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0078061Z 00:00 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0105579Z 00:00 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0131527Z 00:00 +17: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0167018Z 00:00 +18: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: changed spoken text or another message cannot borrow the plan
+2026-11-19T10:09:20.0339030Z 00:00 +19: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: stop during planning prevents late opening and speech resurrection
+2026-11-19T10:09:20.0803273Z 00:00 +20: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: late plan attaches at audio position instead of replaying its opening
+2026-11-19T10:09:20.1274115Z 00:00 +21: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: TTS off preserves immediate plan and omits speech planning context
+2026-11-19T10:09:20.1524104Z 00:00 +22: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: same message source revision can receive a fresh presentation owner
+2026-11-19T10:09:20.1571714Z 00:00 +23: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a later chat turn invalidates a delayed motion plan even before an explicit stop notification
+2026-11-19T10:09:20.2069127Z 00:00 +24: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: retired speech cannot reattach an old Live2D owner after a new dialogue turn
+2026-11-19T10:09:20.2326033Z 00:00 +25: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a replaced avatar revision cannot receive a delayed DeepSeek plan
+2026-11-19T10:09:20.2782043Z 00:00 +26: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: DeepSeek JEV disabled still shows its own base emotion without a request
+2026-11-19T10:09:20.2815654Z 00:00 +27: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a fast reply waits for model readiness and only purchases one plan
+2026-11-19T10:09:20.5381830Z 00:01 +28: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-19T10:09:20.6447050Z 00:01 +29: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-19T10:09:20.7116917Z 00:01 +30: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-19T10:09:20.7572001Z 00:01 +31: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: switching avatars during the readiness wait purchases no plan
+2026-11-19T10:09:20.7924943Z 00:01 +32: /home/runner/work/ai-companion-build/ai-companion-build/app/test/speech_presentation_owner_v042121_test.dart: new lease replays the cue without purchasing another plan
+2026-11-19T10:09:20.8030285Z 00:01 +33: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:20.8479577Z 00:01 +34: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:20.8919237Z 00:01 +35: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:20.9359799Z 00:01 +36: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:20.9588886Z 00:01 +37: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:20.9623841Z 00:01 +38: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:21.0076473Z 00:01 +39: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:21.0319496Z 00:01 +40: /home/runner/work/ai-companion-build/ai-companion-build/app/test/deepseek_presentation_owner_v042157_test.dart: a cancelled readiness wait cannot erase a newer reply identity
+2026-11-19T10:09:21.0631690Z 00:01 +41: All tests passed!
+2026-11-19T10:09:21.1395580Z ##[group]Run flutter test --timeout 60s --reporter expanded test/qq_media_quality_v042173_test.dart test/creative_visual_review_v042173_test.dart
+2026-11-19T10:09:21.1396590Z [36;1mflutter test --timeout 60s --reporter expanded test/qq_media_quality_v042173_test.dart test/creative_visual_review_v042173_test.dart[0m
+2026-11-19T10:09:21.1430021Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:09:21.1430269Z env:
+2026-11-19T10:09:21.1430534Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:21.1430992Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:09:21.1431483Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:21.1431867Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:21.1432252Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:21.1432645Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:09:21.1433114Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:21.1433595Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:21.1434075Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:09:21.1434456Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:09:21.1434995Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:09:21.1435747Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:09:21.1436072Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:09:21.1436510Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:09:21.1436962Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:09:21.1437421Z ##[endgroup]
+2026-11-19T10:09:22.0287796Z 00:00 +0: loading /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart
+2026-11-19T10:09:24.0556142Z 00:00 +0: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: one known dialect repair preserves budget and shared ownership then sends no QQ message
+2026-11-19T10:09:24.3918695Z 00:00 +1: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: one known dialect repair preserves budget and shared ownership then sends no QQ message
+2026-11-19T10:09:24.3958182Z 00:00 +2: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: one known dialect repair preserves budget and shared ownership then sends no QQ message
+2026-11-19T10:09:24.4039275Z 00:00 +3: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: one known dialect repair preserves budget and shared ownership then sends no QQ message
+2026-11-19T10:09:24.7806150Z 00:00 +4: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: late visual feedback is rejected and its transport closes on ownership loss
+2026-11-19T10:09:25.0301762Z 00:00 +5: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: persistent format failure stops after two requests and never resets hourly budget
+2026-11-19T10:09:25.2299587Z 00:01 +6: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: unconfigured review cannot make a request or claim to have seen pixels
+2026-11-19T10:09:25.4344749Z 00:01 +7: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: HTTP rejection does not trigger a paid format repair
+2026-11-19T10:09:25.6460011Z 00:01 +8: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: actual vision request uses work critique mode while ordinary observation stays neutral
+2026-11-19T10:09:25.8370177Z 00:01 +9: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: budget exhaustion before repair never makes the second paid request
+2026-11-19T10:09:26.0410698Z 00:01 +10: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: worker review keeps review optional and requires actual functional preview
+2026-11-19T10:09:26.4178751Z 00:02 +11: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: worker review keeps review optional and requires actual functional preview
+2026-11-19T10:09:26.5351383Z 00:02 +12: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: safe wrapping normalization is not arbitrary SVG stripping
+2026-11-19T10:09:26.7525177Z 00:02 +13: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: worker unavailable keeps review optional and requires actual functional preview
+2026-11-19T10:09:27.0689189Z 00:03 +14: /home/runner/work/ai-companion-build/ai-companion-build/app/test/qq_media_quality_v042173_test.dart: confirmed voice usage deduplicates and strips private material
+2026-11-19T10:09:27.1387778Z 00:03 +15: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: worker no_image keeps review optional and requires actual functional preview
+2026-11-19T10:09:27.4805882Z 00:03 +16: /home/runner/work/ai-companion-build/ai-companion-build/app/test/creative_visual_review_v042173_test.dart: worker no_image keeps review optional and requires actual functional preview
+2026-11-19T10:09:27.5555316Z 00:03 +17: All tests passed!
+2026-11-19T10:09:27.6283583Z ##[group]Run node app/tools/test_creative_bridge.mjs
+2026-11-19T10:09:27.6283997Z [36;1mnode app/tools/test_creative_bridge.mjs[0m
+2026-11-19T10:09:27.6317069Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:09:27.6317319Z env:
+2026-11-19T10:09:27.6317700Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.6318161Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:09:27.6318600Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.6318990Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.6319372Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.6319777Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:09:27.6320205Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:27.6320688Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:27.6321199Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:09:27.6321586Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:09:27.6322344Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:09:27.6323280Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:09:27.6323838Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:09:27.6324402Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:09:27.6324972Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:09:27.6325604Z ##[endgroup]
+2026-11-19T10:09:27.7078381Z Creative bridge: serialization, UTF-8 size, dispatch, host rejection, pending choice/save recovery and bounded DOM inspection passed.
+2026-11-19T10:09:27.7156015Z ##[group]Run ./gradlew :app:testDebugUnitTest \
+2026-11-19T10:09:27.7156429Z [36;1m./gradlew :app:testDebugUnitTest \[0m
+2026-11-19T10:09:27.7156788Z [36;1m  --tests 'com.aicompanion.localfirst.qq.*Test' \[0m
+2026-11-19T10:09:27.7157193Z [36;1m  --tests 'com.aicompanion.localfirst.pet.*Test' \[0m
+2026-11-19T10:09:27.7157939Z [36;1m  --tests 'com.catkiss.senlive2dcompanion.Caicai*Test' \[0m
+2026-11-19T10:09:27.7158421Z [36;1m  --tests 'com.catkiss.senlive2dcompanion.Deepseek*Test' \[0m
+2026-11-19T10:09:27.7158938Z [36;1m  --tests 'com.aicompanion.localfirst.CalendarReminderScheduleTest' \[0m
+2026-11-19T10:09:27.7159451Z [36;1m  --tests 'com.aicompanion.localfirst.RoomTiltFilterTest' \[0m
+2026-11-19T10:09:27.7159945Z [36;1m  --tests 'com.aicompanion.localfirst.SpeechPlaybackTimelineTest' \[0m
+2026-11-19T10:09:27.7160472Z [36;1m  --tests 'com.aicompanion.localfirst.TtsFailureCategoryTest' \[0m
+2026-11-19T10:09:27.7161019Z [36;1m  --tests 'com.aicompanion.localfirst.VoiceExportOwnershipTest' \[0m
+2026-11-19T10:09:27.7161527Z [36;1m  --tests 'com.aicompanion.localfirst.VoiceExportPcmTuningTest' \[0m
+2026-11-19T10:09:27.7162055Z [36;1m  --tests 'com.catkiss.senlive2dcompanion.RoomMotionInterpolatorTest' \[0m
+2026-11-19T10:09:27.7162568Z [36;1m  --tests 'com.aicompanion.localfirst.AvatarDefaultsTest' \[0m
+2026-11-19T10:09:27.7163007Z [36;1m  --tests 'com.aicompanion.localfirst.Overlay*Test' \[0m
+2026-11-19T10:09:27.7163495Z [36;1m  --tests 'com.aicompanion.localfirst.HistoricalAnrTraceSanitizerTest' \[0m
+2026-11-19T10:09:27.7164093Z [36;1m  --tests 'com.aicompanion.localfirst.HistoricalNativeTombstoneSanitizerTest' \[0m
+2026-11-19T10:09:27.7164704Z [36;1m  --tests 'com.aicompanion.localfirst.AccessibilityEventLoadShedderTest' \[0m
+2026-11-19T10:09:27.7165258Z [36;1m  --tests 'com.aicompanion.localfirst.MultipartBackupArchiveTest' \[0m
+2026-11-19T10:09:27.7165744Z [36;1m  --tests 'com.aicompanion.localfirst.PrivacyFilterTest' \[0m
+2026-11-19T10:09:27.7166244Z [36;1m  --tests 'com.catkiss62.geniettsbenchmark.AssetIntegrityPolicyTest'[0m
+2026-11-19T10:09:27.7199683Z shell: /usr/bin/bash -e {0}
+2026-11-19T10:09:27.7199935Z env:
+2026-11-19T10:09:27.7200207Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.7200664Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib/pkgconfig
+2026-11-19T10:09:27.7201121Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.7201510Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.7201895Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.18/x64
+2026-11-19T10:09:27.7202284Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.18/x64/lib
+2026-11-19T10:09:27.7202709Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:27.7203189Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.21-9/x64
+2026-11-19T10:09:27.7203663Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-11-19T10:09:27.7204033Z   PUB_CACHE: /home/runner/.pub-cache
+2026-11-19T10:09:27.7204568Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-11-19T10:09:27.7205299Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-11-19T10:09:27.7205623Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-11-19T10:09:27.7206242Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-11-19T10:09:27.7206696Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-11-19T10:09:27.7207154Z ##[endgroup]
+2026-11-19T10:09:27.8726671Z Downloading https://services.gradle.org/distributions/gradle-8.12-all.zip
+2026-11-19T10:09:29.5649787Z ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+2026-11-19T10:09:29.5690361Z Unzipping /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12-all.zip to /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb
+2026-11-19T10:09:32.3979282Z Set executable permissions for: /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12/bin/gradle
+2026-11-19T10:09:32.8240163Z 
+2026-11-19T10:09:32.8241888Z Welcome to Gradle 8.12!
+2026-11-19T10:09:32.8242302Z 
+2026-11-19T10:09:32.8243212Z Here are the highlights of this release:
+2026-11-19T10:09:32.8245338Z  - Enhanced error and warning reporting with the Problems API
+2026-11-19T10:09:32.8246919Z  - File-system watching support on Alpine Linux
+2026-11-19T10:09:32.8248316Z  - Build and test Swift 6 libraries and apps
+2026-11-19T10:09:32.8248749Z 
+2026-11-19T10:09:32.8250760Z For more details see https://docs.gradle.org/8.12/release-notes.html
+2026-11-19T10:09:32.8251287Z 
+2026-11-19T10:09:32.9232666Z Starting a Gradle Daemon (subsequent builds will be faster)
+2026-11-19T10:09:56.1233175Z 
+2026-11-19T10:09:56.1236762Z FAILURE: Build failed with an exception.
+2026-11-19T10:09:56.1237170Z 
+2026-11-19T10:09:56.1253925Z * Where:
+2026-11-19T10:09:56.1255496Z Build file '/opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/build.gradle.kts' line: 7
+2026-11-19T10:09:56.1256419Z 
+2026-11-19T10:09:56.1256585Z * What went wrong:
+2026-11-19T10:09:56.1257371Z Plugin [id: 'org.gradle.kotlin.kotlin-dsl', version: '5.1.2'] was not found in any of the following sources:
+2026-11-19T10:09:56.1258294Z 
+2026-11-19T10:09:56.1258584Z - Gradle Core Plugins (plugin is not in 'org.gradle' namespace)
+2026-11-19T10:09:56.1259334Z - Included Builds (No included builds contain this plugin)
+2026-11-19T10:09:56.1260656Z - Plugin Repositories (could not resolve plugin artifact 'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:5.1.2')
+2026-11-19T10:09:56.1261942Z   Searched in the following repositories:
+2026-11-19T10:09:56.1262738Z     maven(https://maven-central.storage-download.googleapis.com/maven2/)
+2026-11-19T10:09:56.1263330Z 
+2026-11-19T10:09:56.1263464Z * Try:
+2026-11-19T10:09:56.1263907Z > Run with --stacktrace option to get the stack trace.
+2026-11-19T10:09:56.1264572Z > Run with --info or --debug option to get more log output.
+2026-11-19T10:09:56.1265183Z > Run with --scan to get full insights.
+2026-11-19T10:09:56.1265733Z > Get more help at https://help.gradle.org.
+2026-11-19T10:09:56.1266115Z 
+2026-11-19T10:09:56.1266267Z BUILD FAILED in 28s
+2026-11-19T10:09:56.5211522Z ##[error]Process completed with exit code 1.
+2026-11-19T10:09:56.5422110Z Post job cleanup.
+2026-11-19T10:09:56.5483830Z Post job cleanup.
+2026-11-19T10:09:56.6854570Z (node:8978) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-19T10:09:56.6855498Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-19T10:09:56.7029937Z Post job cleanup.
+2026-11-19T10:09:56.8005802Z [command]/usr/bin/git version
+2026-11-19T10:09:56.8054823Z git version 2.56.1
+2026-11-19T10:09:56.8099923Z Temporarily overriding HOME='/home/runner/work/_temp/733505b9-6b7a-42d4-ad1d-e36e9ff81369' before making global git config changes
+2026-11-19T10:09:56.8101557Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-19T10:09:56.8105583Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-11-19T10:09:56.8148239Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-19T10:09:56.8194336Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-19T10:09:56.8515262Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-19T10:09:56.8548565Z http.https://github.com/.extraheader
+2026-11-19T10:09:56.8559260Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-19T10:09:56.8596543Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-19T10:09:56.8953630Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-19T10:09:56.8994041Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-19T10:09:56.9473285Z Cleaning up orphan processes
+2026-11-19T10:09:56.9814663Z Terminate orphan process: pid (8911) (java)
+2026-11-19T10:09:56.9877993Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a3eee4e2f7d6a16f49a8
