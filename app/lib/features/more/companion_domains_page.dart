@@ -5,6 +5,7 @@ import '../illustration/illustration_settings_page.dart';
 import '../reference/reference_library_page.dart';
 import '../relationship/relationship_page.dart';
 import '../self/personality_appearance_page.dart';
+import '../settings/sticker_settings_page.dart';
 import '../settings/rule_layers_page.dart';
 import '../settings/cedar_toy_settings_page.dart';
 import '../settings/qq_private_settings_page.dart';
@@ -21,6 +22,12 @@ class CompanionDomainPage extends StatelessWidget {
             title: '外观与动态状态',
             subtitle: '固定外观真源与默认关闭的 Moe 实验层',
             onTap: () => _push(context, const PersonalityAppearancePage()),
+          ),
+          _DomainEntry(
+            icon: Icons.rule_folder_outlined,
+            title: '七大规则',
+            subtitle: '查看与编辑七大规则',
+            onTap: () => _push(context, const RuleLayersPage()),
           ),
           _DomainEntry(
             icon: Icons.auto_stories_outlined,
@@ -75,6 +82,12 @@ class CapabilitiesDomainPage extends StatelessWidget {
             onTap: () => Navigator.of(context).pushNamed('/settings'),
           ),
           _DomainEntry(
+            icon: Icons.emoji_emotions_outlined,
+            title: '表情包',
+            subtitle: '本地图库导入、启用与单聊表达强度',
+            onTap: () => _push(context, const StickerSettingsPage()),
+          ),
+          _DomainEntry(
             icon: Icons.auto_awesome_outlined,
             title: '生图',
             subtitle: '出图服务、主动附图和日记配图',
@@ -119,7 +132,7 @@ class DataAdvancedDomainPage extends StatelessWidget {
           _DomainEntry(
             icon: Icons.rule_folder_outlined,
             title: '七大规则',
-            subtitle: '运行规则的唯一编辑入口',
+            subtitle: '查看与编辑七大规则',
             onTap: () => _push(context, const RuleLayersPage()),
           ),
           _DomainEntry(

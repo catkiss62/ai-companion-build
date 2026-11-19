@@ -11,6 +11,8 @@ import '../../core/sync/snapshot_service.dart';
 import '../../core/sync/snapshot_restore_coordinator.dart';
 import '../../core/phone/calendar_reminder_store.dart';
 
+enum _LogKind { info, success, failure }
+
 class TransferPage extends StatefulWidget {
   const TransferPage({super.key, this.database});
 
@@ -27,7 +29,7 @@ class _TransferPageState extends State<TransferPage> {
   late final SnapshotService snapshots = SnapshotService(db);
 
   SnapshotBundle? outboundBundle;
-  String? log;
+  final _log = <({String text, _LogKind kind})>[];
   bool busy = false;
   bool importedStandby = false;
 
@@ -91,10 +93,10 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
-  void _append(String text) {
+  void _append(String text, {_LogKind kind = _LogKind.info}) {
     if (!mounted) return;
     final now = TimeOfDay.now().format(context);
-    setState(() => log = '${log ?? ''}${log == null ? '' : '\n'}[$now] $text');
+    setState(() => _log.add((text: '[$now] $text', kind: kind)));
   }
 
   Future<void> _waitForStateWriters() async {
@@ -242,6 +244,7 @@ class _TransferPageState extends State<TransferPage> {
       result.metadata.legacy
           ? '旧版状态包已安全导入，本机保持待机；确认旧设备下线后再手动接管。'
           : '状态已导入，本机保持待机；确认源设备已下线后可手动接管。',
+      kind: _LogKind.success,
     );
     return result;
   }
@@ -381,6 +384,7 @@ class _TransferPageState extends State<TransferPage> {
         _append(
           '接管包超过 512 MiB，已取消本次接管冻结；本机保持 Active。'
           '请使用“保存备份”，它会保存成一个可直接选择的备份文件。',
+          kind: _LogKind.failure,
         );
         return;
       }
@@ -414,6 +418,7 @@ class _TransferPageState extends State<TransferPage> {
       setState(() => importedStandby = true);
       _append(
         '加密手动接管包已保存。本机已主动进入 standby；把 .aicomp 文件传到目标设备后再导入。',
+        kind: _LogKind.success,
       );
     } catch (e) {
       if (bundle != null) {
@@ -421,7 +426,7 @@ class _TransferPageState extends State<TransferPage> {
       } else {
         await db.setSetting('transfer_lock', '0');
       }
-      _append('手动导出失败：$e');
+      _append('手动导出失败：$e', kind: _LogKind.failure);
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -448,7 +453,7 @@ class _TransferPageState extends State<TransferPage> {
     } catch (e) {
       final active = await db.getSetting('active_brain');
       if (active != '0') await db.setSetting('transfer_lock', '0');
-      _append('手动导入失败（口令错误、文件损坏或状态包不兼容）：$e');
+      _append('手动导入失败（口令错误、文件损坏或状态包不兼容）：$e', kind: _LogKind.failure);
     } finally {
       if (decryptedPath != null) await _deleteCachePath(decryptedPath);
       if (mounted) setState(() => busy = false);
@@ -529,11 +534,12 @@ class _TransferPageState extends State<TransferPage> {
       _append(
         '备份文件已保存，文件格式与传输校验通过（'
         '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
-        '以后恢复时直接选择这个 .aibackup 文件即可；本机仍可继续正常使用。'
-        '${bundle.metadata.missingMediaWarning.isEmpty ? '' : '\n${bundle.metadata.missingMediaWarning}'}',
+        '以后恢复时直接选择这个 .aibackup 文件即可；本机仍可继续正常使用。',
+        kind: _LogKind.success,
       );
+      if (bundle.metadata.missingMediaWarning.isNotEmpty) _append(bundle.metadata.missingMediaWarning);
     } catch (e) {
-      _append('保存备份失败：$e。本机数据和主设备状态没有改变。');
+      _append('保存备份失败：$e。本机数据和主设备状态没有改变。', kind: _LogKind.failure);
     } finally {
       if (bundle != null) await _deleteCachePath(bundle.filePath);
       if (freezeToken != null) {
@@ -547,11 +553,12 @@ class _TransferPageState extends State<TransferPage> {
     setState(() => busy = true);
     try {
       final saved = await CheckPackExport(db).save();
-      _append(saved ? '精简检查包已保存，包含近期记录和图片索引。' : '已取消保存检查包。');
+      _append(saved ? '精简检查包已保存，包含近期记录和图片索引。' : '已取消保存检查包。',
+          kind: saved ? _LogKind.success : _LogKind.info);
     } on FormatException catch (error) {
-      _append('检查包导出失败：${error.message}');
+      _append('检查包导出失败：${error.message}', kind: _LogKind.failure);
     } catch (_) {
-      _append('检查包导出失败，请稍后重试。');
+      _append('检查包导出失败，请稍后重试。', kind: _LogKind.failure);
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -607,24 +614,24 @@ class _TransferPageState extends State<TransferPage> {
         return;
       }
       if (result.recoveryPending) {
-        _append(result.completionWarning);
+        _append(result.completionWarning, kind: _LogKind.failure);
         return;
       }
       if (result.metadata.missingMediaWarning.isNotEmpty) _append(result.metadata.missingMediaWarning);
       if (result.completionWarning.isNotEmpty) _append(result.completionWarning);
       if (result.requiresManualTakeover) {
         if (mounted) setState(() => importedStandby = true);
-        _append('备份已恢复并通过校验。这是另一台设备的备份，本机先保持待机；确认原设备已停用后再手动接管。');
+        _append('备份已恢复并通过校验。这是另一台设备的备份，本机先保持待机；确认原设备已停用后再手动接管。', kind: _LogKind.success);
       } else {
         try {
           await _syncRemindersSafely();
           await android.reconcileOverlayAfterTakeover();
         } catch (_) {}
         if (mounted) setState(() => importedStandby = false);
-        _append('备份已恢复并通过校验。本机仍是当前主设备，可以继续正常使用。');
+        _append('备份已恢复并通过校验。本机仍是当前主设备，可以继续正常使用。', kind: _LogKind.success);
       }
     } catch (e) {
-      _append('恢复备份未完成：$e');
+      _append('恢复备份未完成：$e', kind: _LogKind.failure);
     } finally {
       if (restoredPath != null) await _deleteCachePath(restoredPath);
       if (freezeToken != null) {
@@ -720,14 +727,26 @@ class _TransferPageState extends State<TransferPage> {
           ],
         ),
         const SizedBox(height: 18),
-        if (log != null)
+        if (_log.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: SelectableText(log!),
+            child: SelectableText.rich(
+              TextSpan(children: [
+                for (final (index, entry) in _log.indexed)
+                  TextSpan(
+                    text: index == 0 ? entry.text : '\n${entry.text}',
+                    style: switch (entry.kind) {
+                      _LogKind.success => TextStyle(color: Theme.of(context).colorScheme.primary),
+                      _LogKind.failure => TextStyle(color: Theme.of(context).colorScheme.error),
+                      _LogKind.info => null,
+                    },
+                  ),
+              ]),
+            ),
           ),
         const SizedBox(height: 18),
         const Text(

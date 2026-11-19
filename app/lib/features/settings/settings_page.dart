@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'capability_help_page.dart';
 import 'settings_category_pages.dart';
-import 'cedar_toy_settings_page.dart';
-import 'sticker_settings_page.dart';
-import 'qq_private_settings_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -41,24 +38,6 @@ class SettingsPage extends StatelessWidget {
         title: '语音与聊天呈现',
         subtitle: '本地 TTS、情绪、立绘、背景、透明度与文字演出',
         page: const PresentationSettingsPage(),
-      ),
-      _SettingsDomain(
-        icon: Icons.emoji_emotions_outlined,
-        title: '表情包',
-        subtitle: '本地图库导入、启用与单聊表达强度',
-        page: const StickerSettingsPage(),
-      ),
-      _SettingsDomain(
-        icon: Icons.sports_esports_outlined,
-        title: 'Cedar Toy 游戏厅',
-        subtitle: '小机账号、MCP Token、绑定码与连接测试',
-        page: const CedarToySettingsPage(),
-      ),
-      _SettingsDomain(
-        icon: Icons.chat_bubble_outline,
-        title: 'QQ 私聊',
-        subtitle: '独立后台连接、绑定身份与只读记忆',
-        page: const QqPrivateSettingsPage(),
       ),
       _SettingsDomain(
         icon: Icons.devices_other_outlined,
