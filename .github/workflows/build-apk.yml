@@ -1861,14 +1861,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.214+458 Playback Diary' \
-              --notes 'Restores the diary list and adds shared calendar access from diary and notes. Fixes wish generation after cooldown, replay language ownership, attachment refresh and Android animation lifecycle. Original signer. Unpublished test build.'
+              --notes 'Restores the diary list and adds shared calendar access from diary and notes. Rechecks wish generation when cooldown expires. Overlay replay preserves the preferred language. Also includes attachment refresh and Android visibility and capture fixes. Original signer. Unpublished test build.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.214+458 Playback Diary' \
-              --notes 'Restores the diary list and adds shared calendar access from diary and notes. Fixes wish generation after cooldown, replay language ownership, attachment refresh and Android animation lifecycle. Original signer. Unpublished test build.'
+              --notes 'Restores the diary list and adds shared calendar access from diary and notes. Rechecks wish generation when cooldown expires. Overlay replay preserves the preferred language. Also includes attachment refresh and Android visibility and capture fixes. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1967,7 +1967,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.214+458 Playback Diary' \
-              --notes 'Restores the diary list and adds shared calendar access from diary and notes. Fixes wish generation after cooldown, replay language ownership, attachment refresh and Android animation lifecycle. Original signer. Unpublished test build.'
+              --notes 'Restores the diary list and adds shared calendar access from diary and notes. Rechecks wish generation when cooldown expires. Overlay replay preserves the preferred language. Also includes attachment refresh and Android visibility and capture fixes. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
