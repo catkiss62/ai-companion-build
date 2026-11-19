@@ -42,14 +42,25 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
         suggestedName:'chat-memory-1.0-$suite-${DateTime.now().millisecondsSinceEpoch}.json.gz');
     }catch(_){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('报告导出失败')));}
   }
-  Widget _score(String label, int passed, int total, {bool bar = false}) {
-    if (total == 0) return Text('$label · 暂无已判题目');
+  String _percentage(double rate) {
+    final percentage = (rate * 100).toStringAsFixed(1);
+    return '${percentage.endsWith('.0') ? percentage.substring(0, percentage.length - 2) : percentage}%';
+  }
+
+  Widget _overallScore(String label, int passed, int total) {
+    final purple = TextStyle(color: Theme.of(context).colorScheme.primary);
+    if (total == 0) return Text('$label · 暂无已判题目', style: purple);
     final rate = passed / total;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('$label  $passed/$total · ${(rate * 100).toStringAsFixed(1)}%'),
-      if (bar) Padding(padding: const EdgeInsets.symmetric(vertical: 6),
-        child: LinearProgressIndicator(value: rate)),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('$label  $passed/$total · ${_percentage(rate)}', style: purple),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: LinearProgressIndicator(value: rate),
+        ),
+      ],
+    );
   }
 
   List<Widget> _groupRows(String kind, Map values) {
@@ -57,18 +68,41 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
     int compareLabel(MapEntry a, MapEntry b) => a.key.toString().compareTo(b.key.toString());
     double rate(MapEntry e) => e.value['total'] == 0 ? 0 : e.value['passed'] / e.value['total'];
     if (kind == 'content_tags') {
-      entries.sort((a,b) {
+      entries.sort((a, b) {
         final cmp = rate(a).compareTo(rate(b));
-        return cmp == 0 ? compareLabel(a,b) : cmp;
+        return cmp == 0 ? compareLabel(a, b) : cmp;
       });
     } else if (kind == 'interval_days') {
-      entries.sort((a,b) => int.parse(a.key.toString()).compareTo(int.parse(b.key.toString())));
+      entries.sort((a, b) => int.parse(a.key.toString()).compareTo(int.parse(b.key.toString())));
     }
-    return [for (final e in entries) Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: _score(kind == 'interval_days' ? (e.key.toString() == '0' ? '当天' : '隔 ${e.key} 天') : e.key.toString(),
-        e.value['passed'] as int, e.value['total'] as int, bar: kind == 'interval_days'),
-    )];
+    return [
+      for (final entry in entries)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text(kind == 'interval_days'
+                      ? (entry.key == '0' ? '当天' : '隔 ${entry.key} 天')
+                      : entry.key.toString())),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_percentage(rate(entry))} · ${entry.value['passed']}/${entry.value['total']}',
+                    textAlign: TextAlign.right,
+                  ),
+                ],
+              ),
+              if (kind == 'content_tags' || kind == 'interval_days')
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: LinearProgressIndicator(value: rate(entry), minHeight: 4),
+                ),
+            ],
+          ),
+        ),
+    ];
   }
   @override
   Widget build(BuildContext context){
@@ -91,15 +125,18 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
           if(!complete) FilledButton(onPressed:loading?null:()=>_run(fresh:false),child:Text(status.isEmpty?'开始本卷（会产生 API 费用）':'继续本卷')),
           if(status.isNotEmpty)...[
             Text('${state??'已保存'} · 已整理 ${status['turns']} 轮 · 已答 ${status['answered']} / ${run.total}'),
-            _score(complete ? '总通过率' : '已判题目通过率', summary['passed'] as int? ?? 0, status['judged'] as int? ?? 0, bar: true),
+            _overallScore(complete ? '总通过率' : '已判题目通过率', summary['passed'] as int? ?? 0, status['judged'] as int? ?? 0),
             if(status['error']!=null)Text('上次停在 ${status['stage']}（${status['error']}）'),
             Text('已估算 ¥${((status['cny']??0) as num).toStringAsFixed(5)}'
               '${(status['unknown']??0)>0?'，另有 ${status['unknown']} 笔未计价':''}'),
             if(status['balance_after'] case final String b) Text(b),
             if(summary['groups'] case final Map groups)
-              for(final group in groups.entries) ExpansionTile(
-                title:Text({'persona':'按人物','content_tags':'按考点','interval_days':'按间隔天数'}[group.key]??group.key.toString()),
-                children:_groupRows(group.key.toString(),group.value as Map)),
+              for (final group in groups.entries)
+                if (group.key != 'persona' || suite != 'demo')
+                  ExpansionTile(
+                    title: Text({'persona':'按人物','content_tags':'按考点','interval_days':'按间隔天数'}[group.key] ?? group.key.toString()),
+                    children: _groupRows(group.key.toString(), group.value as Map),
+                  ),
             OutlinedButton(onPressed:_export,child:const Text('导出报告和逐题证据（压缩 JSON）')),
             TextButton(onPressed:()=>_run(fresh:true),child:const Text('重新开始本卷')),
           ],
