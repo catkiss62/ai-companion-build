@@ -21,7 +21,7 @@ class OfficialMemoryExam {
     return databaseFactory.openDatabase('${dir.path}/journal.sqlite',options:OpenDatabaseOptions(singleInstance:false,version:1,
       onCreate:(db,_) async { await db.execute('CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL)'); }));
   }
-  Future<void> put(Database db,String key,dynamic value) async {
+  Future<void> put(DatabaseExecutor db,String key,dynamic value) async {
     await db.insert('records',{'key':key,'value':jsonEncode(value)},conflictAlgorithm:ConflictAlgorithm.replace);
   }
   Future<dynamic> get(Database db,String key) async {
@@ -101,6 +101,7 @@ class OfficialMemoryExam {
       final transport=session._client(meter:(id,event)=>put(log,'cost:$id',{'id':id,...event}));
       client=transport;
       final config=SecureConfig.instance;
+      final deferred = <String>[];
       for(final person in histories.keys.cast<String>().toList()..sort()){
         final exam=questions.where((q)=>q['persona']==person).toList();
         final history=histories[person] as List;
@@ -207,22 +208,59 @@ class OfficialMemoryExam {
           final packet=materials['packet'] as Map;
           final db=await openPerson();
           final model=await FirstChannelModel.read(db);
-          final review=await transport.jsonCompletion(apiKey:await config.readApiKey()??'',endpoint:await config.readEndpoint(),
-            model:model,thinking:false,maxTokens:2500,usageLane:'memory_benchmark_judge',
-            messages:[{'role':'system','content':materials['instruction']},
-              {'role':'user','content':jsonEncode(packet)}]);
-          final judgment=await native('score',{'packet':packet,'review':review});
-          await put(log,'judge:$id',{'id':id,'model':model.apiName,'rubric':packet['rubric'],'facts':packet['facts'],'sources':packet['sources'],'review':review,'judgment':judgment});
+          final pendingKey = 'pending:$id';
+          final cached = (await get(log, pendingKey) as Map?) ?? const {};
+          final countRequired = (packet['rubric']['required'] as List).length;
+          final hashes = {
+            for (final key in ['id', 'answer_sha256', 'rubric_sha256']) key: packet[key]
+          };
+          final samePacket = hashes.entries.every((entry) => cached[entry.key] == entry.value);
+          final previousError = samePacket ? cached['validation_error'] : null;
+          final reuse = samePacket && previousError == null;
+          final raw = reuse ? Map<String, dynamic>.from(cached['raw'] as Map)
+              : await transport.jsonCompletion(apiKey:await config.readApiKey()??'',endpoint:await config.readEndpoint(),
+                  model:model,thinking:false,maxTokens:2500,usageLane:'memory_benchmark_judge',
+                  messages:[{'role':'system','content':
+                    "${materials['instruction']}\n本接口由程序填写题号和两个哈希。只输出语义判断。"
+                    "required 必须恰有 $countRequired 个布尔值，每个原卷数组元素对应一个判断；同一项内的分号不能拆项。"
+                    "${previousError == null ? '' : '上次未通过格式校验：$previousError'}"},
+                    {'role':'user','content':jsonEncode(packet)}]);
+          final attempt = {...hashes, 'raw':raw, 'model':reuse ? cached['model'] : model.apiName};
+          if (!reuse) await put(log, pendingKey, attempt);
+          final review = {...raw, ...hashes};
+          Map<String,dynamic> judgment;
+          try {
+            judgment = await native('score', {'packet':packet,'review':review});
+          } on PlatformException catch (error) {
+            final detail = error.message ?? error.code;
+            if (error.code != 'benchmark_failed' ||
+                !RegExp(r'Invalid required decisions|All error flags must be booleans|All detail fields must be lists|Non-empty reason required').hasMatch(detail)) {
+              rethrow;
+            }
+            await put(log, pendingKey, {...attempt,'validation_error':detail});
+            deferred.add(id);
+            continue;
+          }
+          await log.transaction((txn) async {
+            await put(txn,'judge:$id',{'id':id,'model':attempt['model'],'rubric':packet['rubric'],'facts':packet['facts'],'sources':packet['sources'],'review':review,'judgment':judgment});
+            await txn.delete('records',where:'key=?',whereArgs:[pendingKey]);
+          });
         }
         await memoryIndex.waitForIndex();
         if(personDb!=null) await personDb!.close();
         live=null;index=null;
       }
-      await put(log,'state','completed');
+      if (deferred.isEmpty) {
+        await put(log,'state','completed');
+      } else {
+        await put(log,'stage','待补判 ${deferred.length} 题（${deferred.first}）');
+        await put(log,'error','裁判格式未通过校验，继续本卷可补判');
+        await put(log,'state','error');
+      }
     } catch(error){
       if(journal==null) rethrow;
       await put(journal,'state',session.stopped?'paused':'error');
-      await put(journal,'error',session.stopped?null:error.runtimeType.toString());
+      await put(journal,'error',session.stopped ? null : error is PlatformException ? '${error.code} · ${error.message ?? error.runtimeType}' : error.runtimeType.toString());
     } finally {
       try {
         client?.close();await index?.waitForIndex();
@@ -256,7 +294,7 @@ class OfficialMemoryExam {
           'exam_timezone':'+08:00','maintenance':['native post-turn extraction','daily continuity','memory fading at logical time'],
           'dream_replayed':false,'background_jobs_replayed':false,
           'writer':'configured app route','judge':'configured first channel; author-side semantic review'},
-        'answers':await records(db,'answer'),'reviews':await records(db,'judge'),'costs':await records(db,'cost')};
+        'answers':await records(db,'answer'),'reviews':await records(db,'judge'),'pending_reviews':await records(db,'pending'),'costs':await records(db,'cost')};
       await file.writeAsBytes(gzip.encode(utf8.encode(jsonEncode(output))),flush:true);
       return file;
     }finally{await db.close();}
