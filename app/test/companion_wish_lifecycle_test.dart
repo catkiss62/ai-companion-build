@@ -387,6 +387,23 @@ void main() {
         expect(calls, 1);
       },
     );
+    test('unchanged material gets one proposal opportunity after a review-only cooldown', () async {
+      await seed();
+      await db.insertMessage(ChatMessage(id: 'u-test', role: 'user',
+        content: '我们周末可以一起认一认阳台上的花', createdAt: at));
+      await db.setSetting(WishEngine.generationKey, '${at.millisecondsSinceEpoch}');
+      final gates = <bool>[];
+      final engine = WishEngine(db, reviewer: (material) async {
+        gates.add(material['can_generate'] == true);
+        return {'updates': []};
+      });
+      await engine.maybeRefresh(now: at);
+      await engine.maybeRefresh(now: at.add(const Duration(hours: 3)));
+      await engine.maybeRefresh(now: at.add(const Duration(hours: 13)));
+      await engine.maybeRefresh(now: at.add(const Duration(hours: 16)));
+      expect(gates, [false, true]);
+    });
+
     test(
       'foreground chat fences a pending review and preserves current state',
       () async {

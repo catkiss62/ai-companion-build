@@ -233,6 +233,22 @@ void main() {
     );
   }
 
+  test('an empty overlay replay releases its claim and preserves the preferred language', () async {
+    const channel = MethodChannel('ai_companion/tts');
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async => call.method == 'claimPlayback' ? 7 : null);
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    await db.setSetting('tts_language', 'en');
+    final chat = ChatController(db: db);
+    addTearDown(chat.dispose);
+    final before = chat.ttsPlayback.generation;
+    await chat.speakMessage(ChatMessage(id:'empty',role:'assistant',content:'',createdAt:DateTime.now()),
+      rememberLanguage: false);
+    // One generation for the claim, one to release it without playing.
+    expect(chat.ttsPlayback.generation, before + 2);
+    expect(await db.getSetting('tts_language'), 'en');
+  });
+
   test('cached foreign speech cannot replay a superseded reply', () async {
     final id = await start();
     final old = await complete(id, '「旧正文」');

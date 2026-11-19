@@ -71,7 +71,8 @@ void main() {
     final apps = buildApps(null, ({bool silent = false}) async {});
     expect(apps.map((a) => a.title).toList(),
       ['相册', '浏览器', '心情', '塔罗牌', '愿望单', '日记', '随笔', '日历']);
-    expect(apps[5].page, isA<PhoneCalendarPage>());
+    expect(apps[5].page, isA<DiaryPage>());
+    expect(apps[6].page, isA<NotesPage>());
     expect(apps[7].page, isA<PhoneCalendarPage>());
   });
 

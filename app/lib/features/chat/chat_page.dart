@@ -1444,7 +1444,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       height:_caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child:RoomDepthBackground(
                         enabled: _backgroundDepth, strength: _backgroundDepthStrength,
-                        active: widget.active && _appResumed,
+                        active: widget.active && _appResumed && TickerMode.of(context),
                         asset: _useNightBackground
                             ? 'assets/lingchat/background/night.webp'
                             : 'assets/lingchat/background/day.webp',
@@ -1454,7 +1454,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       // Keep AndroidView and its GL buffer full size under the IME.
                       height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
-                          ? CaicaiLive2DStage(qForm: visualQForm, emotion: _currentEmotion.key, active: widget.active,
+                          ? CaicaiLive2DStage(qForm: visualQForm, emotion: _currentEmotion.key,
+                              active: widget.active && _appResumed && TickerMode.of(context),
                               sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!),
                               depthEnabled: _backgroundDepth, depthStrength: _backgroundDepthStrength,
                               backgroundAsset: _useNightBackground
@@ -1482,7 +1483,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                         child: ChatEmotionEffectLayer(
                           emotion: _currentEmotion, replyId: latestAssistantId,
                           enabled: _emotionAnimationEnabled,
-                          active: widget.active && _appResumed,
+                          active: widget.active && _appResumed && TickerMode.of(context),
                           generating: controller.generationActive,
                           qForm: visualQForm)),
                     Positioned(

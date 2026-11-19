@@ -32,8 +32,27 @@ script=script.replace(pendant_position, pendant_position+'''
  if(time-lastPendantReport>.032){
   lastPendantReport=time;NativeSlice.pendantPosition(pose.x,pose.y);
  }''')
+# The host view and the document have independent visibility lifecycles.
+script=script.replace('visible=true,ropeLength', 'visible=false,ropeLength')
+script=script.replace('requestAnimationFrame(frame)', 'scheduleHostFrame()')
+script=script.replace('function frame(ts){', 'function frame(ts){hostFrame=null;if(!visible)return;')
+a=script.index("document.addEventListener('visibilitychange'")
+b=script.index('});',a)+3
+script=script[:a]+"document.addEventListener('visibilitychange',syncHostVisibility);"+script[b:]
 # Native calls are JSON-encoded; text is never evaluated as code.
 script+='''
+let hostFrame=null,hostShown=false;
+function scheduleHostFrame(){
+ if(loaded&&visible&&hostFrame===null)hostFrame=requestAnimationFrame(frame);
+}
+function syncHostVisibility(){
+ const next=hostShown&&!document.hidden;
+ if(next===visible)return;
+ visible=next;last=0;acc=0;
+ if(next){scheduleHostFrame();return;}
+ if(hostFrame!==null){cancelAnimationFrame(hostFrame);hostFrame=null;}
+ exitGame();
+}
 function cancelHostPointers(){for(const [element,id] of [[pendant,pullPointer],[$('gesture'),activePointer]]){if(id!==null&&element.hasPointerCapture(id))element.releasePointerCapture(id);}drag=null;pullPointer=null;pullStart=null;activePointer=null;swipeSound.reset();pending=null;trail=[];}
 window.sliceHost={
  motion(x,y,reset=false){
@@ -44,12 +63,12 @@ window.sliceHost={
  configure(layout){hostLayout=layout;hostReady=true;$('hud').style.top=(layout.hudTop+8)+'px';resize();},
  start(snapshot){startWaiting=false;if(!hostReady||!visible)return;hostGlyphs=snapshot;startCapturedGame();},
  reset(){exitGame();},
- suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;visible=false;exitGame();last=0;acc=0;},
- resume(){visible=true;last=0;acc=0;},
+ suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;hostShown=false;syncHostVisibility();},
+ resume(){hostShown=true;syncHostVisibility();},
 };
 window.addEventListener('error',()=>NativeSlice.failed());
 window.addEventListener('unhandledrejection',()=>NativeSlice.failed());
-setInterval(()=>NativeSlice.heartbeat(),500);
+setInterval(()=>{if(visible&&mode!=='idle')NativeSlice.heartbeat();},500);
 '''
 # Use only gameplay CSS; old mock DOM, hints and sound controls are absent.
 css='''*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important;color:#f4f2fb;font-family:system-ui;user-select:none;touch-action:none}#app{position:relative;width:100%;height:100%;overflow:hidden}button{font:inherit;color:inherit;border:0;background:none}#canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}#gesture{position:absolute;inset:0;display:none;z-index:6;touch-action:none}.playing #gesture{display:block}#pendant{position:absolute;width:64px;height:64px;z-index:20;touch-action:none;outline:none}#hud{position:absolute;left:20px;z-index:8;display:none;pointer-events:none}#score{font-size:30px;font-weight:800}#hud small{margin-left:5px}#subscore{font-size:11px;margin-top:3px;color:#d0c7e6}.playing #hud{display:block}#result{display:none;position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:240px;padding:22px;border:1px solid #b7a0dc80;border-radius:22px;background:#252439ed;text-align:center;z-index:15;box-shadow:0 12px 45px #0004}#result h2{font-size:19px;color:#ffd1df;margin:0 0 10px}#again{padding:10px 20px;border-radius:20px;background:#cdb4f2;color:#302640;font-weight:700}#damage{position:absolute;inset:0;pointer-events:none;z-index:9;opacity:0;background:radial-gradient(ellipse at center,#ff526320,#e125505c);transition:opacity .28s ease-out}'''

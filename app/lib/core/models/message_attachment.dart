@@ -47,6 +47,15 @@ class MessageAttachment {
   final int visionAttempts;
   final DateTime? visionUpdatedAt;
 
+  bool sameStoredFields(MessageAttachment other) =>
+      id == other.id && messageId == other.messageId && blobId == other.blobId &&
+      kind == other.kind && originalPath == other.originalPath && thumbnailPath == other.thumbnailPath &&
+      mimeType == other.mimeType && byteSize == other.byteSize && width == other.width &&
+      height == other.height && source == other.source && createdAt == other.createdAt &&
+      visionStatus == other.visionStatus && visionSummary == other.visionSummary &&
+      visionModel == other.visionModel && visionError == other.visionError &&
+      visionAttempts == other.visionAttempts && visionUpdatedAt == other.visionUpdatedAt;
+
   bool get isImage => kind == imageKind;
   bool get visionPending =>
       visionStatus == visionPendingStatus ||

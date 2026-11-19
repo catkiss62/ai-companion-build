@@ -182,6 +182,7 @@ class BackgroundChatCommandServer {
                   ChatLanguage.chinese;
           await controller.speakMessage(
             message,
+            rememberLanguage: false,
             language: message.hasLanguage(selected)
                 ? selected
                 : ChatLanguage.chinese,

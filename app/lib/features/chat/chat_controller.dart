@@ -603,6 +603,19 @@ class ChatController extends ChangeNotifier {
 
   /// Refreshes messages written by another engine (native overlay/background).
   /// Returns true only when the visible tail actually changed.
+  static bool sameExternalMessages(List<ChatMessage> previous, List<ChatMessage> next) {
+    if (previous.length != next.length) return false;
+    for (var i = 0; i < next.length; i++) {
+      final a = previous[i], b = next[i];
+      if (a.id != b.id || a.sourceRevision != b.sourceRevision || a.content != b.content ||
+          a.attachments.length != b.attachments.length) return false;
+      for (var j = 0; j < b.attachments.length; j++) {
+        if (!a.attachments[j].sameStoredFields(b.attachments[j])) return false;
+      }
+    }
+    return true;
+  }
+
   Future<bool> syncExternalMessages() async {
     if (_disposed) return false;
     final job = await db.blockingGenerationJob() ??
@@ -660,12 +673,7 @@ class ChatController extends ChangeNotifier {
     }
     final latest = await db.recentMessages(limit: 120);
     final interruptions = await db.recentGenerationInterruptions(limit: 20);
-    final sameMessages = latest.length == messages.length &&
-        (latest.isEmpty ||
-            (messages.isNotEmpty &&
-                latest.last.id == messages.last.id &&
-                latest.last.content == messages.last.content &&
-                latest.last.attachments.length == messages.last.attachments.length));
+    final sameMessages = sameExternalMessages(messages, latest);
     final sameInterruptions = interruptions.length == generationInterruptions.length &&
         (interruptions.isEmpty ||
             (generationInterruptions.isNotEmpty &&
@@ -2126,6 +2134,7 @@ class ChatController extends ChangeNotifier {
   Future<void> speakMessage(
     ChatMessage message, {
     ChatLanguage language = ChatLanguage.chinese,
+    bool rememberLanguage = true,
   }) async {
     if (!message.isAssistant) return;
     final request = ++_manualSpeechRequest;
@@ -2210,16 +2219,24 @@ class ChatController extends ChangeNotifier {
     }
     if (!playbackIntent.valid) return;
     final content = projected.contentFor(language).trim();
-    if (content.isEmpty) return;
-    await db.setSetting('tts_language', language.key);
-    await ttsPlayback.playText(
-      content,
-      intent: playbackIntent,
-      manual: true,
-      ownerId: message.id,
-      emotion: _ttsEmotionCue(message),
-      language: language,
-    );
+    if (content.isEmpty) {
+      if (playbackIntent.valid) await ttsPlayback.stop();
+      return;
+    }
+    try {
+      if (rememberLanguage) await db.setSetting('tts_language', language.key);
+      await ttsPlayback.playText(
+        content,
+        intent: playbackIntent,
+        manual: true,
+        ownerId: message.id,
+        emotion: _ttsEmotionCue(message),
+        language: language,
+      );
+    } catch (_) {
+      if (playbackIntent.valid) await ttsPlayback.stop();
+      rethrow;
+    }
   }
 
   Future<ChatMessage?> _currentCachedSpeech(ChatMessage message, ChatLanguage language) async {

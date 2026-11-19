@@ -7,7 +7,7 @@ const idleNames=['默认动作','吃白饭','呆滞','困了','晕眩','睡着�
 let W=0,H=0,dpr=1,mode='idle',time=0,last=0,acc=0,roundStart=0,spawnAt=0,wave=0,score=0,combo=0,lastCut=-10,best=0;
 let glyphs=[],particles=[],labels=[],trail=[],bombs=[],victim=null,activePointer=null,pullPointer=null,pullStart=null,drag=null,rope=[],anchor={x:0,y:0},idleName='默认动作',idleSince=0,idleNext=3;
 const ropeGravity={x:0,y:1}, targetRopeGravity={x:0,y:1};
-let pending=null,transitionUntil=0,releaseGate=false,visible=true,ropeLength=settings.rope,ropeSpeed=0;
+let pending=null,transitionUntil=0,releaseGate=false,visible=false,ropeLength=settings.rope,ropeSpeed=0;
 let love=null,nextLoveScore=100,loveHits=0,lastLoveCut=-10;
 let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false;let lastPendantReport=-1;const images={}; let loaded=false;
 // Original procedural SFX: no external recordings or copied game audio.
@@ -288,7 +288,7 @@ function draw(){ctx.clearRect(0,0,W,H);
  drawFloatingLabels();
  if(victim){const age=time-victim.hit;sprite(age<3.3?victim.name:'呆滞',victim.x,victim.y,48,age<3.3?age:age-3.3,age<3.3,victim.r)}
  if(trail.length>1){ctx.save();ctx.lineCap='round';ctx.lineJoin='round';for(let i=1;i<trail.length;i++){const a=trail[i-1],b=trail[i];ctx.strokeStyle=`rgba(205,227,255,${clamp(1-(time-b.t)/.16,0,1)*.85})`;ctx.lineWidth=1+4*i/trail.length;ctx.shadowColor='#b8aaff';ctx.shadowBlur=8;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}ctx.restore()}renderRope();}
-function frame(ts){if(!last)last=ts;const elapsed=visible?Math.min((ts-last)/1000,.05):0;last=ts;acc+=elapsed;let steps=0;while(acc>=1/120&&steps<6){update(1/120);acc-=1/120;steps++}if(visible)warmIntroCache();draw();requestAnimationFrame(frame)}
+function frame(ts){hostFrame=null;if(!visible)return;if(!last)last=ts;const elapsed=visible?Math.min((ts-last)/1000,.05):0;last=ts;acc+=elapsed;let steps=0;while(acc>=1/120&&steps<6){update(1/120);acc-=1/120;steps++}if(visible)warmIntroCache();draw();scheduleHostFrame()}
 pendant.addEventListener('pointerdown',e=>{if(!loaded||pullPointer!==null)return;sound.unlock();e.preventDefault();e.stopPropagation();pullPointer=e.pointerId;pendant.setPointerCapture(e.pointerId);const p=point(e),end=rope[8];pullStart={x:p.x,y:p.y,baseY:end.y,baseX:end.x};drag={x:end.x,y:end.y};activePointer=null;swipeSound.reset();trail=[];});
 pendant.addEventListener('pointermove',e=>{if(e.pointerId!==pullPointer)return;const p=point(e);drag={x:pullStart.baseX+p.x-pullStart.x,y:pullStart.baseY+p.y-pullStart.y};});
 function releasePull(e,cancel=false){if(e.pointerId!==pullPointer)return;const distance=drag.y-pullStart.baseY;drag=null;pullPointer=null;if(pendant.hasPointerCapture(e.pointerId))pendant.releasePointerCapture(e.pointerId);if(!cancel&&distance>=settings.pull){pending=mode==='idle'?'start':'exit';transitionUntil=time+.12}else if(!cancel&&distance<8)toast(mode==='idle'?'向下拉一小段，松手开始':'下拉小鲸鱼，松手退出');}
@@ -316,10 +316,22 @@ function releaseSlash(e){if(e.pointerId===activePointer){activePointer=null;swip
 $('gesture').addEventListener('pointerup',releaseSlash);$('gesture').addEventListener('pointercancel',releaseSlash);$('gesture').addEventListener('lostpointercapture',releaseSlash);
 $('again').onclick=()=>{sound.unlock();startGame();$('subscore').textContent='切开文字 · 避开小鲸鱼'};
 for(const b of app.querySelectorAll('header button,nav button,#composer button'))b.onclick=()=>toast('这是聊天界面示意，向下拉右侧小鲸鱼开始');
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mode!=='idle')exitGame()});document.addEventListener('visibilitychange',()=>{visible=!document.hidden;last=0;acc=0;if(!visible){sound.stop();activePointer=null;swipeSound.reset();drag=null;pullPointer=null;trail=[];pending=null;}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mode!=='idle')exitGame()});document.addEventListener('visibilitychange',syncHostVisibility);
 window.addEventListener('resize',resize);
-Promise.all(Object.entries(ASSETS).map(async([name,asset])=>{images[name]=await Promise.all(asset.frames.map(src=>new Promise((resolve,reject)=>{let im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src})));})).then(()=>{loaded=true;resize();NativeSlice.ready();requestAnimationFrame(frame)}).catch(()=>NativeSlice.failed());
+Promise.all(Object.entries(ASSETS).map(async([name,asset])=>{images[name]=await Promise.all(asset.frames.map(src=>new Promise((resolve,reject)=>{let im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src})));})).then(()=>{loaded=true;resize();NativeSlice.ready();scheduleHostFrame()}).catch(()=>NativeSlice.failed());
 
+let hostFrame=null,hostShown=false;
+function scheduleHostFrame(){
+ if(loaded&&visible&&hostFrame===null)hostFrame=requestAnimationFrame(frame);
+}
+function syncHostVisibility(){
+ const next=hostShown&&!document.hidden;
+ if(next===visible)return;
+ visible=next;last=0;acc=0;
+ if(next){scheduleHostFrame();return;}
+ if(hostFrame!==null){cancelAnimationFrame(hostFrame);hostFrame=null;}
+ exitGame();
+}
 function cancelHostPointers(){for(const [element,id] of [[pendant,pullPointer],[$('gesture'),activePointer]]){if(id!==null&&element.hasPointerCapture(id))element.releasePointerCapture(id);}drag=null;pullPointer=null;pullStart=null;activePointer=null;swipeSound.reset();pending=null;trail=[];}
 window.sliceHost={
  motion(x,y,reset=false){
@@ -330,10 +342,10 @@ window.sliceHost={
  configure(layout){hostLayout=layout;hostReady=true;$('hud').style.top=(layout.hudTop+8)+'px';resize();},
  start(snapshot){startWaiting=false;if(!hostReady||!visible)return;hostGlyphs=snapshot;startCapturedGame();},
  reset(){exitGame();},
- suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;visible=false;exitGame();last=0;acc=0;},
- resume(){visible=true;last=0;acc=0;},
+ suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;hostShown=false;syncHostVisibility();},
+ resume(){hostShown=true;syncHostVisibility();},
 };
 window.addEventListener('error',()=>NativeSlice.failed());
 window.addEventListener('unhandledrejection',()=>NativeSlice.failed());
-setInterval(()=>NativeSlice.heartbeat(),500);
+setInterval(()=>{if(visible&&mode!=='idle')NativeSlice.heartbeat();},500);
 </script></body></html>

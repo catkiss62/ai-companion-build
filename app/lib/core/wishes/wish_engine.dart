@@ -133,18 +133,22 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (batch == null) return false;
       final evidence = batch.evidence;
       if (evidence.isEmpty) return false;
-      final fingerprint = sha256
-          .convert(
-            utf8.encode(jsonEncode({"contract":6,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
-          )
-          .toString();
-      if (await db.getSetting(fingerprintKey) == fingerprint) return false;
       final generationAt =
           int.tryParse(await db.getSetting(generationKey) ?? '') ?? 0;
       final canGenerate =
           wishes.where((w) => w.active).length < 4 &&
           instant.millisecondsSinceEpoch - generationAt >=
               generationGap.inMilliseconds;
+      final fingerprint = sha256
+          .convert(
+            utf8.encode(jsonEncode({"contract":7,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+          )
+          .toString();
+      // An updates-only review cannot consume the next opportunity to propose
+      // a wish. Once a proposal was allowed, identical material stays quiet.
+      final reviewOnly = 'updates:$fingerprint';
+      final previousReview = await db.getSetting(fingerprintKey);
+      if (previousReview == fingerprint || !canGenerate && previousReview == reviewOnly) return false;
       if (!canGenerate && !wishes.any((w) => w.active || w.state == 'expired' ||
             (w.state == 'paused' && !w.manualHold && !w.legacy)))
         return false;
@@ -210,7 +214,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         fence: fence,
         sourceGuard: batch.matches,
         extra: {
-          fingerprintKey: fingerprint,
+          fingerprintKey: canGenerate ? fingerprint : reviewOnly,
           diagnosticKey: jsonEncode({
             'status': 'reviewed',
             'at': instant.millisecondsSinceEpoch,

@@ -773,7 +773,7 @@ List<PhoneAppItem> buildApps(
       badge: snapshot?.notesUnread,
       onOpen: repository.markNotesRead,
       onClosed: refreshAfterClose,
-      page: NotesPage(entries: (snapshot?.notes ?? const <SimulatedPhoneEntry>[]).take(50).toList()),
+      page: NotesPage(db: repository.db, entries: (snapshot?.notes ?? const <SimulatedPhoneEntry>[]).take(50).toList()),
     ),
     PhoneAppItem(
       title: '心情',
@@ -797,8 +797,7 @@ List<PhoneAppItem> buildApps(
       badge: snapshot?.diaryUnread,
       onOpen: repository.markDiaryRead,
       onClosed: refreshAfterClose,
-      page: PhoneCalendarPage(db: repository.db, title: '日记',
-        initialDay: snapshot?.diary.firstOrNull?.localDay),
+      page: DiaryPage(entries: snapshot?.diary ?? const [], db: repository.db),
     ),
     PhoneAppItem(
       title: '日历',
@@ -1820,19 +1819,22 @@ class BrowserDetailPage extends StatelessWidget {
       );
 }
 
+Widget _phoneCalendarAction(BuildContext context, AppDatabase? db) => IconButton(
+  tooltip: '按日期查看全部随笔和日记',
+  icon: const Icon(Icons.calendar_month),
+  onPressed: () => openPhonePage(context, PhoneCalendarPage(db: db ?? AppDatabase.instance)),
+);
+
 class NotesPage extends StatelessWidget {
-  const NotesPage({required this.entries, super.key});
+  const NotesPage({required this.entries, this.db, super.key});
+  final AppDatabase? db;
   final List<SimulatedPhoneEntry> entries;
 
   @override
   Widget build(BuildContext context) => PhoneAppScaffold(
         emoji: '📝',
         title: '随笔',
-        actions: [IconButton(
-          tooltip: '按日期查看全部随笔和日记',
-          icon: const Icon(Icons.calendar_month),
-          onPressed: () => openPhonePage(context, PhoneCalendarPage(db: AppDatabase.instance)),
-        )],
+        actions: [_phoneCalendarAction(context, db)],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(26),
           child: Padding(padding: EdgeInsets.only(bottom: 6),
@@ -2426,13 +2428,15 @@ class _PhoneCalendarPageState extends State<PhoneCalendarPage> {
 }
 
 class DiaryPage extends StatelessWidget {
-  const DiaryPage({required this.entries, super.key});
+  const DiaryPage({required this.entries, this.db, super.key});
+  final AppDatabase? db;
   final List<SimulatedPhoneEntry> entries;
 
   @override
   Widget build(BuildContext context) => PhoneAppScaffold(
         emoji: '📔',
         title: '日记',
+        actions: [_phoneCalendarAction(context, db)],
         child: entries.isEmpty
             ? const HonestEmpty(
                 emoji: '🌃',

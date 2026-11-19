@@ -39,7 +39,7 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
     private var lastMotion = 0L
     private var lastHeartbeat = 0L
     private val density get() = activity.resources.displayMetrics.density
-    private val timeout = Runnable { if (playing) reset() }
+    private val timeout = Runnable { reset() }
     private val watchdog = object : Runnable {
         override fun run() {
             if (!playing || disposed) return
@@ -74,6 +74,7 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
         channel.invokeMethod("playing", value)
         main.removeCallbacks(watchdog)
         if (value) {
+            main.removeCallbacks(timeout)
             lastHeartbeat = android.os.SystemClock.uptimeMillis()
             main.postDelayed(watchdog, 1000)
             layer?.bringToFront()
@@ -152,7 +153,7 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
                     channel.invokeMethod("capture", null, object : MethodChannel.Result {
                         override fun success(result: Any?) {
                             if (request != epoch || !enabled || !resumed || web !== this@apply) return
-                            main.removeCallbacks(timeout)
+                            main.removeCallbacks(timeout); main.postDelayed(timeout, 1800)
                             val glyphs = (result as? List<*>) ?: emptyList<Any>()
                             evaluate("sliceHost.start(${JSONArray(glyphs)})")
                         }

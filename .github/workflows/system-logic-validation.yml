@@ -30,6 +30,9 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
+      - name: Playback ownership, attachment refresh, diary and wish eligibility
+        working-directory: app
+        run: flutter test --timeout 90s --reporter expanded test/reply_revision_ownership_test.dart test/fourth_group_presentation_test.dart test/tts_playback_queue_test.dart test/phone_history_retention_test.dart test/companion_wish_lifecycle_test.dart test/word_slice_bridge_test.dart
       - name: Context attribution, topic progress, concurrent embeddings and private recall export
         working-directory: app
         run: flutter test --timeout 90s --reporter expanded test/turn_recall_trace_test.dart test/form_context_continuity_test.dart test/proactive_topic_evidence_test.dart test/local_semantic_index_test.dart test/qq_group_runtime_v042137_test.dart
