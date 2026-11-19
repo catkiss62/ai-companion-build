@@ -616,8 +616,17 @@ class ChatController extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> syncExternalMessages() async {
-    if (_disposed) return false;
+  Future<bool>? _externalSync;
+
+  Future<bool> syncExternalMessages() {
+    if (_disposed) return Future.value(false);
+    // Refresh-on-open and the polling timer can overlap on a busy database.
+    return _externalSync ??= _readExternalMessages().whenComplete(() {
+      _externalSync = null;
+    });
+  }
+
+  Future<bool> _readExternalMessages() async {
     final job = await db.blockingGenerationJob() ??
         await db.failedGenerationNeedingAttention();
     var runtimeChanged = false;
@@ -673,6 +682,7 @@ class ChatController extends ChangeNotifier {
     }
     final latest = await db.recentMessages(limit: 120);
     final interruptions = await db.recentGenerationInterruptions(limit: 20);
+    if (_disposed) return false;
     final sameMessages = sameExternalMessages(messages, latest);
     final sameInterruptions = interruptions.length == generationInterruptions.length &&
         (interruptions.isEmpty ||

@@ -246,7 +246,13 @@ void main() {
       rememberLanguage: false);
     // One generation for the claim, one to release it without playing.
     expect(chat.ttsPlayback.generation, before + 2);
+    final line = ChatMessage(id:'fallback',role:'assistant',content:'「你好」',createdAt:DateTime.now());
+    await chat.speakMessage(line, rememberLanguage: false);
+    await chat.stopSpeech();
     expect(await db.getSetting('tts_language'), 'en');
+    await chat.speakMessage(line);
+    await chat.stopSpeech();
+    expect(await db.getSetting('tts_language'), 'zh');
   });
 
   test('cached foreign speech cannot replay a superseded reply', () async {
@@ -325,7 +331,9 @@ void main() {
         ),
       );
       addTearDown(chat.dispose);
-      await chat.syncExternalMessages();
+      final initialSync = chat.syncExternalMessages();
+      expect(chat.syncExternalMessages(), same(initialSync));
+      await initialSync;
       final draft = chat.incompleteReplyDraft!;
       expect(draft.sourceRevision, job.assistantSourceRevision);
       expect(draft.sourceRevision, greaterThan(0));

@@ -8,12 +8,12 @@ SRC=ROOT/'tools/word_slice'
 s=(SRC/'template.html').read_text()
 script=s.split('<script>',1)[1].split('</script>',1)[0]
 script=script.replace('__ASSETS__',(SRC/'assets.json').read_text())
-script=script.replace("const images={};", "let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false;let lastPendantReport=-1;const images={};")
+script=script.replace("const images={};", "let hostLayout={anchorX:0,panelTop:0,floor:0,hudTop:0},hostGlyphs=[];let hostReady=false,startWaiting=false,captureSequence=0;let lastPendantReport=-1;const images={};")
 script=script.replace("function floorY(){return rect($('input')).y}","function floorY(){return hostLayout.floor||H-100}")
 script=re.sub(r"const heat=rect\(document.querySelector\('\.heat'\)\),chat=rect\(\$\('conversation'\)\);anchor=\{x:heat.x\+heat.w/2,y:chat.y-54\};initRope\(\);\$\('hint'\).style.top=\(anchor.y\+35\)\+'px';", "anchor={x:hostLayout.anchorX,y:hostLayout.panelTop};initRope();",script)
 a=script.index('function captureText()');b=script.index('function lockUi',a)
 script=script[:a]+"function captureText(){return hostGlyphs.map(g=>({...g,delay:rand(.12,.38),vx:rand(-50,50),vy:introVelocity(g.y),r:0,vr:rand(-2,2),color:'#fff',intro:true,cut:false}));}\n"+script[b:]
-script=script.replace("function startGame(){if(!loaded)return;", "function startGame(){if(!loaded||!hostReady||startWaiting)return;startWaiting=true;NativeSlice.requestStart();}\nfunction startCapturedGame(){if(!loaded)return;")
+script=script.replace("function startGame(){if(!loaded)return;", "function startGame(){if(!loaded||!visible||!hostReady||startWaiting)return;startWaiting=true;NativeSlice.requestStart(++captureSequence);}\nfunction startCapturedGame(){if(!loaded)return;")
 script=script.replace("function lockUi(value){for(const el of app.querySelectorAll('header,nav,#composer,#conversation'))el.inert=value;}", "function lockUi(value){NativeSlice.setPlaying(value);}")
 script=script.replace("function exitGame(){love=null", "function exitGame(){startWaiting=false;cancelHostPointers();love=null")
 script=script.replace("$('avatar').src=ASSETS['默认动作'].frames[0];resize();requestAnimationFrame(frame)","resize();NativeSlice.ready();requestAnimationFrame(frame)")
@@ -61,7 +61,7 @@ window.sliceHost={
   targetRopeGravity.y=valid?clamp(y,-1,1):1;
  },
  configure(layout){hostLayout=layout;hostReady=true;$('hud').style.top=(layout.hudTop+8)+'px';resize();},
- start(snapshot){startWaiting=false;if(!hostReady||!visible)return;hostGlyphs=snapshot;startCapturedGame();},
+ start(sequence,snapshot){if(!startWaiting||sequence!==captureSequence||!hostReady||!visible)return;startWaiting=false;hostGlyphs=snapshot;startCapturedGame();},
  reset(){exitGame();},
  suspend(){ropeGravity.x=targetRopeGravity.x=0;ropeGravity.y=targetRopeGravity.y=1;hostShown=false;syncHostVisibility();},
  resume(){hostShown=true;syncHostVisibility();},

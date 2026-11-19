@@ -146,7 +146,7 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
                 @JavascriptInterface fun failed() { main.post { if (web === this@apply) destroyPage() } }
                 @JavascriptInterface fun heartbeat() { main.post { if (web === this@apply) lastHeartbeat = android.os.SystemClock.uptimeMillis() } }
                 @JavascriptInterface fun setPlaying(value: Boolean) { main.post { if (web === this@apply && (!value || enabled && resumed)) notifyPlaying(value) } }
-                @JavascriptInterface fun requestStart() { main.post {
+                @JavascriptInterface fun requestStart(sequence: Int) { main.post {
                     if (web !== this@apply || !enabled || !resumed || !ready) return@post
                     val request = ++epoch
                     main.removeCallbacks(timeout); main.postDelayed(timeout, 1800)
@@ -155,7 +155,7 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
                             if (request != epoch || !enabled || !resumed || web !== this@apply) return
                             main.removeCallbacks(timeout); main.postDelayed(timeout, 1800)
                             val glyphs = (result as? List<*>) ?: emptyList<Any>()
-                            evaluate("sliceHost.start(${JSONArray(glyphs)})")
+                            evaluate("sliceHost.start($sequence,${JSONArray(glyphs)})")
                         }
                         override fun error(code: String, message: String?, details: Any?) { if (request == epoch) reset() }
                         override fun notImplemented() { if (request == epoch) reset() }
