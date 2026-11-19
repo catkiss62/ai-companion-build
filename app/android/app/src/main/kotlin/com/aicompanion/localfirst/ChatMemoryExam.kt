@@ -10,12 +10,12 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal object SeekMemoryBenchmark {
+internal object ChatMemoryExam {
     private val running = AtomicBoolean(false)
 
     fun bind(context: Context, messenger: BinaryMessenger) {
-        MethodChannel(messenger, "ai_companion/seekmemory").setMethodCallHandler { call, result ->
-            if (call.method != "runOriginal") {
+        MethodChannel(messenger, "ai_companion/chat_memory_exam").setMethodCallHandler { call, result ->
+            if (call.method !in setOf("inputs", "packet", "score", "summary")) {
                 result.notImplemented()
             } else if (!running.compareAndSet(false, true)) {
                 result.error("busy", "原版测试正在运行", null)
@@ -24,19 +24,24 @@ internal object SeekMemoryBenchmark {
                 Thread({
                     try {
                         if (!Python.isStarted()) Python.start(AndroidPlatform(context))
-                        val archive = File(context.cacheDir, "seekmemory-original.zip")
-                        context.assets.open(archive.name).use { source ->
-                            archive.outputStream().use { source.copyTo(it) }
+                        val archive = File(context.cacheDir, "chat-memory-0d8cde3.zip")
+                        if (!archive.exists()) {
+                            val temporary = File(context.cacheDir, "chat-memory-0d8cde3.tmp")
+                            context.assets.open("chat-memory-v1.zip").use { source ->
+                                temporary.outputStream().use { source.copyTo(it) }
+                            }
+                            check(temporary.renameTo(archive))
                         }
-                        val report = Python.getInstance().getModule("seekmemory_android")
-                            .callAttr("run", archive.path, context.cacheDir.path).toString()
+                        val payload = call.arguments as? String ?: error("缺少评测参数")
+                        val report = Python.getInstance().getModule("chat_exam_android")
+                            .callAttr("dispatch", archive.path, context.cacheDir.path, call.method, payload).toString()
                         main.post { result.success(report) }
                     } catch (error: Exception) {
                         main.post { result.error("benchmark_failed", error.message, null) }
                     } finally {
                         running.set(false)
                     }
-                }, "seekmemory-offline").start()
+                }, "chat-memory-exam").start()
             }
         }
     }

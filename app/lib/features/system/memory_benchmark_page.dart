@@ -1,3 +1,4 @@
+import 'official_memory_exam_page.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/platform/android_bridge.dart';
@@ -11,7 +12,6 @@ class MemoryBenchmarkPage extends StatefulWidget {
 
 class _MemoryBenchmarkPageState extends State<MemoryBenchmarkPage> {
   static MemoryBenchmark? active;
-  bool original = true;
   bool answers = false;
   String step = '';
   BenchmarkReport? report;
@@ -33,7 +33,7 @@ class _MemoryBenchmarkPageState extends State<MemoryBenchmarkPage> {
 
   Future<void> _start() async {
     if (active != null) return;
-    final run = MemoryBenchmark(original:original,answers:!original && answers,
+    final run = MemoryBenchmark(answers:answers,
       progress:(value) { if (mounted) setState(()=>step=value); });
     setState(() { active=run; step='准备隔离测试库'; report=null; });
     try {
@@ -66,26 +66,17 @@ class _MemoryBenchmarkPageState extends State<MemoryBenchmarkPage> {
     final state = {'completed':'已完成','stopped':'已停止','running':'上次运行中断',
       'missing_key':'需要先配置第一通道 API Key','error':'运行失败，已保留部分结果'}[result?['state']];
     return PopScope(canPop:!busy, child:ListView(padding:const EdgeInsets.all(16),children:[
-      RadioListTile<bool>(value:true,groupValue:original,onChanged:busy?null:(v)=>setState(()=>original=true),
-        title:const Text('SeekMemory 原版测试'),subtitle:const Text('离线执行原仓库基准，再让小鲸鱼做同一套召回题。模型费用为零。')),
-      RadioListTile<bool>(value:false,groupValue:original,onChanged:busy?null:(v)=>setState(()=>original=false),
-        title:const Text('小鲸鱼从零模拟'),subtitle:const Text('用四轮虚构对话建立临时记忆，再测试跨周、说话人和进度更新。记忆整理会使用第一通道。')),
-      if (!original) SwitchListTile(value:answers,onChanged:busy?null:(v)=>setState(()=>answers=v),
+      ListTile(title:const Text('原版聊天记忆评测 1.0'),subtitle:const Text('示例卷 108 题 · 正式卷 714 题'),trailing:const Icon(Icons.chevron_right),
+        onTap:busy?null:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const OfficialMemoryExamPage()))),
+      const Divider(),const ListTile(title:Text('小鲸鱼从零模拟'),subtitle:Text('四轮合成对话，检查记忆整理、召回和可选的正文理解。')),
+      SwitchListTile(value:answers,onChanged:busy?null:(v)=>setState(()=>answers=v),
         title:const Text('同时测试模型作答'),subtitle:const Text('沿当前正文通道另行请求，报告保留实际回答，可核对是否读错记忆。')),
       FilledButton(onPressed:busy?null:_start,child:const Text('开始测试')),
       if (busy) ...[const LinearProgressIndicator(),Text(step),
         TextButton(onPressed:active!.stopped?null:()=>setState((){active!.stopped=true;step='正在停止并保存已完成结果';}),child:const Text('停止测试'))],
       if (!busy && result==null && step.isNotEmpty) Text(step),
       if (!busy && result!=null) ...[
-        const Divider(), Text('${result['suite']=='seekmemory'?'SeekMemory 原版测试':'小鲸鱼从零模拟'} · ${state??'部分结果'}',style:Theme.of(context).textTheme.titleMedium),
-        if (result['upstream'] case final Map reference)
-          ExpansionTile(title:Text('上游原脚本验收　${reference['acceptance']['passed']==true?'通过':'未通过'}'),
-            children:[
-              for (final entry in (reference['paths'] as Map).entries)
-                ListTile(title:Text({'graph_components':'图检索','bm25_components':'BM25 混合检索','full_pipeline':'完整召回流程'}[entry.key]??entry.key.toString()),
-                  subtitle:Text('上下文命中 ${entry.value['summary']['final_hits']} / ${entry.value['summary']['answerable']} 道可回答题　'
-                    '无答案题带入资料 ${entry.value['summary']['negative_context_false_positives']} / ${entry.value['summary']['negative']}')),
-            ]),
+        const Divider(), Text('小鲸鱼从零模拟 · ${state??'部分结果'}',style:Theme.of(context).textTheme.titleMedium),
         if (result['metrics'] case final Map metrics)
           Text('小鲸鱼进入上下文的标准片段　${metrics['injected_fragments']} / ${metrics['gold_fragments']}'),
         if (amount!=null) Text('本次已估算金额　¥$amount${(result['unknown_costs']??0)>0?'　另有用量未能计价':''}'),

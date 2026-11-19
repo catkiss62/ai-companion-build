@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import '../lib/features/system/official_memory_exam_page.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -12,11 +13,27 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../lib/core/database/app_database.dart';
 import '../lib/core/memory/local_semantic_index.dart';
 import '../lib/features/system/memory_benchmark.dart';
-import '../lib/features/system/memory_benchmark_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  test('original exam uses declared +08 wall clock and private resumable storage',() async {
+    const page=OfficialMemoryExamPage();
+    expect(page.key,isNull);
+    expect(OfficialMemoryExam.wallClock('2026-01-07T19:10:01+08:00'),DateTime(2026,1,7,19,10,1));
+    final dir=await Directory.systemTemp.createTemp('resume-exam-');
+    try {
+      final index=LocalSemanticIndex(enabled:false);
+      final first=await AppDatabase.simulation(databaseFactoryFfi,index,directory:dir);
+      await first.setSetting('fixed_exam_last_turn','5');
+      await first.close();
+      final reopened=await AppDatabase.simulation(databaseFactoryFfi,index,directory:dir);
+      expect(await reopened.getSetting('fixed_exam_last_turn'),'5');
+      final separate=await AppDatabase.simulation(databaseFactoryFfi,index);
+      expect(await separate.getSetting('fixed_exam_last_turn'),isNull);
+      await reopened.close();await separate.close();
+    } finally {await dir.delete(recursive:true);}
+  });
   test('two open simulations do not share messages or settings; closed simulation fails closed', () async {
     final a = await AppDatabase.simulation(databaseFactoryFfi,LocalSemanticIndex(enabled:false));
     final b = await AppDatabase.simulation(databaseFactoryFfi,LocalSemanticIndex(enabled:false));
@@ -47,22 +64,12 @@ void main() {
       expect(events.where((e)=>e['lane']=='memory_extraction' && e['usage'] is Map),isNotEmpty);
       expect(await db.getSetting('last_memory_error'),'');
       expect(await (await db.database).query('post_turn_jobs'),isEmpty);
+      final ordered=MemoryExtractor(db:db,client:client,desireEngine:DesireEngine(db));
+      await ordered.ingestExamTurn(u,a);
+      final calls=events.length;
+      await ordered.ingestExamTurn(u,a);
+      expect(events,hasLength(calls));
+      expect((await (await db.database).query('post_turn_jobs')).single['status'],'done');
     } finally { client.close(); await db.close(); }
-  });
-  test('all eight fixed questions use actual prompt construction on an isolated database', () async {
-    const widget = MemoryBenchmarkPage();
-    expect(widget.key,isNull);
-    final dir = await Directory.systemTemp.createTemp('bench-test-');
-    try {
-      final run = MemoryBenchmark(original:true,answers:false,progress:(_){},directory:dir,
-        factory:databaseFactoryFfi,originalRunner:()async=>'{"acceptance":{"passed":true}}');
-      final result = await run.run();
-      expect(result['state'],'completed',reason:result.toString());
-      expect(result['rows'],hasLength(8));expect(result['known_cny'],0);
-      expect((result['rows'] as List).where((e)=>e['negative']==true),hasLength(2));
-      expect((result['memories'] as List).isNotEmpty,isTrue);
-      expect(jsonDecode(await File('${dir.path}/report.json').readAsString())['state'],'completed');
-      expect(dir.listSync().whereType<Directory>(),isEmpty);
-    } finally {await dir.delete(recursive:true);}
   });
 }

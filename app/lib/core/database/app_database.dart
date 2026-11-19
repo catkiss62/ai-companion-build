@@ -1,3 +1,4 @@
+import 'dart:io' show Directory;
 import '../memory/turn_recall_trace.dart';
 import '../phone/phone_history_store.dart';
 import '../memory/local_semantic_index.dart';
@@ -139,19 +140,19 @@ class AppDatabase {
 
   final bool isSimulation;
 
-  static Future<AppDatabase> simulation(DatabaseFactory factory, LocalSemanticIndex index) async {
+  static Future<AppDatabase> simulation(DatabaseFactory factory, LocalSemanticIndex index, {Directory? directory}) async {
     final db = AppDatabase._(index: index, isSimulation: true);
-    final opened = await factory.openDatabase(inMemoryDatabasePath,
-        options: OpenDatabaseOptions(singleInstance: false));
+    final path = directory == null ? inMemoryDatabasePath : '${directory.path}/simulation.sqlite';
+    final opened = await factory.openDatabase(path, options: OpenDatabaseOptions(
+      singleInstance:false, version:schemaVersion,
+      onCreate:(handle,version) async {
+        await db._createSchema(handle);
+        await db._ensureDeepWebColumns(handle);
+      },
+      onUpgrade:db._upgradeSchema,
+    ));
     db._db = opened;
-    try {
-      await db._createSchema(opened);
-      await db._ensureDeepWebColumns(opened);
-      return db;
-    } catch (_) {
-      await opened.close();
-      rethrow;
-    }
+    return db;
   }
 
   final LocalSemanticIndex semanticMemoryIndex;

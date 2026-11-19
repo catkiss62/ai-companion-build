@@ -12,6 +12,7 @@ def configureCentral = { repositories ->
 }
 gradle.beforeSettings { settings ->
     settings.pluginManagement.repositories.maven { setUrl(mirror) }
+    settings.pluginManagement.repositories.gradlePluginPortal()
     configureCentral(settings.pluginManagement.repositories)
     configureCentral(settings.dependencyResolutionManagement.repositories)
 }

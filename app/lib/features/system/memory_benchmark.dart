@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -22,14 +23,14 @@ import '../../core/models/chat_message.dart';
 import '../../core/models/desire_state.dart';
 import '../../core/storage/secure_config.dart';
 
+part 'official_memory_exam.dart';
+
 typedef BenchmarkReport = Map<String, dynamic>;
 
 class MemoryBenchmark {
-  MemoryBenchmark({required this.original, required this.answers, required this.progress, this.directory, this.factory, this.originalRunner});
+  MemoryBenchmark({required this.answers, required this.progress, this.directory, this.factory});
   final Directory? directory;
   final DatabaseFactory? factory;
-  final Future<String> Function()? originalRunner;
-  final bool original;
   final bool answers;
   final void Function(String) progress;
   bool stopped = false;
@@ -38,7 +39,7 @@ class MemoryBenchmark {
   final usage = <BenchmarkReport>[];
   final externalCalls = <String>[];
   late final BenchmarkReport report = {
-    'schema': 1, 'app_version':AgentSelfReader.buildLabel, 'suite': original ? 'seekmemory' : 'companion',
+    'schema': 1, 'app_version':AgentSelfReader.buildLabel, 'suite': 'companion',
     'started': DateTime.now().toUtc().toIso8601String(),
     'rows': rows, 'usage': usage, 'external_calls': externalCalls,
   };
@@ -87,55 +88,7 @@ class MemoryBenchmark {
     } catch (_) { return 'DeepSeek 余额：暂时无法查询'; }
   }
 
-  Future<BenchmarkReport> run() async {
-    Directory? scratch;
-    LocalSemanticIndex? index;
-    AppDatabase? db;
-    DeepSeekClient? client;
-    report['state'] = 'running';
-    try {
-      await _save();
-      final fixture = jsonDecode(await rootBundle.loadString('assets/memory_benchmark/seekmemory.json')) as Map;
-      report['revision'] = fixture['revision'];
-      report['clock'] = anchor.toIso8601String();
-      if (original) {
-        progress('正在执行 SeekMemory 原版离线基准');
-        final json = originalRunner != null ? await originalRunner!() : await const MethodChannel('ai_companion/seekmemory').invokeMethod<String>('runOriginal');
-        report['upstream'] = jsonDecode(json!);
-        await _save();
-      } else if ((await SecureConfig.instance.readApiKey() ?? '').trim().isEmpty) {
-        throw const _MissingKey();
-      }
-      _check();
-      scratch = await (directory ?? await getTemporaryDirectory()).createTemp('memory-benchmark-');
-      final runDirectory = scratch;
-      index = LocalSemanticIndex(cacheFile: () async => File('${runDirectory.path}/vectors.json'));
-      final isolated = await AppDatabase.simulation(factory ?? databaseFactory, index);
-      db = isolated;
-      List queries;
-      if (original) {
-        progress('正在让小鲸鱼做同一套召回题');
-        final events = fixture['events'] as List;
-        report['seed_events'] = events;
-        for (var i=0;i<events.length;i++) {
-          final event = events[i] as Map;
-          final day = event['day'] as int;
-          await isolated.insertMemory(content:event['text'], kind:event['level']=='fact' ? 'user_profile' : 'shared_experience',
-            semanticType:event['level']=='impression' ? 'inference' : event['level']=='fact' ? 'current_fact' : 'shared_experience',
-            actorKey:(event['text'] as String).startsWith('我') ? 'assistant' : 'user',
-            subjectKey:'benchmark_event_$i',
-            importance:(event['importance'] as num).toDouble(),
-            evidenceMode:'append', source:'benchmark', sourceObservedAt:DateTime(2026,10,day,12),
-            tags:List<String>.from(event['tags']));
-        }
-        queries = fixture['queries'] as List;
-      } else {
-        for (final key in ['deepseek_model','model','deepseek_reasoning_effort','reasoning_effort']) {
-          final value = await AppDatabase.instance.getSetting(key);
-          if (value != null) await isolated.setSetting(key, value);
-        }
-        report['balance_before'] = await _balance(isolated,true);
-        client = DeepSeekClient(abortWhen:() async => stopped,
+  DeepSeekClient _client({Future<void> Function(String,BenchmarkReport)? meter}) => DeepSeekClient(abortWhen:() async => stopped,
           runCostRecorder:(event) async {
             final id = event['id'].toString();
             final amount = DailySpend.estimate(event);
@@ -145,9 +98,37 @@ class MemoryBenchmark {
               'at':event['at'],'price_version':DailySpend.priceVersion,
               'usage':{if(raw is Map) for(final k in ['prompt_tokens','completion_tokens',
                 'prompt_cache_hit_tokens','prompt_cache_miss_tokens']) if(raw[k] is num) k:raw[k]}};
+            await meter?.call(id,attempts[id]!);
           },
           onUsage:(event) async => usage.add({'lane':event.lane,'provider':event.provider,
             'input':event.inputTokens,'output':event.outputTokens}));
+
+  Future<BenchmarkReport> run() async {
+    Directory? scratch;
+    LocalSemanticIndex? index;
+    AppDatabase? db;
+    DeepSeekClient? client;
+    report['state'] = 'running';
+    try {
+      await _save();
+      report['clock'] = anchor.toIso8601String();
+      if ((await SecureConfig.instance.readApiKey() ?? '').trim().isEmpty) {
+        throw const _MissingKey();
+      }
+      _check();
+      scratch = await (directory ?? await getTemporaryDirectory()).createTemp('memory-benchmark-');
+      final runDirectory = scratch;
+      index = LocalSemanticIndex(cacheFile: () async => File('${runDirectory.path}/vectors.json'));
+      final isolated = await AppDatabase.simulation(factory ?? databaseFactory, index);
+      db = isolated;
+      List queries;
+      {
+        for (final key in ['deepseek_model','model','deepseek_reasoning_effort','reasoning_effort']) {
+          final value = await AppDatabase.instance.getSetting(key);
+          if (value != null) await isolated.setSetting(key, value);
+        }
+        report['balance_before'] = await _balance(isolated,true);
+        client = _client();
         final extractor = MemoryExtractor(db:isolated,client:client,desireEngine:DesireEngine(isolated));
         final evidence = <BenchmarkReport>[];
         report['turns'] = evidence;
@@ -191,7 +172,6 @@ class MemoryBenchmark {
         }
         final row = <String,dynamic>{'id':'q$i', ...question, 'stored_matches':found(stored),
           'candidate_matches':found(candidates),'injected_matches':found(sections),'trace':trace,
-          if (original && expected.isEmpty) 'private_fragment_in_context':sections.any((s)=>(s['text'] as String).contains('跟别人说了件私事')),
           'index':index.status, 'negative':expected.isEmpty,
           'negative_has_candidates':expected.isEmpty && candidates.isNotEmpty,
           'negative_has_context':expected.isEmpty && sections.isNotEmpty,
@@ -207,7 +187,7 @@ class MemoryBenchmark {
           : (row['candidate_matches'] as List).length<expected.length ? '优先复核召回排序'
           : '优先复核上下文筛选或截断';
         rows.add(row);
-        if (answers && !original) {
+        if (answers) {
           _check();
           final reply = await _reply(client!,isolated,built.messages);
           row['reply'] = reply;
@@ -227,7 +207,7 @@ class MemoryBenchmark {
     } finally {
       client?.close();
       try {
-        if (!original && db != null) report['balance_after'] = await _balance(db,false);
+        if (db != null) report['balance_after'] = await _balance(db,false);
       } finally {
         try { await index?.waitForIndex(); } finally {
           try { await db?.close(); } finally {

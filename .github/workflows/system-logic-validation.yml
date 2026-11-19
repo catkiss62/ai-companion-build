@@ -30,8 +30,8 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
-      - name: Execute bundled original benchmark twice
-        run: python3 app/tools/test_seekmemory_mobile_bundle.py
+      - name: Verify both original 1.0 papers and upstream scoring
+        run: python3 app/tools/test_chat_memory_exam.py
       - name: Isolated memory benchmark and Live2D preferences
         working-directory: app
         run: flutter test --timeout 120s --reporter expanded test/memory_benchmark_test.dart test/live2d_settings_page_test.dart test/portable_live2d_refresh_v04258_test.dart

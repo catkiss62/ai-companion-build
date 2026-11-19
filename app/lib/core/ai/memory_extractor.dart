@@ -69,6 +69,28 @@ class MemoryExtractor {
     return _extractTurnNow(user:user, assistant:assistant, runDeferredMaintenance:false);
   }
 
+  /// One checkpointed turn in a private benchmark DB. No scheduler owns this DB.
+  Future<void> ingestExamTurn(ChatMessage user, ChatMessage assistant) async {
+    if (!db.isSimulation) throw StateError('评测需要独立数据库');
+    if (await db.messageById(user.id)==null) await db.insertMessage(user);
+    if (await db.messageById(assistant.id)==null) await db.insertMessage(assistant);
+    await db.enqueuePostTurnJob(userMessageId:user.id,assistantMessageId:assistant.id);
+    final sql=await db.database;
+    final existing=await sql.query('post_turn_jobs',columns:['status'],where:'assistant_message_id=?',whereArgs:[assistant.id]);
+    if (existing.single['status']=='done') return;
+    await db.recoverStalePostTurnJobs(staleAfter:Duration.zero);
+    await db.wakeRetryablePostTurnJobs();
+    final job=await db.claimNextPostTurnJob();
+    if (job==null || job.assistantMessageId!=assistant.id) throw StateError('整理进度需要恢复');
+    try {
+      await _extractTurnNow(user:user,assistant:assistant,job:job,runDeferredMaintenance:false);
+      if (!await db.markPostTurnJobDone(job.id,job.runToken)) throw StateError('整理未能提交');
+    } catch (error) {
+      await db.failPostTurnJob(job.id,runToken:job.runToken,error:error.runtimeType.toString(),recoverable:true);
+      rethrow;
+    }
+  }
+
   Future<void> extractFromTurn({
     required ChatMessage user,
     required ChatMessage assistant,

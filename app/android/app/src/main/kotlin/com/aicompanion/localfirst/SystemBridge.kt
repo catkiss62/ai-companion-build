@@ -1069,8 +1069,9 @@ class SystemBridge(
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             val json = safeName.endsWith(".json")
-            type = if (json) "application/json" else "text/plain"
-            putExtra(Intent.EXTRA_TITLE, if (json || safeName.endsWith(".txt")) safeName else "$safeName.txt")
+            val compressed = safeName.endsWith(".json.gz")
+            type = if (compressed) "application/gzip" else if (json) "application/json" else "text/plain"
+            putExtra(Intent.EXTRA_TITLE, if (json || compressed || safeName.endsWith(".txt")) safeName else "$safeName.txt")
         }
         beginDirectPickerOverlayGuard("diagnostic_export_picker")
         runCatching { activity.startActivityForResult(intent, REQUEST_DIAGNOSTIC_SAVE) }

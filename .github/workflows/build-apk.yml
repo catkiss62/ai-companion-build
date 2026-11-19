@@ -449,7 +449,8 @@
 # Historical +456: Build AI Companion v0.42.212+456 APK (External Delivery) | AI-Companion-v0.42.212-456-External-Delivery-APK | v0.42.212-external-delivery-test
 # Historical +457: Build AI Companion v0.42.213+457 APK (Context Recall) | AI-Companion-v0.42.213-457-Context-Recall-APK | v0.42.213-context-recall-test
 # name: Build AI Companion v0.42.214+458 APK (Playback Diary)
-name: Build AI Companion v0.42.215+459 APK (Memory Benchmark)
+# name: Build AI Companion v0.42.215+459 APK (Memory Benchmark)
+name: Build AI Companion v0.42.216+460 APK (Chat Memory Exam)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1123,7 +1124,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.42.215+459' app/pubspec.yaml
+          grep -Fqx 'version: 0.42.216+460' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 67;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -1137,7 +1138,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.42.215+459 Memory Benchmark after focused regression verification.'
+          echo 'Building v0.42.216+460 Chat Memory Exam after focused regression verification.'
 
       - name: Generate complete pet clips from pinned Draft Release asset
         timeout-minutes: 15
@@ -1833,26 +1834,26 @@ jobs:
           stat -c "signed_apk_bytes=%s" "$APK"
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.42.215+459 APK as workflow artifact
+      - name: Upload v0.42.216+460 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.42.215-459-Memory-Benchmark-APK
+          name: AI-Companion-v0.42.216-460-Chat-Memory-Exam-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.42.215+459 APK to draft release
+      - name: Upload v0.42.216+460 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.42.215-memory-benchmark-test'
-          APK_NAME='AI-Companion-v0.42.215-459-Memory-Benchmark-APK.apk'
+          TAG='v0.42.216-chat-memory-exam-test'
+          APK_NAME='AI-Companion-v0.42.216-460-Chat-Memory-Exam-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.42.215-459-Memory-Benchmark-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.42.216-460-Chat-Memory-Exam-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1869,15 +1870,15 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.215+459 Memory Benchmark' \
-              --notes 'Runs the pinned SeekMemory benchmark and isolated companion replay. Adds per-model Live2D saved defaults and portable word-slice best score.'
+              --title 'AI Companion v0.42.216+460 Chat Memory Exam' \
+              --notes 'Runs the unmodified 108-question demo and 714-question official 1.0 papers with isolated companion memory and upstream scoring. Adds per-model Live2D saved defaults and portable word-slice best score.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.42.215+459 Memory Benchmark' \
-              --notes 'Runs the pinned SeekMemory benchmark and isolated companion replay. Adds per-model Live2D saved defaults and portable word-slice best score.'
+              --title 'AI Companion v0.42.216+460 Chat Memory Exam' \
+              --notes 'Runs the unmodified 108-question demo and 714-question official 1.0 papers with isolated companion memory and upstream scoring. Adds per-model Live2D saved defaults and portable word-slice best score.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1933,8 +1934,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.42.215-memory-benchmark-test'
-          CI_NAME='AI-Companion-v0.42.215-459-Memory-Benchmark-CI-Monitor.txt'
+          TAG='v0.42.216-chat-memory-exam-test'
+          CI_NAME='AI-Companion-v0.42.216-460-Chat-Memory-Exam-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1975,8 +1976,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.42.215+459 Memory Benchmark' \
-              --notes 'Runs the pinned SeekMemory benchmark and isolated companion replay. Adds per-model Live2D saved defaults and portable word-slice best score.'
+              --title 'AI Companion v0.42.216+460 Chat Memory Exam' \
+              --notes 'Runs the unmodified 108-question demo and 714-question official 1.0 papers with isolated companion memory and upstream scoring. Adds per-model Live2D saved defaults and portable word-slice best score.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
