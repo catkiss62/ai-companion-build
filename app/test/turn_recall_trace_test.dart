@@ -22,9 +22,9 @@ void main() {
         createdAt: DateTime(2026, 11, 18, 0, 1),
       ),
     ];
-    final evidence = PromptHistoryPolicy.formContextTranscript(history);
-    expect(evidence, contains('1 助手 2026-11-17T23:59'));
-    expect(evidence, contains('2 用户 2026-11-18T00:01'));
+    final evidence = PromptHistoryPolicy.utteranceTimes(history);
+    expect(evidence, contains('2026-11-17\n1 助手 23:59'));
+    expect(evidence, contains('2026-11-18\n2 用户 00:01'));
     expect(PromptHistoryPolicy.userTurnHistory(history).last, {
       'role': 'user',
       'content': '我今天准备睡了',

@@ -11,15 +11,14 @@ import '../models/chat_message.dart';
 class PromptHistoryPolicy {
   const PromptHistoryPolicy._();
 
+  static Iterable<ChatMessage> _ordinaryRows(List<ChatMessage> recent) =>
+      recent.where((message) => !message.isAssistant ||
+          !isLegacyCannedPersonaReply(message.promptContent));
+
   static List<Map<String, Object?>> userTurnHistory(
     List<ChatMessage> recent,
   ) {
-    return recent
-        .where(
-          (message) =>
-              !message.isAssistant ||
-              !isLegacyCannedPersonaReply(message.promptContent),
-        )
+    return _ordinaryRows(recent)
         .map(
           (message) => <String, Object?>{
             'role': message.role,
@@ -33,8 +32,7 @@ class PromptHistoryPolicy {
     // Use precisely the same filtering/order as userTurnHistory. IDs and dates
     // are absent from that raw transcript, so its 1-based positions are the
     // unambiguous, compact correspondence (system instructions are not counted).
-    final history = recent.where((message) => !message.isAssistant ||
-        !isLegacyCannedPersonaReply(message.promptContent)).toList();
+    final history = _ordinaryRows(recent).toList();
     String name(String form) => switch (form) {
       'normal' => '正常本体', 'q' => '小豆丁', _ => '未知',
     };
@@ -65,11 +63,25 @@ class PromptHistoryPolicy {
     }
     return '【原始发言的形态来源】按下方原始对话消息1..N的顺序对应，不计system提示。'
         '用户发言与AI回复分别保存各自发生时快照；未知表示未保存，勿从措辞或现在状态推断。'
-        '历史形态不替代当前形态。\n${lines.join('\n')}\n'
-        '【原话时间与说话人】编号与上述对话一致。昨天、明天等相对日期以该条发言的本地日期为准。'
+        '历史形态不替代当前形态。\n${lines.join('\n')}';
+  }
+
+  static String utteranceTimes(List<ChatMessage> recent) {
+    final lines = <String>[];
+    var day = '';
+    var number = 0;
+    for (final message in _ordinaryRows(recent)) {
+      final stamp = message.createdAt.toLocal().toIso8601String();
+      final date = stamp.split('T').first;
+      if (date != day) {
+        day = date;
+        lines.add(day);
+      }
+      lines.add('${++number} ${message.isUser ? '用户' : '助手'} ${stamp.split('T').last.substring(0, 5)}');
+    }
+    return '【原话时间与说话人】编号按原始对话排列，不计系统提示。昨天、明天以该条发言的本地日期为准。'
         '发言时间只说明何时说过；事件日期按原话判断，缺证据时保留未知。'
-        '把用户承诺归给用户时须有对应用户原话，助手的建议或转述归给助手。\n'
-        '${[for (var i = 0; i < history.length; i++) "${i + 1} ${history[i].isUser ? '用户' : '助手'} ${history[i].createdAt.toLocal().toIso8601String().substring(0, 16)}"].join('\n')}';
+        '用户承诺须有对应用户原话，助手的建议或转述归给助手。\n${lines.join('\n')}';
   }
 
   static Map<String, Object?> proactiveHistoryTranscript(

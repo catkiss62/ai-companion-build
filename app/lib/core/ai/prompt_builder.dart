@@ -614,6 +614,8 @@ ANSWERED_HISTORY_ONLY = true
       final history = PromptHistoryPolicy.userTurnHistory(promptRecent);
       messages.add({'role': 'system',
         'content': PromptHistoryPolicy.formContextTranscript(promptRecent)});
+      if (history.isNotEmpty) messages.add({'role': 'system',
+        'content': PromptHistoryPolicy.utteranceTimes(promptRecent)});
       final lifecycleTurnContract =
           _memoryLifecycleTurnContract(latestUserText);
       if (history.isEmpty) {
