@@ -194,6 +194,7 @@ class PromptBuilder {
             summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
             retrievalMode: mode.name,
             trace: recallTrace,
+            now: now,
             excludedAssistantSources: excludedAssistantSources,
           );
     final relationshipContext =
@@ -259,7 +260,7 @@ class PromptBuilder {
     // tests/temporary engine startup are best-effort and leave prior expiring
     // Awareness intact.
     try {
-      await CurrentDeviceContextRefresher(
+      if (!db.isSimulation) await CurrentDeviceContextRefresher(
         db: db,
         android: AndroidBridge.instance,
       ).refresh(

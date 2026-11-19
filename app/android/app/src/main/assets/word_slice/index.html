@@ -156,7 +156,7 @@ function hitBomb(bomb,from,to){
  victim={...bomb,r:bomb.r??0,vx:bomb.vx*.22+directionX*impulse,
   vy:clamp(bomb.vy*.18+directionY*impulse-120,-440,230),vr:(bomb.vr??0)*.6+spin,
   hit:time,name:'受击哭泣'+(1+Math.floor(Math.random()*3)),landed:false};
- bombs=[];labels.push({...hitLabel,x:bomb.x,y:bomb.y-32,grows:true});best=Math.max(best,score);
+ bombs=[];labels.push({...hitLabel,x:bomb.x,y:bomb.y-32,grows:true});best=NativeSlice.bestScore(score);
  $('subscore').textContent='本局 '+score+' 分 · 最佳 '+best+' 分';trail=[];activePointer=null;swipeSound.reset();
 }
 function stepHitBomb(dt){

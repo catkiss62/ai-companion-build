@@ -140,11 +140,13 @@ class DeepSeekPromptSegmentShape {
 
 class DeepSeekClient {
   static Future<void> Function(Map<String, Object?> attempt)? costRecorder;
-  static Future<void> _cost(Map<String, Object?> attempt) async {
-    try { await costRecorder?.call(attempt); } catch (_) { /* Never fail a reply. */ }
+  final Future<void> Function(Map<String,Object?> attempt)? runCostRecorder;
+  Future<void> _cost(Map<String, Object?> attempt) async {
+    try { await (runCostRecorder ?? costRecorder)?.call(attempt); } catch (_) { /* Never fail a reply. */ }
   }
 
   DeepSeekClient({
+    this.runCostRecorder,
     http.Client? client,
     http.Client Function()? streamClientFactory,
     http.Client Function()? jsonClientFactory,

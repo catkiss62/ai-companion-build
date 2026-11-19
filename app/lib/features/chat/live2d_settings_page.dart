@@ -22,6 +22,53 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   bool _enabled = false, _motion = true, _busy = false, _loading = true;
   Map<String, Object?> _status = const {};
   String? _error;
+  bool _hasDefaults = false;
+  String _defaultsKey(String profile) => 'live2d_user_defaults_v1:$profile';
+
+  Future<void> _defaults({required bool restore}) => _run(() async {
+    final profile = _status['profile'] as String? ?? 'caicai';
+    final generation = CaicaiLive2DService.profileGeneration;
+    void checkProfile() {
+      if (profile != CaicaiLive2DService.activeProfile || generation != CaicaiLive2DService.profileGeneration) {
+        throw StateError('模型已切换，请重新选择');
+      }
+    }
+    checkProfile();
+    final key = _defaultsKey(profile);
+    if (restore) {
+      final raw = await _db.getSetting(key);
+      if (raw == null) throw StateError('还没有保存状态');
+      final data = jsonDecode(raw);
+      if (data is! Map || data['profile'] != profile || data['version'] != 1 || data['settings'] is! Map ||
+          (profile == 'caicai' && data['jev'] is! bool)) throw StateError('保存状态格式无效');
+      checkProfile();
+      final pending = '$key:restoring';
+      await _db.setSetting(pending, raw);
+      await _finishRestore(profile, raw, pending);
+    } else {
+      final jev = await _db.getSetting('caicai_jev_motion') != '0';
+      checkProfile();
+      final settings = await CaicaiLive2DService.command('captureAvatarDefaults');
+      if (settings is! Map) throw StateError('模型设置暂不可读');
+      checkProfile();
+      await _db.setSetting(key, jsonEncode({'version':1,'profile':profile,'settings':settings,
+        if (profile == 'caicai') 'jev':jev}));
+    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(restore ? '已恢复保存状态' : '已保存当前状态'),duration:const Duration(seconds:2)));
+  });
+
+  Future<void> _finishRestore(String profile, String raw, String pending) async {
+    final data = jsonDecode(raw) as Map;
+    if (CaicaiLive2DService.activeProfile != profile || data['profile'] != profile ||
+        await CaicaiLive2DService.command('restoreAvatarDefaults', data['settings']) != true) {
+      throw StateError('当前模型无法恢复，请稍后重试');
+    }
+    if (!await _db.setSettingsAtomically({
+      pending:'',
+      if (profile == 'caicai') 'caicai_jev_motion': data['jev'] == true ? '1' : '0',
+    },guardKey:pending,expectedGuardValue:raw)) throw StateError('恢复期间存档发生变化');
+  }
   bool get _deepseek => _status['profile'] == 'deepseek-avatar';
   double _gain=1, _speed=1, _pivot=.88;
   @override
@@ -29,8 +76,17 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   Future<void> _load() async {
     try {
       final enabled = await _db.getSetting('chat_portrait_mode') == 'caicai_live2d';
+
+      var status = await CaicaiLive2DService.diagnostics;
+      final profile = status['profile'] as String? ?? 'caicai';
+      final key = _defaultsKey(profile);
+      final pending = await _db.getSetting('$key:restoring') ?? '';
+      if (pending.isNotEmpty) {
+        await _finishRestore(profile, pending, '$key:restoring');
+        status = await CaicaiLive2DService.diagnostics;
+      }
       final motion = await _db.getSetting('caicai_jev_motion') != '0';
-      final status = await CaicaiLive2DService.diagnostics;
+      _hasDefaults = (await _db.getSetting(key))?.isNotEmpty == true;
       final tuning = await CaicaiLive2DService.command('getMotionTuning');
       if (tuning is Map) {
         _gain=(tuning['gain'] as num?)?.toDouble() ?? 1;
@@ -122,6 +178,10 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
             segments:const [ButtonSegment(value:'caicai',label:Text('菜菜')),ButtonSegment(value:'deepseek-avatar',label:Text('DeepSeek'))],
             selected:{_deepseek?'deepseek-avatar':'caicai'},
             onSelectionChanged:_busy?null:(values)=>_run(() async { await CaicaiLive2DService.selectProfile(values.single); })),
+          Wrap(spacing:8, children:[
+            OutlinedButton(onPressed:_busy ? null : () => _defaults(restore:false),child:const Text('保存当前状态')),
+            OutlinedButton(onPressed:_busy || !_hasDefaults ? null : () => _defaults(restore:true),child:const Text('恢复保存状态')),
+          ]),
           SwitchListTile(title: Text(_deepseek?'启用DeepSeek Live2D':'启用菜菜 Live2D'),
             subtitle: Text(_deepseek?'使用DeepSeek独立设置；随小豆丁形态变小／变大':'聊天舞台使用女仆与三配件；随小豆丁形态变小／变大'),
             value: _enabled, onChanged: _busy ? null : (value) => _run(() async {

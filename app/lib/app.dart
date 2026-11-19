@@ -16,6 +16,7 @@ import 'features/inner/inner_page.dart';
 import 'features/more/companion_more_page.dart';
 import 'features/more/companion_domains_page.dart';
 import 'features/settings/settings_page.dart';
+import 'features/system/memory_benchmark_page.dart';
 import 'features/system/system_page.dart';
 import 'features/system/preflight_diagnostics_page.dart';
 import 'features/system/real_device_checkpoint_page.dart';
@@ -80,6 +81,7 @@ class AiCompanionApp extends StatelessWidget {
               title: '数据与高级',
               child: DataAdvancedDomainPage(),
             ),
+        '/memory-benchmark': (_) => const _SecondaryScaffold(title: '记忆测试', child: MemoryBenchmarkPage()),
         '/inner': (_) => const _SecondaryScaffold(
               title: '内在状态诊断',
               child: InnerPage(),

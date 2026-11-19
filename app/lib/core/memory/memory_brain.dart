@@ -23,6 +23,7 @@ class MemoryBrain {
     DateTime? summaryBefore,
     String retrievalMode = 'userTurn',
     TurnRecallTrace? trace,
+    DateTime? now,
     Set<String> excludedAssistantSources = const {},
   }) async {
     final admitted = (await db.relevantMemories(
@@ -30,6 +31,7 @@ class MemoryBrain {
       limit: relevantLimit,
       retrievalMode: retrievalMode,
       promptAdmission: true,
+      now: now,
       onRanked: trace?.ranked,
     ))
         .where((item)=>_allowedDuringPersonalityLearningObservation(item) &&

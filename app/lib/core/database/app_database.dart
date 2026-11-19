@@ -134,9 +134,27 @@ class ConversationContextResetResult {
 }
 
 class AppDatabase {
-  AppDatabase._();
+  AppDatabase._({LocalSemanticIndex? index, this.isSimulation = false})
+      : semanticMemoryIndex = index ?? LocalSemanticIndex();
 
-  final LocalSemanticIndex semanticMemoryIndex = LocalSemanticIndex();
+  final bool isSimulation;
+
+  static Future<AppDatabase> simulation(DatabaseFactory factory, LocalSemanticIndex index) async {
+    final db = AppDatabase._(index: index, isSimulation: true);
+    final opened = await factory.openDatabase(inMemoryDatabasePath,
+        options: OpenDatabaseOptions(singleInstance: false));
+    db._db = opened;
+    try {
+      await db._createSchema(opened);
+      await db._ensureDeepWebColumns(opened);
+      return db;
+    } catch (_) {
+      await opened.close();
+      rethrow;
+    }
+  }
+
+  final LocalSemanticIndex semanticMemoryIndex;
 
   static final AppDatabase instance = AppDatabase._();
 
@@ -217,6 +235,7 @@ class AppDatabase {
   Future<Database> get database async {
     final ready = _db;
     if (ready != null) return ready;
+    if (isSimulation) throw StateError("测试库已关闭");
     final opening = _opening;
     if (opening != null) return opening;
 

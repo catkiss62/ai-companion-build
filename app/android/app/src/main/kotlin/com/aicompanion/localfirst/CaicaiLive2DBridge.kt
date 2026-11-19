@@ -92,6 +92,16 @@ class CaicaiLive2DBridge(
                     if ((args?.get("profile") ?: Live2DProfiles.CAICAI) != profile ||
                         (args?.get("profile_generation") as? Number)?.toLong()?.let { it != Live2DProfiles.generation } == true)
                         return@setMethodCallHandler result.success(false)
+                    if (method == "captureAvatarDefaults" || method == "restoreAvatarDefaults") {
+                        try {
+                            if (method == "captureAvatarDefaults") result.success(portable.captureAvatar(profile))
+                            else {
+                                portable.applyAvatar(profile, args?.get("arguments") as? Map<*, *> ?: error("保存状态格式无效"))
+                                result.success(true)
+                            }
+                        } catch (e: Exception) { result.error("avatar_defaults_failed", e.message, null) }
+                        return@setMethodCallHandler
+                    }
                     if(method in setOf("getDeepseekJev","setDeepseekJev")) {
                         if(profile!=Live2DProfiles.DEEPSEEK) return@setMethodCallHandler result.success(false)
                         val prefs=activity.getSharedPreferences("deepseek_motion",android.content.Context.MODE_PRIVATE)

@@ -135,6 +135,12 @@ class DataAdvancedDomainPage extends StatelessWidget {
             onTap: () => Navigator.of(context).pushNamed('/inner'),
           ),
           _DomainEntry(
+            icon: Icons.science_outlined,
+            title: '记忆测试',
+            subtitle: '在隔离数据中测试记忆召回与模型作答',
+            onTap: () => Navigator.of(context).pushNamed('/memory-benchmark'),
+          ),
+          _DomainEntry(
             icon: Icons.health_and_safety_outlined,
             title: '真机自检',
             subtitle: '权限、API、存储和设备能力检查',

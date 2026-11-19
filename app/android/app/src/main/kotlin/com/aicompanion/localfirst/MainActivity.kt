@@ -44,6 +44,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        SeekMemoryBenchmark.bind(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ai_companion/task_navigation")
             .setMethodCallHandler { call, result ->
                 if (call.method == "background") {

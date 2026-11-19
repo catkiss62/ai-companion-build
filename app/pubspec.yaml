@@ -127,7 +127,7 @@ publish_to: 'none'
 # Historical verified baseline: version: 0.42.135+379
 # Historical validator compatibility: version: 0.42.142+386
 # Historical validator compatibility: version: 0.42.165+409
-version: 0.42.214+458
+version: 0.42.215+459
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -137,6 +137,7 @@ flutter:
   shaders:
     - shaders/room_depth.frag
   assets:
+    - assets/memory_benchmark/
     - assets/model_dialogue/
     - assets/immersive/
     - assets/fate_wheel/

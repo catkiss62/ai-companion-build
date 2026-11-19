@@ -97,6 +97,33 @@ class PortableCompanionState(
         }
     }
 
+    private fun avatarFields(profile: String): Map<String, Map<String, Any>> {
+        val groups = when (profile) {
+            Live2DProfiles.CAICAI -> listOf("caicai_stage", "caicai_appearance")
+            Live2DProfiles.DEEPSEEK -> listOf("deepseek_stage", "deepseek_appearance", "deepseek_motion")
+            else -> throw IOException("未知 Live2D 模型")
+        }
+        return groups.associateWith { group -> allFields.getValue(group).filterKeys { !it.startsWith("rightEar") } }
+    }
+
+    fun captureAvatar(profile: String): Map<String, Map<String, *>> =
+        avatarFields(profile).mapValues { (group, fields) -> prefs(group).all.filterKeys { it in fields } }
+
+    fun applyAvatar(profile: String, raw: Map<*, *>) {
+        val schema = avatarFields(profile)
+        require(raw.keys == schema.keys)
+        val checked = validateGroups(raw, schema)
+        val previous = captureAvatar(profile)
+        try {
+            for ((group, fields) in schema) replace(prefs(group), fields.keys, checked.getValue(group))
+            refreshPreferences()
+        } catch (e: Exception) {
+            for ((group, fields) in schema) replace(prefs(group), fields.keys, previous.getValue(group))
+            refreshPreferences()
+            throw e
+        }
+    }
+
     fun dispose() { token?.let { runCatching { finish(it, false) } } }
     private fun requireToken(lease: String) { require(token == lease && lease.isNotEmpty()) { "存档租约失效" } }
     private fun prefs(group: String) = context.getSharedPreferences(group, Context.MODE_PRIVATE)
@@ -191,7 +218,7 @@ class PortableCompanionState(
                 "pet_experimental_x_dp" to -80f..80f, "pet_experimental_y_dp" to -80f..80f,
                 "pet_experimental_gamma" to .5f..1.25f, "pet_experimental_levels_black" to 0..100,
                 "pet_experimental_levels_white" to 150..255, "pet_experimental_saturation" to .5f..2f),
-            "companion_runtime" to mapOf("overlay_user_enabled" to true),
+            "companion_runtime" to mapOf("overlay_user_enabled" to true, "word_slice_best" to 0..Int.MAX_VALUE),
         )
         private val profileFields: Map<String,Map<String,Any>> = mapOf(
             "deepseek_stage" to (fields.getValue("caicai_stage").filterKeys { !it.startsWith("rightEar") } +
@@ -207,7 +234,11 @@ class PortableCompanionState(
 
         fun validatedPreferences(raw: Map<*, *>): Map<String, Map<String, Any?>> {
             require(raw.keys == fields.keys || raw.keys == allFields.keys) { "存档缺少本机显示设置或模型配置版本不受支持" }
-            return allFields.filterKeys { it in raw }.mapValues { (group, keys) ->
+            return validateGroups(raw, allFields.filterKeys { it in raw })
+        }
+
+        private fun validateGroups(raw: Map<*, *>, schema: Map<String, Map<String, Any>>): Map<String, Map<String, Any?>> {
+            return schema.mapValues { (group, keys) ->
                 val values = raw[group] as? Map<*, *> ?: throw IOException("存档设置格式无效")
                 require(values.keys.all { it in keys }) { "存档包含未知本机设置" }
                 values.entries.associate { (name, value) ->

@@ -64,6 +64,11 @@ class MemoryExtractor {
   late final MemoryMaintenanceEngine memoryMaintenance = MemoryMaintenanceEngine(db);
   late final DailyContinuityEngine dailyContinuity = DailyContinuityEngine(db);
 
+  Future<void> extractSimulationTurn(ChatMessage user, ChatMessage assistant) {
+    if (!db.isSimulation) throw StateError('模拟整理必须使用独立测试库');
+    return _extractTurnNow(user:user, assistant:assistant, runDeferredMaintenance:false);
+  }
+
   Future<void> extractFromTurn({
     required ChatMessage user,
     required ChatMessage assistant,

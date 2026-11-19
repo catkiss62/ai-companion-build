@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("com.chaquo.python")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -118,4 +119,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     testImplementation("org.robolectric:robolectric:4.14.1")
+}
+
+chaquopy {
+    defaultConfig { version = "3.11" }
 }

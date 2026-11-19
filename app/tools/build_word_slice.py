@@ -13,6 +13,7 @@ script=script.replace("function floorY(){return rect($('input')).y}","function f
 script=re.sub(r"const heat=rect\(document.querySelector\('\.heat'\)\),chat=rect\(\$\('conversation'\)\);anchor=\{x:heat.x\+heat.w/2,y:chat.y-54\};initRope\(\);\$\('hint'\).style.top=\(anchor.y\+35\)\+'px';", "anchor={x:hostLayout.anchorX,y:hostLayout.panelTop};initRope();",script)
 a=script.index('function captureText()');b=script.index('function lockUi',a)
 script=script[:a]+"function captureText(){return hostGlyphs.map(g=>({...g,delay:rand(.12,.38),vx:rand(-50,50),vy:introVelocity(g.y),r:0,vr:rand(-2,2),color:'#fff',intro:true,cut:false}));}\n"+script[b:]
+script=script.replace("best=Math.max(best,score)", "best=NativeSlice.bestScore(score)")
 script=script.replace("function startGame(){if(!loaded)return;", "function startGame(){if(!loaded||!visible||!hostReady||startWaiting)return;startWaiting=true;NativeSlice.requestStart(++captureSequence);}\nfunction startCapturedGame(){if(!loaded)return;")
 script=script.replace("function lockUi(value){for(const el of app.querySelectorAll('header,nav,#composer,#conversation'))el.inert=value;}", "function lockUi(value){NativeSlice.setPlaying(value);}")
 script=script.replace("function exitGame(){love=null", "function exitGame(){startWaiting=false;cancelHostPointers();love=null")

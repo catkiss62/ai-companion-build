@@ -32,6 +32,8 @@ class LocalSemanticIndex {
   Future<void>? _loading;
   Directory? _parts;
   bool _building = false;
+  Future<void>? _currentBuild;
+  Future<void> waitForIndex() async { await _currentBuild; }
   DateTime? _retryAfter;
   String status = 'not_started';
   int indexedCount = 0;
@@ -230,7 +232,7 @@ class LocalSemanticIndex {
     indexedCount = chunkKeysByText.length - pendingCount;
     if (missing.isNotEmpty) {
       if (!_building) {
-        unawaited(_build(missing, pendingItems, chunkKeysByText.length));
+        _currentBuild = _build(missing, pendingItems, chunkKeysByText.length);
       }
       timing('fallback_indexing');
       return {};
