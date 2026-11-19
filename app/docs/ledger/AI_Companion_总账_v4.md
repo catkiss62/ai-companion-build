@@ -2,11 +2,7 @@
 
 ## 当前接班快照
 
-- 接到澄清：Ornn8/chat-memory-benchmark 1.0 的示例卷 108、正式卷 714 才是用户希望用的外部卷；原先引用的 NeverENG/SeekMemory 是参评系统。+459 尚在构建，其 8 题内部回归不代表用户的两张原卷。启动修订，保留本项目四轮从零模拟、Live2D 和切字。
-
-- **当前开发 v0.42.216+460 / schema67**，分支 agent/v042107-review-recovery。基线 158f781。本批实施两套独立记忆评测、Live2D 保存状态和切字最高分，复查后再构建。
-
-- **下一批实施入口：本文末尾「记忆测试、Live2D 保存状态与切字最高分实施方案」**。基线 883c863 / v0.42.214+458。三项已接入，进入回归复查。
+- **已交付 v0.42.216+460 / schema67**，分支 agent/v042107-review-recovery。签名构建源码 a3f3eaf。[下载签名 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44508162086/artifacts/14524279834)。原版示例 108、正式 714 及本项目独立模拟均已接入，两套 Live2D 保存与恢复、切字最高分存档已实现。下一步按真机反馈处理，评测依据、失败路线及验证证据见本文末尾。
 
 - **上版交付 v0.42.214+458 / schema67**，分支 agent/v042107-review-recovery，构建源码 dc583e5。四批计划修改、第四批复查补修及签名 CI 已完成。[下载第四批测试 APK](https://github.com/catkiss62/ai-companion-build/actions/runs/44463845516/artifacts/14503017850)。第三、四批真机待观察。下一步按用户实测反馈处理；四批范围、留观项和验证证据分别从「四批修复顺序与验收」及本文末尾「大审查修复第四组」进入。
 
@@ -1092,3 +1088,9 @@
 - 02ea707 正式编译前 Gradle 在配置应用插件时停止：Chaquopy 16.1.0 只扫描 project buildscript，无法识别 Flutter 在 settings 的 Android 插件版本（上游 #1289）。按官方 17.0 修复升级，保留 Python 3.11、AGP 8.9.1、API24 和既有 Flutter 设置；独立 CI 增加配置前置检查。未产生可交付签名包。
 
 - 独立 Gradle 配置预检在运行器默认 Java 25（class major 69）启动阶段失败；正式签名任务固定 Java 17。将独立预检也固定为 17，并让 verify-only 作业使用独立并发组，以免 CI 配置修复取消正在运行的同源码签名流水线。
+
+
+### v0.42.216+460 签名交付与验证
+
+- 签名工作流 44508162086：回归、存档检查、签名身份核验与 Actions 制品上传成功，APK 为 769496072 字节。制品 14524279834。草稿 Release 上传步骤返回 HTTP 403（Resource not accessible by integration），故该工作流总体显示失败。独立检查 44508677959 通过。应用源码无后续改动。
+- 8 题属于 SeekMemory 自测；官方示例卷 108 题、正式卷 714 题独立接入。保留项目自己的四轮测试。正式全集付费实跑与本版真机安装尚待验证。
