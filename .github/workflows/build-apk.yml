@@ -1860,14 +1860,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.213+457 Context Recall' \
-              --notes 'The inspection export now includes private recall evidence from the last five ordinary chat turns. Fixes cover dated viewing progress, QQ wake attribution and foreground/overlay embedding cache reuse. Original signer. Unpublished test build.'
+              --notes 'The inspection export now includes private recall evidence from the last five ordinary chat turns. Dated dialogue is separate from compact form history. Fixes cover viewing progress, QQ wake attribution and foreground/overlay embedding cache reuse. Original signer. Unpublished test build.'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.213+457 Context Recall' \
-              --notes 'The inspection export now includes private recall evidence from the last five ordinary chat turns. Fixes cover dated viewing progress, QQ wake attribution and foreground/overlay embedding cache reuse. Original signer. Unpublished test build.'
+              --notes 'The inspection export now includes private recall evidence from the last five ordinary chat turns. Dated dialogue is separate from compact form history. Fixes cover viewing progress, QQ wake attribution and foreground/overlay embedding cache reuse. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1966,7 +1966,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.213+457 Context Recall' \
-              --notes 'The inspection export now includes private recall evidence from the last five ordinary chat turns. Fixes cover dated viewing progress, QQ wake attribution and foreground/overlay embedding cache reuse. Original signer. Unpublished test build.'
+              --notes 'The inspection export now includes private recall evidence from the last five ordinary chat turns. Dated dialogue is separate from compact form history. Fixes cover viewing progress, QQ wake attribution and foreground/overlay embedding cache reuse. Original signer. Unpublished test build.'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
