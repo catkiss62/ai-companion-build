@@ -54,6 +54,7 @@ class DeepSeekBalance {
     http.Client Function()? clientFactory,
     Future<String?> Function()? keyReader,
     DateTime Function()? clock,
+    void Function(String account, Map<String,int> balances, DateTime observed)? onSample,
   }) async {
     final readKey = keyReader ?? SecureConfig.instance.readDeepSeekApiKey;
     final now = clock ?? DateTime.now;
@@ -93,6 +94,7 @@ class DeepSeekBalance {
         await DailyBalanceSpend.record(database, accountId: DailyBalanceSpend.account(key),
           balances: balances, requestedAt: requestedAt, observedAt: now(), fence: fence);
       }
+      if (balances.isNotEmpty) onSample?.call(DailyBalanceSpend.account(key), balances, now());
       return amounts.isEmpty ? 'DeepSeek 余额：无可显示金额'
           : 'DeepSeek 余额：${amounts.join(' / ')}';
     } catch (_) {

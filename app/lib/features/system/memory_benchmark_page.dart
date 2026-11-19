@@ -79,7 +79,13 @@ class _MemoryBenchmarkPageState extends State<MemoryBenchmarkPage> {
       if (!busy && result!=null) ...[
         const Divider(), Text('${result['suite']=='seekmemory'?'SeekMemory 原版测试':'小鲸鱼从零模拟'} · ${state??'部分结果'}',style:Theme.of(context).textTheme.titleMedium),
         if (result['upstream'] case final Map reference)
-          Text('上游原脚本验收　${reference['acceptance']['passed']==true?'通过':'未通过'}'),
+          ExpansionTile(title:Text('上游原脚本验收　${reference['acceptance']['passed']==true?'通过':'未通过'}'),
+            children:[
+              for (final entry in (reference['paths'] as Map).entries)
+                ListTile(title:Text({'graph_components':'图检索','bm25_components':'BM25 混合检索','full_pipeline':'完整召回流程'}[entry.key]??entry.key.toString()),
+                  subtitle:Text('上下文命中 ${entry.value['summary']['final_hits']} / ${entry.value['summary']['answerable']} 道可回答题　'
+                    '无答案题带入资料 ${entry.value['summary']['negative_context_false_positives']} / ${entry.value['summary']['negative']}')),
+            ]),
         if (result['metrics'] case final Map metrics)
           Text('小鲸鱼进入上下文的标准片段　${metrics['injected_fragments']} / ${metrics['gold_fragments']}'),
         if (amount!=null) Text('本次已估算金额　¥$amount${(result['unknown_costs']??0)>0?'　另有用量未能计价':''}'),

@@ -1824,6 +1824,7 @@ jobs:
         run: |
           set -euo pipefail
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
+          stat -c "signed_apk_bytes=%s" "$APK"
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
       - name: Upload v0.42.215+459 APK as workflow artifact

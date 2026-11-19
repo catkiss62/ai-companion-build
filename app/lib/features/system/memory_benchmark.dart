@@ -16,6 +16,7 @@ import '../../core/ai/prompt_builder.dart';
 import '../../core/database/app_database.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/diagnostics/daily_spend.dart';
+import '../../core/diagnostics/daily_balance_spend.dart';
 import '../../core/memory/local_semantic_index.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/desire_state.dart';
@@ -67,6 +68,25 @@ class MemoryBenchmark {
     await temp.rename(file.path);
   }
 
+  String? _initialAccount;
+  Future<String> _balance(AppDatabase db, bool first) async {
+    try {
+      return await DeepSeekBalance.display(db:db,onSample:(account,balances,at) {
+        if (first) _initialAccount=account;
+        report[first?'account_start':'account_end'] = {'at':at.toUtc().toIso8601String(),
+          'units_per_currency':DailyBalanceSpend.scale,'balances':Map.of(balances)};
+        if (!first && _initialAccount!=null) {
+          report['same_balance_account'] = _initialAccount==account;
+          final start=report['account_start']['balances'] as Map;
+          if (_initialAccount==account) {
+            report['account_change_units'] = {for(final entry in balances.entries)
+              if(start[entry.key] is int) entry.key:entry.value-(start[entry.key] as int)};
+          }
+        }
+      });
+    } catch (_) { return 'DeepSeek 余额：暂时无法查询'; }
+  }
+
   Future<BenchmarkReport> run() async {
     Directory? scratch;
     LocalSemanticIndex? index;
@@ -114,13 +134,17 @@ class MemoryBenchmark {
           final value = await AppDatabase.instance.getSetting(key);
           if (value != null) await isolated.setSetting(key, value);
         }
-        report['balance_before'] = await DeepSeekBalance.display(db:isolated);
+        report['balance_before'] = await _balance(isolated,true);
         client = DeepSeekClient(abortWhen:() async => stopped,
           runCostRecorder:(event) async {
             final id = event['id'].toString();
             final amount = DailySpend.estimate(event);
             if (attempts[id]?['cny'] != null && amount == null) return;
-            attempts[id] = {'model':event['model'],'lane':event['lane'],'usage':event['usage'],'cny':amount};
+            final raw = event['usage'];
+            attempts[id] = {'model':event['model'],'lane':event['lane'],'cny':amount,
+              'at':event['at'],'price_version':DailySpend.priceVersion,
+              'usage':{if(raw is Map) for(final k in ['prompt_tokens','completion_tokens',
+                'prompt_cache_hit_tokens','prompt_cache_miss_tokens']) if(raw[k] is num) k:raw[k]}};
           },
           onUsage:(event) async => usage.add({'lane':event.lane,'provider':event.provider,
             'input':event.inputTokens,'output':event.outputTokens}));
@@ -203,7 +227,7 @@ class MemoryBenchmark {
     } finally {
       client?.close();
       try {
-        if (!original && db != null) report['balance_after'] = await DeepSeekBalance.display(db:db);
+        if (!original && db != null) report['balance_after'] = await _balance(db,false);
       } finally {
         try { await index?.waitForIndex(); } finally {
           try { await db?.close(); } finally {
