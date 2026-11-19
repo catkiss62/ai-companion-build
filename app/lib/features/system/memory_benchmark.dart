@@ -10,6 +10,7 @@ import '../../core/agent/agent_self_reader.dart';
 import '../../core/ai/deepseek_balance.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/final_reply_route.dart';
+import '../../core/ai/third_channel_config.dart';
 import '../../core/ai/final_reply_failure_policy.dart';
 import '../../core/ai/first_channel_model.dart';
 import '../../core/ai/memory_extractor.dart';
@@ -19,6 +20,7 @@ import '../../core/desire/desire_engine.dart';
 import '../../core/diagnostics/daily_spend.dart';
 import '../../core/diagnostics/daily_balance_spend.dart';
 import '../../core/memory/local_semantic_index.dart';
+import '../../core/memory/memory_maintenance_engine.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/desire_state.dart';
 import '../../core/storage/secure_config.dart';
@@ -239,15 +241,17 @@ class MemoryBenchmark {
     final provider = await config.readChatProvider();
     final route = FinalReplyRoute(secondChannelEnabled:provider.isGeminiRelay);
     final model = await FirstChannelModel.read(db);
+    var writerModel=model.apiName;
     Future<String> request(bool second) async {
       _check();
       final key = await (second ? config.readFinalReplyApiKey() : config.readApiKey());
       final buffer = StringBuffer();
+      writerModel=second ? await config.readFinalReplyModel() : model.apiName;
       var terminal = false;
       var finish = '';
       await for (final part in client.streamChat(apiKey:key ?? '',endpoint:await (second ? config.readFinalReplyEndpoint():config.readEndpoint()),
           model:model,effort:await FirstChannelModel.readEffort(db),messages:messages,thinking:second,
-          modelName:second ? await config.readFinalReplyModel():null,requestProvider:second ? provider:null,
+          modelName:second ? writerModel:null,requestProvider:second ? provider:null,
           thirdChannelSecure:config,thirdChannelCurrent:() async => !stopped,finalReplyRoute:route,usageLane:'memory_benchmark_reply')) {
         _check();
         buffer.write(part.content);
@@ -266,7 +270,7 @@ class MemoryBenchmark {
         try { text = await request(true); } catch (e) { _check(); if (route.thirdChannelIncomplete) rethrow; route.recordFailure(e); }
       }
       text ??= await request(false);
-      return {'text':text,'provider':route.currentProvider,'third_used':route.usedThirdChannel};
+      return {'text':text,'provider':route.currentProvider,'model':route.usedThirdChannel?ThirdChannelConfig.model:writerModel,'third_used':route.usedThirdChannel};
     } finally {
       if (route.thirdAttempted) externalCalls.add('第三通道：价格未核实');
     }

@@ -25,7 +25,7 @@ class MemoryMaintenanceEngine {
 
   final AppDatabase db;
 
-  Future<MemoryMaintenanceResult> maybeRun({bool force = false}) async {
+  Future<MemoryMaintenanceResult> maybeRun({bool force = false, DateTime? at}) async {
     if ((await db.getSetting('memory_fading_enabled')) == '0') {
       return const MemoryMaintenanceResult(checked: 0, archived: 0, averageRetention: 1.0);
     }
@@ -52,7 +52,7 @@ class MemoryMaintenanceEngine {
       if (fence == null || fence.expectedSettings['memory_fading_enabled'] == '0') {
         return const MemoryMaintenanceResult(checked: 0, archived: 0, averageRetention: 1.0);
       }
-      final now = DateTime.now();
+      final now = at ?? DateTime.now();
       final lastRaw =
           int.tryParse(await db.getSetting('last_memory_maintenance_at') ?? '0') ?? 0;
       if (!force && lastRaw > 0) {

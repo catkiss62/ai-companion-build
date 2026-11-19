@@ -38,7 +38,14 @@ class OfficialMemoryExam {
     final dir=await _root();
     if(!await File('${dir.path}/journal.sqlite').exists()) return {};
     final db=await _openJournal(dir);
-    try {return await _status(db);} finally {await db.close();}
+    try {
+      final state=await _status(db);
+      if ((state['summary']?['scored']??0)!=state['judged']) {
+        final scored=await records(db,'judge');
+        state['summary']=await native('summary',{'judgments':[for(final v in scored)v['judgment']]});
+      }
+      return state;
+    } finally {await db.close();}
   }
   Future<Map<String,dynamic>> _status(Database db) async {
     final money=await records(db,'cost');
@@ -142,10 +149,13 @@ class OfficialMemoryExam {
               stage='$person · 写入第 $n 轮（本题截止 $cutoff）';
               progress(stage);await put(log,'stage',stage);
               final time=wallClock(turn['逻辑时间'] as String);
+              db.setSimulationTime(time);
               final user=ChatMessage(id:'$person-u$n',role:'user',content:turn['用户消息'] as String,createdAt:time);
               final assistant=ChatMessage(id:'$person-a$n',role:'assistant',content:turn['助手回复'] as String,
                 createdAt:time.add(const Duration(milliseconds:1)));
               await extractor.ingestExamTurn(user,assistant);
+              await extractor.dailyContinuity.maybeRefresh(now:time);
+              await extractor.memoryMaintenance.maybeRun(at:time);
               cursor=n;
               await db.setSetting('fixed_exam_last_turn','$cursor');
               await put(log,'cursor:$person',{'person':person,'turn':cursor});
@@ -164,6 +174,8 @@ class OfficialMemoryExam {
             try {
               stage='$person · 作答 $id';progress(stage);await put(log,'stage',stage);
               final now=wallClock(q['now'] as String);
+              probe.setSimulationTime(now);
+              await MemoryMaintenanceEngine(probe).maybeRun(at:now);
               final text=q['question'] as String;
               final recent=await probe.recentMessagesForPrompt(limit:12);
               final query=ChatMessage(id:'exam-$id',role:'user',content:text,createdAt:now);
@@ -176,7 +188,7 @@ class OfficialMemoryExam {
               try {
                 final reply=await session._reply(transport,probe,built.messages);
                 answer={'id':id,'persona':person,'now':q['now'],'cutoff_turn':cutoff,'question':text,
-                  'answer':reply['text'],'provider':reply['provider'],'recent_turns':recent.length~/2,
+                  'answer':reply['text'],'provider':reply['provider'],'model':reply['model'],'recent_turns':recent.length~/2,
                   'trace':built.recallTrace?.snapshot(built.messages,'exam'),'semantic_index':memoryIndex.status};
                 await put(log,'answer:$id',answer);
               } finally {
@@ -200,7 +212,7 @@ class OfficialMemoryExam {
             messages:[{'role':'system','content':materials['instruction']},
               {'role':'user','content':jsonEncode(packet)}]);
           final judgment=await native('score',{'packet':packet,'review':review});
-          await put(log,'judge:$id',{'id':id,'model':model.apiName,'review':review,'judgment':judgment});
+          await put(log,'judge:$id',{'id':id,'model':model.apiName,'rubric':packet['rubric'],'facts':packet['facts'],'sources':packet['sources'],'review':review,'judgment':judgment});
         }
         await memoryIndex.waitForIndex();
         if(personDb!=null) await personDb!.close();
@@ -241,7 +253,8 @@ class OfficialMemoryExam {
         'status':await _status(db),'account_start':await get(db,'account_start'),
         'account_end':await get(db,'account_end'),'account_change_units':await get(db,'account_change_units'),
         'configuration':{'history':'native post-turn extraction; no hidden answers','recent_turns_max':6,
-          'exam_timezone':'+08:00','dream_replayed':false,'background_jobs_replayed':false,
+          'exam_timezone':'+08:00','maintenance':['native post-turn extraction','daily continuity','memory fading at logical time'],
+          'dream_replayed':false,'background_jobs_replayed':false,
           'writer':'configured app route','judge':'configured first channel; author-side semantic review'},
         'answers':await records(db,'answer'),'reviews':await records(db,'judge'),'costs':await records(db,'cost')};
       await file.writeAsBytes(gzip.encode(utf8.encode(jsonEncode(output))),flush:true);

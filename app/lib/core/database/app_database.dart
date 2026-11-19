@@ -139,6 +139,12 @@ class AppDatabase {
       : semanticMemoryIndex = index ?? LocalSemanticIndex();
 
   final bool isSimulation;
+  DateTime? _simulationTime;
+  void setSimulationTime(DateTime instant) {
+    if (!isSimulation) throw StateError('正式库不能设置评测时钟');
+    _simulationTime = instant;
+  }
+
 
   static Future<AppDatabase> simulation(DatabaseFactory factory, LocalSemanticIndex index, {Directory? directory}) async {
     final db = AppDatabase._(index: index, isSimulation: true);
@@ -9336,7 +9342,7 @@ class AppDatabase {
       semantic = 'inference';
     }
     final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final now = (_simulationTime ?? DateTime.now()).millisecondsSinceEpoch;
 
     double evidenceSimilarity(String a, String b) {
       final left = _tokens(a);
