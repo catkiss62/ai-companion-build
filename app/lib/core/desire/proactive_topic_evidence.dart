@@ -159,6 +159,19 @@ class ProactiveTopicEvidence {
     return result;
   }
 
+  // Only a date attached to the progress clause dates the event. A later
+  // undated progress clause (for example a new rewatch) has its own clock.
+  static DateTime? _reportedDay(String text, DateTime saidAt, bool viewing) {
+    final clause = text.split(RegExp(r'[，,。；;！!\n]')).where((part) =>
+        progressIn(part, viewing: viewing) != null).lastOrNull;
+    if (clause == null) return null;
+    final dates = RegExp(r'大前天|前天|昨天|今天').allMatches(clause).toList();
+    if (dates.length != 1) return null;
+    final offset = const {'今天': 0, '昨天': 1, '前天': 2, '大前天': 3}[dates.single[0]]!;
+    final local = saidAt.toLocal();
+    return DateTime(local.year, local.month, local.day - offset);
+  }
+
   static bool _mentions(String text, String title) {
     if (RegExp(r'^[a-zA-Z0-9 ]+$').hasMatch(title)) {
       return RegExp(
@@ -511,12 +524,20 @@ class ProactiveTopicEvidence {
       ids,
       viewing: viewing,
     );
+    final days = {for (final quote in quotes)
+      quote.id: _reportedDay(quote.content, quote.createdAt, viewing)};
+    DateTime orderingTime(DateTime saidAt, DateTime? day) {
+      if (day == null) return saidAt;
+      final local = saidAt.toLocal();
+      return day.year == local.year && day.month == local.month && day.day == local.day ? saidAt : day;
+    }
     final updates =
-        <({DateTime at, TopicProgress state, String text, bool original})>[
+        <({DateTime at, DateTime? eventDay, TopicProgress state, String text, bool original})>[
           for (final item in candidates)
             if (progressIn(item.content, viewing: viewing) case final state?)
               (
                 at: item.lastEvidenceAt,
+                eventDay: null,
                 state: state,
                 text: item.content,
                 original: false,
@@ -524,15 +545,18 @@ class ProactiveTopicEvidence {
           if (outdated)
             for (final message in quotes)
               if ((seed?.evidenceTimeKnown != true ||
-                      message.createdAt.isAfter(seed!.lastEvidenceAt)) &&
+                      orderingTime(message.createdAt, days[message.id]).isAfter(seed!.lastEvidenceAt)) &&
                   progressIn(message.content, viewing: viewing) != null)
                 (
                   at: message.createdAt,
+                  eventDay: days[message.id],
                   state: progressIn(message.content, viewing: viewing)!,
                   text: message.content,
                   original: true,
                 ),
         ]..sort((a, b) {
+          final byEvent = orderingTime(b.at, b.eventDay).compareTo(orderingTime(a.at, a.eventDay));
+          if (byEvent != 0) return byEvent;
           final byTime = b.at.compareTo(a.at);
           return byTime == 0
               ? (b.original ? 1 : 0).compareTo(a.original ? 1 : 0)
@@ -574,6 +598,7 @@ class ProactiveTopicEvidence {
       if (latest != null)
         'latest': {
           'at': latest.at.toLocal().toIso8601String(),
+          if (latest.eventDay != null) 'event_day': latest.eventDay!.toIso8601String().split('T').first,
           'source': latest.original ? 'REAL_USER_HISTORY' : 'memory',
           'text': clip(latest.text),
         },
@@ -582,6 +607,7 @@ class ProactiveTopicEvidence {
           {
             'at': message.createdAt.toLocal().toIso8601String(),
             'source': 'REAL_USER_HISTORY',
+            if (days[message.id] case final day?) 'event_day': day.toIso8601String().split('T').first,
             'text': clip(message.content),
           },
       ],

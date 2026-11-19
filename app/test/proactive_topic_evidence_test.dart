@@ -116,6 +116,15 @@ void main() {
     expect((await recall()).completed, isTrue);
   });
 
+  test('a later report can date an earlier event without moving completion backwards', () async {
+    await say('progress', '《潮汐邮局》看到第十集', 0);
+    await say('finish', '全剧看完了', 75);
+    await say('yesterday', '《潮汐邮局》昨天才看到第十集', 110);
+    final result = await recall();
+    expect(result.completed, isTrue);
+    expect(result.prompt, contains('"event_day":"2026-11-12"'));
+  });
+
   test('episode completion is independent of word order', () {
     for (final text in ['第十集看完了', '看完第十集了']) {
       expect(ProactiveTopicEvidence.progressIn(text, viewing: true), TopicProgress.ongoing);
