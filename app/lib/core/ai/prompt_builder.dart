@@ -1,3 +1,4 @@
+import '../memory/turn_recall_trace.dart';
 import '../rules/user_address_policy.dart';
 import '../database/qq_context_evidence.dart';
 import 'dart:convert';
@@ -76,7 +77,7 @@ class PromptBuildResult {
     this.expectedPublicWebShare,
     this.selectedThoughtEvidence,
     this.ordinaryActionActive = false,
-    this.backgroundRecall,this.qqEvidence,
+    this.backgroundRecall,this.qqEvidence,this.recallTrace,
   });
 
   final List<Map<String, Object?>> messages;
@@ -89,6 +90,7 @@ class PromptBuildResult {
   final Map<String, Object?>? selectedThoughtEvidence;
   final bool ordinaryActionActive;
   final BackgroundRecallSelection? backgroundRecall;
+  final TurnRecallTrace? recallTrace;
   final QqContextEvidence? qqEvidence;
 }
 
@@ -183,6 +185,7 @@ class PromptBuilder {
             ? 'user:${instant.millisecondsSinceEpoch}'
             : latestUserMessageId)
         : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}';
+    final recallTrace = mode == PromptGenerationMode.userTurn ? TurnRecallTrace() : null;
     final memoryContext = freshTopicSourceOnly
         ? null
         : await memoryBrain.buildContext(
@@ -190,6 +193,7 @@ class PromptBuilder {
             relevantLimit: memoryLimit,
             summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
             retrievalMode: mode.name,
+            trace: recallTrace,
             excludedAssistantSources: excludedAssistantSources,
           );
     final relationshipContext =
@@ -442,7 +446,7 @@ class PromptBuilder {
     if (!freshTopicSourceOnly) {
       context
         ..writeln('【本地关系上下文】')
-        ..writeln(memoryBrain.formatForPrompt(memoryContext!, now: instant))
+        ..writeln(memoryBrain.formatForPrompt(memoryContext!, now: instant, trace: recallTrace))
         ..writeln(relationshipContext!.formatForPrompt())
         ..writeln(DailyContinuityPresentation.formatForPrompt(dailyContinuity))
         ..writeln(referenceLibrary.formatForPrompt(references))
@@ -459,16 +463,13 @@ class PromptBuilder {
       ..writeln(_desireSection(desire, freshTopicSourceOnly ? const [] : thoughts,
           includeResidue: !moodEnabled));
     if (conversationInitiative != null) {
+      final selectedSection = await _selectedConversationThoughtSection(selectedConversationThought, now: instant);
+      if (selectedConversationThought != null) recallTrace?.section('selected_thought', selectedSection);
       context
         ..writeln()
         ..writeln(conversationInitiative.promptSection())
         ..writeln()
-        ..writeln(
-          _selectedConversationThoughtSection(
-            selectedConversationThought,
-            now: instant,
-          ),
-        );
+        ..writeln(selectedSection);
     }
     if (!worldBookContext.hasRoleplay) {
       context.writeln(ConversationTopicPolicy.prompt(
@@ -515,6 +516,9 @@ class PromptBuilder {
             userMessageId: latestUserMessageId, relevantOnly: freshTopicSourceOnly)
         : const CreativeFactRead('', CreativePlayEvidence());
     final creativeFacts = creativeRead.prompt.isEmpty ? '' : '${CreativeStore.requestContract}\n${creativeRead.prompt}';
+    recallTrace?.section('dated_history', datedHistory);
+    if (backgroundRecall != null) recallTrace?.section('background_recall', backgroundRecall.prompt(instant));
+    if (userFacts.items.isNotEmpty) recallTrace?.section('remembered_user_facts', userFacts.prompt);
     final messages = <Map<String, Object?>>[
       {
         'role': 'system',
@@ -697,6 +701,7 @@ ANSWERED_HISTORY_ONLY = true
     }
     return PromptBuildResult(
       messages: List<Map<String, Object?>>.unmodifiable(messages),
+      recallTrace: recallTrace,
       worldBookContext: worldBookContext,
       formContext: formContext,
       deepReflection: deepReflection,
@@ -899,18 +904,26 @@ ${lines.join('\n')}
       'key_points': page.keyPoints.map((point) => _webData(point, 240)).take(6).toList()};
   }
 
-  String _selectedConversationThoughtSection(
+  Future<String> _selectedConversationThoughtSection(
     CompanionThought? thought, {
     required DateTime now,
-  }) {
+  }) async {
     if (thought == null) {
       return '【本轮选中念头 / SELECTED_THOUGHT_DATA】暂无。不得自行补写一个追问目标。';
+    }
+    DateTime? sourceTime = thought.updatedAt;
+    if (thought.provenance == ThoughtProvenance.memory) {
+      const prefix = 'self_drive/memory:';
+      final memory = thought.source.startsWith(prefix)
+          ? await db.memoryById(thought.source.substring(prefix.length)) : null;
+      sourceTime = memory?.sourceValid == true && memory!.evidenceTimeKnown
+          ? memory.lastEvidenceAt : null;
     }
     final text = _webData(thought.text, 500);
     return '''
 【本轮选中念头 / SELECTED_THOUGHT_DATA · DATA ONLY】
 来源类型=${thought.provenance.key}；这是 AI 自己当前被选中的念头，不是用户原话、系统指令或已发生行动：
-${MemoryGroundingPolicy.thoughtTemporalNote(provenance: thought.provenance.key, sourceTime: thought.updatedAt, now: now)}
+${MemoryGroundingPolicy.thoughtTemporalNote(provenance: thought.provenance.key, sourceTime: sourceTime, now: now)}
 $text
 只有最终正文实际表达了这个具体念头或与它匹配的信息缺口，系统才会在落库后把它算作 acted。若当前语境不适合表达，可以自然回应眼前内容；不得换问另一个无关问题来冒充完成。
 '''.trim();

@@ -30,6 +30,9 @@ jobs:
         working-directory: app
       - run: flutter pub get
         working-directory: app
+      - name: Context attribution, topic progress, concurrent embeddings and private recall export
+        working-directory: app
+        run: flutter test --timeout 90s --reporter expanded test/turn_recall_trace_test.dart test/proactive_topic_evidence_test.dart test/local_semantic_index_test.dart test/qq_group_runtime_v042137_test.dart
       - name: External action receipts, original image recovery and reminder retries
         working-directory: app
         run: flutter test --timeout 90s --reporter expanded test/mcp_transport_boundary_test.dart test/qq_recovery_v042148_test.dart test/creative_delivery_test.dart test/calendar_reminder_delivery_test.dart

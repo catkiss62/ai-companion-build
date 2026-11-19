@@ -24,6 +24,39 @@ Future<void> ready(LocalSemanticIndex index) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('subset builds and concurrent writers preserve the full corpus across restart', () async {
+    final dir = await Directory.systemTemp.createTemp('independent-indices');
+    addTearDown(() => dir.delete(recursive: true));
+    final encoded = <String>[];
+    LocalSemanticIndex open() => LocalSemanticIndex(enabled: true,
+      cacheFile: () async => File('${dir.path}/vectors.json'),
+      encoder: (batch) async {
+        encoded.addAll(batch);
+        return batch.map((_) => vector(0)).toList();
+      });
+    final corpus = [for (var i = 0; i < 64; i++) item('m$i', '索引样本 $i')];
+    final full = open();
+    await full.search('检索', corpus);
+    while (full.status == 'indexing') {
+      await Future<void>.delayed(const Duration(milliseconds: 15));
+    }
+    expect(full.status, 'ready');
+    final shared = open();
+    await shared.search('小集合', [corpus.first, item('new', '新的样本')]);
+    await ready(shared);
+    final additions = [for (var i = 0; i < 24; i++) item('s$i', '并发 $i')];
+    await Future.wait(additions.map((row) async {
+      final independent = open();
+      await independent.search('子集', [row]);
+      await ready(independent);
+    }));
+    encoded.clear();
+    final reopened = open();
+    final scores = await reopened.search('跨实例验证', [...corpus, ...additions]);
+    expect(scores.length, 40); // Search returns at most forty ranked hits.
+    expect(reopened.indexedCount, 88);
+    expect(encoded, ['跨实例验证']);
+  });
   test(
     'embedding diagnostics separate cold load, indexing and cached queries',
     () async {

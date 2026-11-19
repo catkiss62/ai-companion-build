@@ -1056,6 +1056,8 @@ void main(){
     final body = jsonDecode(requests.first.body) as Map;
     final prompt = (body['messages'] as List).first['content'] as String;
     expect(prompt, contains('现在是夜间休息'));
+    expect(prompt, contains('发言者是绑定本人'));
+    expect(prompt, isNot(contains('本轮是你主动发起的群聊')));
     expect(prompt, contains('可叫“主人”'));
     final afterWake = requests.length;
     await accept('repeat', '能帮我回答一下吗', mention: true);
@@ -1066,6 +1068,7 @@ void main(){
     await runtime.process(cid());
     expect(api.sent.last['messageId'], 'morning-question');
     expect(requests.map((r) => r.body).join(), contains('还没睡够'));
+    expect(requests.map((r) => r.body).join(), contains('发言者是普通群友'));
   });
 
   test('ordinary night @ without a request only runs the wake decision', () async {

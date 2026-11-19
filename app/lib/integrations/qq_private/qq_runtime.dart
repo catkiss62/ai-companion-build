@@ -554,7 +554,7 @@ class QqRuntime {
       }
       if (wakingGroup) {
         prompt+='\n【休息中被叫醒】${rhythm.wakeReplyPrompt}'
-          '只回应序号 ${replyRow['seq']} 的这次可信@，其他消息只作背景。简短文字，通常一两句，不用每次重复道晚安。';
+          '只回应序号 ${replyRow['seq']} 的这次可信@，发言者是${isBoundOwner(replyRow) ? '绑定本人' : '普通群友'}，其他消息只作背景。简短文字，通常一两句，不用每次重复道晚安。';
       } else {
         prompt+='\n${rhythm.prompt}';
       }
@@ -637,7 +637,7 @@ class QqRuntime {
         }
       }
       if (wakingGroup) {
-        prompt+='\n本轮是你主动发起的群聊，可以选择文字或已开放的生图表达，结合眼前想分享的内容自行决定。';
+        prompt+='\n本轮回应叫醒你的群成员，以文字简短答复对方。';
       } else if (!o.voiceEnabled) {
         prompt+='\n本轮QQ语音关闭，只选择可用文字/图片表达。';
       } else {

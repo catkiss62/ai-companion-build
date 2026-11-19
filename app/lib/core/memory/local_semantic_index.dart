@@ -94,19 +94,58 @@ class LocalSemanticIndex {
           '${(await getApplicationCacheDirectory()).path}/$modelIdentity.json',
         );
   Future<void> _load() async {
+    late final File file;
     try {
-      final f = await _file();
-      if (!await f.exists()) return;
-      final data = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-      for (final e in data.entries) {
-        final bytes = base64Decode(e.value as String);
-        if (bytes.length != 512 * 4) continue;
-        final values = Float32List.view(bytes.buffer, bytes.offsetInBytes, 512);
-        if (values.every((v) => v.isFinite)) _vectors[e.key] = values;
-      }
+      file = await _file();
     } catch (_) {
-      _vectors.clear();
+      return;
     }
+    try {
+      if (await file.exists()) {
+        final data =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        for (final entry in data.entries) {
+          if (entry.value is String)
+            _restore(entry.key, base64Decode(entry.value as String));
+        }
+      }
+    } on FormatException {
+      // Ignore malformed legacy cache data. Live rows remain authoritative.
+    } on FileSystemException {
+      // Android can evict cache files at any point.
+    } on TypeError {
+      // Older or malformed cache format.
+    }
+    final parts = Directory('${file.path}.vectors');
+    try {
+      // Read complete immutable vectors only. In-flight writers use temporary
+      // directories, and atomic publication never replaces another key.
+      final files = await parts
+          .list(followLinks: false)
+          .where((f) => f is File)
+          .toList();
+      for (var i = 0; i < files.length; i += 16) {
+        await Future.wait(
+          files.skip(i).take(16).map((entry) async {
+            final key = entry.uri.pathSegments.last;
+            if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(key)) return;
+            try {
+              _restore(key, await File(entry.path).readAsBytes());
+            } on FileSystemException {
+              // Concurrent cache eviction.
+            }
+          }),
+        );
+      }
+    } on FileSystemException {
+      // Empty cache on first use.
+    }
+  }
+
+  void _restore(String key, Uint8List bytes) {
+    if (bytes.length != 512 * 4) return;
+    final values = Float32List.view(bytes.buffer, bytes.offsetInBytes, 512);
+    if (values.every((v) => v.isFinite)) _vectors[key] = values;
   }
 
   Future<({List<Float32List> vectors, int? inferenceMs})> _embed(
@@ -192,7 +231,7 @@ class LocalSemanticIndex {
     indexedCount = chunkKeysByText.length - pendingCount;
     if (missing.isNotEmpty) {
       if (!_building) {
-        unawaited(_build(texts, missing, pendingItems, chunkKeysByText.length));
+        unawaited(_build(missing, pendingItems, chunkKeysByText.length));
       }
       timing('fallback_indexing');
       return {};
@@ -290,7 +329,6 @@ class LocalSemanticIndex {
   }
 
   Future<void> _build(
-    Map<String, String> texts,
     List<MapEntry<String, String>> missing,
     List<Set<String>> pendingItems,
     int itemCount,
@@ -300,23 +338,39 @@ class LocalSemanticIndex {
     _indexClock = Stopwatch()..start();
     _indexedThisBuild = 0;
     try {
-      for (var i = 0; i < missing.length; i += 2) {
-        final batch = missing.sublist(i, min(i + 2, missing.length));
-        final result = await _embed(batch.map((e) => e.value).toList());
-        for (var j = 0; j < batch.length; j++) {
-          _vectors[batch[j].key] = result.vectors[j];
+      final file = await _file();
+      final parts = await Directory(
+        '${file.path}.vectors',
+      ).create(recursive: true);
+      final staging = await parts.createTemp('pending-');
+      try {
+        for (var i = 0; i < missing.length; i += 2) {
+          final batch = missing.sublist(i, min(i + 2, missing.length));
+          final result = await _embed(batch.map((e) => e.value).toList());
+          for (var j = 0; j < batch.length; j++) {
+            final key = batch[j].key;
+            final vector = result.vectors[j];
+            final temp = File('${staging.path}/$key');
+            await temp.writeAsBytes(
+              vector.buffer.asUint8List(
+                vector.offsetInBytes,
+                vector.lengthInBytes,
+              ),
+            );
+            await temp.rename('${parts.path}/$key');
+            _vectors[key] = vector;
+          }
+          final before = pendingItems.length;
+          pendingItems.removeWhere((keys) => keys.every(_vectors.containsKey));
+          _indexedThisBuild += before - pendingItems.length;
+          pendingCount = pendingItems.length;
+          indexedCount = itemCount - pendingCount;
+          // Yield between batches so foreground inference can share CPU resources.
+          await Future<void>.delayed(const Duration(milliseconds: 30));
         }
-        final before = pendingItems.length;
-        pendingItems.removeWhere((keys) => keys.every(_vectors.containsKey));
-        _indexedThisBuild += before - pendingItems.length;
-        pendingCount = pendingItems.length;
-        indexedCount = itemCount - pendingCount;
-        if (i % 32 == 0) await _save();
-        // Yield between batches so foreground inference can share CPU resources.
-        await Future<void>.delayed(const Duration(milliseconds: 30));
+      } finally {
+        await staging.delete(recursive: true);
       }
-      _vectors.removeWhere((key, _) => !texts.containsKey(key));
-      await _save();
       status = 'ready';
     } catch (_) {
       status = 'unavailable';
@@ -325,22 +379,5 @@ class LocalSemanticIndex {
       _indexClock?.stop();
       _building = false;
     }
-  }
-
-  Future<void> _save() async {
-    final f = await _file();
-    final tmp = File('${f.path}.tmp');
-    await tmp.writeAsString(
-      jsonEncode({
-        for (final e in _vectors.entries)
-          e.key: base64Encode(
-            e.value.buffer.asUint8List(
-              e.value.offsetInBytes,
-              e.value.lengthInBytes,
-            ),
-          ),
-      }),
-    );
-    await tmp.rename(f.path);
   }
 }

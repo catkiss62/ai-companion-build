@@ -1,3 +1,4 @@
+import '../memory/turn_recall_trace.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -56,6 +57,7 @@ class CheckPackExport {
                 ((b['at'] as num?) ?? 0).compareTo((a['at'] as num?) ?? 0),
           );
       return <String, Object?>{
+        'recent_recall_contains_private_memory': await TurnRecallTrace.read(txn),
         'messages': await txn.query(
           'messages',
           columns: [

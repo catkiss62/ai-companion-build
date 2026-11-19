@@ -66,6 +66,18 @@ class ProactiveTopicEvidence {
 
   static TopicProgress? progressIn(String text, {required bool viewing}) {
     if (_otherActor.hasMatch(text)) return null;
+    if (viewing) {
+      if (_titles.allMatches(text).length > 1) return null;
+      // A retrospective can explain an old episode without updating today's
+      // progress. Only a subsequent explicit present-tense clause can do so.
+      final past = RegExp(r'上(?:周|星期|个?月)|那时候?|当时|以前|之前|前阵子|回想|记得那|去年');
+      if (past.hasMatch(text)) {
+        final current = RegExp(r'(?:现在|如今|这次|今天|刚刚)').allMatches(text)
+            .where((m) => m.start > past.allMatches(text).last.start).lastOrNull;
+        if (current == null) return null;
+        text = text.substring(current.start);
+      }
+    }
     // A question, forecast or negation cannot establish a completion.
     if (_uncertain.hasMatch(text)) {
       return !text.contains(RegExp(r'[?？]|(?:吗|么)$|是不是|是否|看了没')) &&
@@ -76,10 +88,9 @@ class ProactiveTopicEvidence {
     if (_cancelled.hasMatch(text)) return TopicProgress.cancelled;
     if ((viewing ? _viewingDone : _workDone).hasMatch(text)) {
       final completion = (viewing ? _viewingDone : _workDone).firstMatch(text)!;
-      if (viewing &&
-          RegExp(
-            r'第.{1,8}[集季话]|这一集|这集|那集|一集|半集',
-          ).hasMatch(text.substring(completion.end)))
+      final whole = RegExp(r'全剧|整部|全集|整剧|大结局|最后一[集话]|全部').hasMatch(text);
+      if (viewing && !whole &&
+          RegExp(r'第.{1,8}[集季话]|这[一]?集|那集|一集|半集').hasMatch(text))
         return TopicProgress.ongoing;
       if (_ongoing.hasMatch(text.substring(completion.end)))
         return TopicProgress.ongoing;
@@ -105,6 +116,15 @@ class ProactiveTopicEvidence {
       final exact = names.isNotEmpty
           ? names.every(titles.contains)
           : titles.any((title) => _mentions(text, title));
+      if (message.isAssistant) {
+        // An assistant question can change the referent of a bare answer.
+        // A same-title question may preserve an existing user anchor.
+        if (!exact && (names.isNotEmpty || _switchWork.hasMatch(text) ||
+            _viewingStateCue.hasMatch(text) && text.contains(RegExp(r'[?？]|吗|没')))) {
+          anchorAt = null;
+        }
+        continue;
+      }
       if (!message.isUser ||
           _otherActor.hasMatch(text) ||
           !exact && (names.isNotEmpty || _switchWork.hasMatch(text))) {
@@ -191,10 +211,10 @@ class ProactiveTopicEvidence {
         'messages',
         columns: columns,
         where:
-            "role = 'user' AND is_proactive = 0 AND created_at > ? AND created_at <= ?",
+            "role IN ('user','assistant') AND is_proactive = 0 AND created_at >= ? AND created_at <= ?",
         whereArgs: [at, at + const Duration(hours: 4).inMilliseconds],
         orderBy: 'created_at, id',
-        limit: 8,
+        limit: 17,
       )) {
         rows[row['id'] as String] = row;
       }
@@ -208,7 +228,7 @@ class ProactiveTopicEvidence {
       messages.add(
         ChatMessage(
           id: id,
-          role: source?.isOrdinary == true ? 'user' : 'unavailable',
+          role: source?.isOrdinary == true ? row['role'] as String : 'unavailable',
           content: source?.isOrdinary == true ? text : '',
           createdAt: DateTime.fromMillisecondsSinceEpoch(
             row['created_at'] as int,
@@ -216,7 +236,10 @@ class ProactiveTopicEvidence {
         ),
       );
     }
-    return messages..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return messages..sort((a, b) {
+      final byTime = a.createdAt.compareTo(b.createdAt);
+      return byTime == 0 ? a.id.compareTo(b.id) : byTime;
+    });
   }
 
   Future<List<ChatMessage>> recentUserQuotes({

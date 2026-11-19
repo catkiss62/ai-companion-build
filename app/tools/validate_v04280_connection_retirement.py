@@ -1,3 +1,4 @@
+# +457 reviewed: candidate callback and private recall snapshot inside fenced reply commit.
 # +432 reviewed: final image alone creates the reply job; QQ images reuse album/media ownership.
 # No schema/export/restore changes. Multi-image atomicity and QQ retry regressions added.
 #!/usr/bin/env python3
@@ -155,7 +156,7 @@ APP = Path(__file__).resolve().parents[1]
 # and crypto paths are unchanged. Real SQLite ownership regressions pass.
 # +456: reviewed saveQqIllustration transaction records the exact original in the existing QQ task draft.
 # No schema, crypto or restore changes. Unsent/sending recovery and portable restore apply.
-PROTECTED = {'lib/core/database/app_database.dart': 'dae3ef0e82c5e185854fb9ab7b0073bf8d197794ea57e772cc3a887aefe535f7', 'lib/core/sync/snapshot_service.dart': 'c732304f197a546136c8fe84b7b498ded0457a64243bb7b4e41d4a8afd01b315', 'lib/core/sync/snapshot_restore_coordinator.dart': '3c3332686d88b04041dcd296be1c6a20e2311c605ca2668bf735458dd006a999', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': '760bd1a0e03d351b0f66351a9c77c13d860e9e8c99c04757856c38763f3d02b2'}
+PROTECTED = {'lib/core/database/app_database.dart': '91c1ac0eb76c468bfa11dc103d76e4e71e335c5c5b51b99b606e271f905d6adc', 'lib/core/sync/snapshot_service.dart': 'c732304f197a546136c8fe84b7b498ded0457a64243bb7b4e41d4a8afd01b315', 'lib/core/sync/snapshot_restore_coordinator.dart': '3c3332686d88b04041dcd296be1c6a20e2311c605ca2668bf735458dd006a999', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': '760bd1a0e03d351b0f66351a9c77c13d860e9e8c99c04757856c38763f3d02b2'}
 # +384 reviewed: additive QQ schema63 note source ranges and edit revision, with
 # old-source token compatibility; no encryption/restore-journal/transfer-owner changes.
 # QQ raw/note migration, cross-month cleanup and existing restore CI cover it.

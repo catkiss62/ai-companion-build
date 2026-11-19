@@ -36,11 +36,12 @@ void main() {
     String id,
     String text,
     int minutes, {
+    String role = 'user',
     bool fiction = false,
   }) => db.insertMessage(
     ChatMessage(
       id: id,
-      role: 'user',
+      role: role,
       content: text,
       createdAt: start.add(Duration(minutes: minutes)),
       worldBookContextJson: fiction
@@ -94,6 +95,32 @@ void main() {
       expect(evidence.prompt, isNot(contains('新靠垫')));
     },
   );
+
+  test('older events and multi-title summaries cannot reopen a finished series', () async {
+    await say('progress', '《潮汐邮局》看到第十集', 0);
+    await say('finish', '全剧看完了', 20);
+    await say('recap', '上周《潮汐邮局》我才看到第十集', 1500);
+    await say('multi', '《潮汐邮局》和《海边书店》都看到过第十集', 1510);
+    expect((await recall()).completed, isTrue);
+    await say('restart', '之前看完过《潮汐邮局》，现在二刷到第三集了', 1520);
+    expect((await recall()).prompt, contains('"status":"ongoing"'));
+  });
+
+  test('only a user can supply progress after an assistant changes titles', () async {
+    await say('progress', '《潮汐邮局》看到第十集', 0);
+    await say('question', '那《海边书店》看完了吗？', 10, role: 'assistant');
+    await say('answer', '看完了', 11);
+    expect((await recall()).completed, isFalse);
+    await say('explicit', '《潮汐邮局》全剧也看完了', 12);
+    expect((await recall()).completed, isTrue);
+  });
+
+  test('episode completion is independent of word order', () {
+    for (final text in ['第十集看完了', '看完第十集了']) {
+      expect(ProactiveTopicEvidence.progressIn(text, viewing: true), TopicProgress.ongoing);
+    }
+    expect(ProactiveTopicEvidence.progressIn('最后一集看完了', viewing: true), TopicProgress.completed);
+  });
 
   test('a named different show breaks a viewing chain', () async {
     await say('progress', '《潮汐邮局》看到第十集', 0);

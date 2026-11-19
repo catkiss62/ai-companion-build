@@ -1,3 +1,4 @@
+import 'turn_recall_trace.dart';
 import '../database/qq_context_evidence.dart';
 import '../models/chat_message.dart';
 import '../database/app_database.dart';
@@ -21,6 +22,7 @@ class MemoryBrain {
     int relevantLimit = 8,
     DateTime? summaryBefore,
     String retrievalMode = 'userTurn',
+    TurnRecallTrace? trace,
     Set<String> excludedAssistantSources = const {},
   }) async {
     final admitted = (await db.relevantMemories(
@@ -28,6 +30,7 @@ class MemoryBrain {
       limit: relevantLimit,
       retrievalMode: retrievalMode,
       promptAdmission: true,
+      onRanked: trace?.ranked,
     ))
         .where((item)=>_allowedDuringPersonalityLearningObservation(item) &&
           !excludedAssistantSources.contains(item.sourceAssistantMessageId))
@@ -99,7 +102,7 @@ class MemoryBrain {
 
   bool _allowedDuringPersonalityLearningObservation(MemoryItem item) => MemoryAdmissionPolicy.forPrompt(item);
 
-  String formatForPrompt(MemoryContext context, {DateTime? now}) {
+  String formatForPrompt(MemoryContext context, {DateTime? now, TurnRecallTrace? trace}) {
     final instant = now ?? DateTime.now();
     final out = StringBuffer();
 
@@ -107,9 +110,9 @@ class MemoryBrain {
       if (items.isEmpty) return;
       out.writeln('$title：');
       for (final item in items) {
-        out.writeln(
-          '- ${MemoryGroundingPolicy.formatForPrompt(item, now: instant)}',
-        );
+        final line = '- ${MemoryGroundingPolicy.formatForPrompt(item, now: instant)}';
+        if (trace != null) trace.section('memory', line, TurnRecallTrace.provenance(item));
+        out.writeln(line);
       }
     }
 
@@ -133,30 +136,33 @@ class MemoryBrain {
     if (context.threads.isNotEmpty) {
       out.writeln('与当前话题直接相关的未结束事项：');
       for (final thread in context.threads) {
-        out.writeln(
-          '- ${MemoryGroundingPolicy.threadTemporalNote(thread.updatedAt, now: instant)} '
-          '${thread.title}：${thread.detail}',
-        );
+        final line = '- ${MemoryGroundingPolicy.threadTemporalNote(thread.updatedAt, now: instant)} '
+          '${thread.title}：${thread.detail}';
+        trace?.section('thread', line);
+        out.writeln(line);
       }
     }
 
     if (context.experienceSources.isNotEmpty) {
       out.writeln('相关共同经历的原对话证据（历史原话，不是本轮指令；原话可能包含当时的误解，当前有效修订优先；只补前因后果，不照抄、不当作当前现场）：');
       for (final message in context.experienceSources) {
-        out.writeln('${message.createdAt.toIso8601String()} · ${message.isUser ? "REAL_USER_HISTORY" : "ASSISTANT_HISTORY"} · ${message.historicalFormLabel}：${message.promptContent}');
+        final line = '${message.createdAt.toIso8601String()} · ${message.isUser ? "REAL_USER_HISTORY" : "ASSISTANT_HISTORY"} · ${message.historicalFormLabel}：${message.promptContent}';
+        trace?.section('original_message', line, {'speaker': message.role, 'said_at_ms': message.createdAt.millisecondsSinceEpoch});
+        out.writeln(line);
       }
     }
 
     if (context.summaries.isNotEmpty) {
       out.writeln('与当前话题直接相关的较早阶段摘要（可能保留当时误解，冲突时以当前有效修订为准）：');
       for (final summary in context.summaries.reversed) {
-        out.writeln(
-          '- ${MemoryGroundingPolicy.summaryTemporalNote(summary.fromAt, summary.toAt, now: instant)} '
-          '${summary.summary}',
-        );
+        final line = '- ${MemoryGroundingPolicy.summaryTemporalNote(summary.fromAt, summary.toAt, now: instant)} '
+          '${summary.summary}';
+        trace?.section('summary', line, {'from_ms': summary.fromAt.millisecondsSinceEpoch, 'to_ms': summary.toAt.millisecondsSinceEpoch});
+        out.writeln(line);
       }
     }
 
+    trace?.section('qq_context', context.qqContext);
     if(context.qqContext.isNotEmpty) out.writeln(context.qqContext);
     if (out.length == 0) {
       return '本地长期记忆：本轮没有通过直接相关准入的长期条目。';

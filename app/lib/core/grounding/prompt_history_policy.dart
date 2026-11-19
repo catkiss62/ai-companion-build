@@ -65,7 +65,11 @@ class PromptHistoryPolicy {
     }
     return '【原始发言的形态来源】按下方原始对话消息1..N的顺序对应，不计system提示。'
         '用户发言与AI回复分别保存各自发生时快照；未知表示未保存，勿从措辞或现在状态推断。'
-        '历史形态不替代当前形态。\n${lines.join('\n')}';
+        '历史形态不替代当前形态。\n${lines.join('\n')}\n'
+        '【原话时间与说话人】编号与上述对话一致。昨天、明天等相对日期以该条发言的本地日期为准。'
+        '发言时间只说明何时说过；事件日期按原话判断，缺证据时保留未知。'
+        '把用户承诺归给用户时须有对应用户原话，助手的建议或转述归给助手。\n'
+        '${[for (var i = 0; i < history.length; i++) "${i + 1} ${history[i].isUser ? '用户' : '助手'} ${history[i].createdAt.toLocal().toIso8601String().substring(0, 16)}"].join('\n')}';
   }
 
   static Map<String, Object?> proactiveHistoryTranscript(

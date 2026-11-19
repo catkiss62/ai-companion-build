@@ -692,7 +692,7 @@ class _TransferPageState extends State<TransferPage> {
             label: const Text('导出精简检查包'),
           ),
         ),
-        const Text('包含近期聊天、日记和相册索引，不含图片文件或 API 配置，供排查使用。'),
+        const Text('含私人记忆：包括最近五轮普通聊天的实际召回、近期聊天、日记和相册索引。'),
         const SizedBox(height: 22),
         Text('换机与旧接管包', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),

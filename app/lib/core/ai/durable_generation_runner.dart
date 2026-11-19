@@ -861,6 +861,7 @@ class DurableGenerationRunner {
           'content': finalGenerationReminder,
         },
       ];
+      List<Map<String, Object?>> submittedMessages = const [];
       Future<({
         String reasoning,
         String content,
@@ -1078,6 +1079,7 @@ class DurableGenerationRunner {
           }
           streamEndedMs = requestClock.elapsedMilliseconds;
           await recordRequest('stream_ended');
+          submittedMessages = messages;
           if (usageLane != 'agent_tool_planning') {
             recordCommitTiming = () => recordRequest('committed');
           }
@@ -2103,6 +2105,7 @@ $finalGenerationReminder
       );
       final initialCandidateFromGemini = finalTextFromGemini;
       final initialCandidateFromThird = finalTextFromThird;
+      final initialSubmittedMessages = submittedMessages;
       final initialGenerated = generated;
       final initialEnvelope = envelope;
       final initialFinalContent = finalContent;
@@ -2199,6 +2202,7 @@ $finalGenerationReminder
             finalTextFromThird = initialWasThird;
             if (initialWasGemini) providerNotice = '';
             generated = initialGenerated;
+          submittedMessages = initialSubmittedMessages;
             envelope = initialEnvelope;
             finalContent = initialFinalContent;
             operationGuard = initialOperationGuard;
@@ -2215,6 +2219,7 @@ $finalGenerationReminder
           // Keep the original natural speech and expose only an ordinary UI
           // notice; do not insert local persona dialogue into chat/history/TTS.
           generated = initialGenerated;
+          submittedMessages = initialSubmittedMessages;
           finalTextFromGemini = initialWasGemini;
             finalTextFromThird = initialWasThird;
           if (initialWasGemini) providerNotice = '';
@@ -2247,6 +2252,7 @@ $finalGenerationReminder
         // into silence if a provider returns an empty corrected body.
         ablationTransformation = 'grounded_reply_retry_degraded_pass';
         generated = initialGenerated;
+          submittedMessages = initialSubmittedMessages;
         finalTextFromGemini = initialCandidateFromGemini;
         finalTextFromThird = initialCandidateFromThird;
         envelope = initialEnvelope;
@@ -2409,6 +2415,8 @@ $finalGenerationReminder
           onCommittedSource: (source) => committedMoeSource = source,
           secondChannelReply: finalTextFromGemini,
           onCommitAccepted: takeover.seal,
+          recallSnapshot: promptBuild.recallTrace?.snapshot(submittedMessages,
+              finalTextFromThird ? 'third' : finalTextFromGemini ? 'second' : 'first'),
           isCancelled: () => effectiveCancellation.isCancelled ||
               (takeover.requested && finalTextFromGemini),
           turnCommitEvidence: TurnCommitEvidence(deliveries: verifiedDeliveries,

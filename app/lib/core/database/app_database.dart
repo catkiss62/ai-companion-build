@@ -1,3 +1,4 @@
+import '../memory/turn_recall_trace.dart';
 import '../phone/phone_history_store.dart';
 import '../memory/local_semantic_index.dart';
 import '../memory/hybrid_memory_ranking.dart';
@@ -8322,6 +8323,7 @@ class AppDatabase {
     bool Function()? isCancelled,
     bool secondChannelReply = false,
     void Function()? onCommitAccepted,
+    Map<String, Object?>? recallSnapshot,
     PlayfulSelfActivity? playfulActivity,
     DeepReflectionContext? deepReflection,
     DeepReflectionUpdate? reflectionUpdate,
@@ -8547,6 +8549,11 @@ class AppDatabase {
       }
       committedSource = await ConversationSourceStore.captureMessage(txn, assistant.id);
       requireTurnNotCancelled(isCancelled);
+      if (recallSnapshot != null) {
+        await TurnRecallTrace.record(txn, recallSnapshot, turn: job.userMessageId,
+          reply: assistant.id, revision: finalSource.revision, at: now, model: assistant.model);
+        requireTurnNotCancelled(isCancelled);
+      }
       onCommitAccepted?.call();
       return true;
     });
@@ -9861,6 +9868,7 @@ class AppDatabase {
     String retrievalMode = 'userTurn',
     bool recordRecall = true,
     bool promptAdmission = false,
+    void Function(List<MemoryItem>)? onRanked,
     DateTime? now,
   }) async {
     final recallClock = semanticMemoryIndex.enabled ? (Stopwatch()..start()) : null;
@@ -9953,6 +9961,12 @@ class AppDatabase {
     }
     final combinedSorted = combined.values.toList()..sort((a,b)=>finalRank(b).compareTo(finalRank(a)));
     final selected = combinedSorted.take(limit).toList();
+    if (onRanked != null) {
+      onRanked({
+        for (final id in rankedIds) id: allCandidates[id]!,
+        for (final item in associatedSelected) item.id: item,
+      }.values.toList());
+    }
 
     if (recordRecall) await db.transaction((txn) async {
       for (final item in selected) {
