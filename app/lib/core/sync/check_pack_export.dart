@@ -57,7 +57,7 @@ class CheckPackExport {
                 ((b['at'] as num?) ?? 0).compareTo((a['at'] as num?) ?? 0),
           );
       return <String, Object?>{
-        'recent_recall_contains_private_memory': await TurnRecallTrace.read(txn),
+        'recent_recall_contains_private_memory': await TurnRecallTrace.forExport(txn),
         'messages': await txn.query(
           'messages',
           columns: [

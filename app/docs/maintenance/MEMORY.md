@@ -32,3 +32,5 @@
 上述为定位起点，不代表覆盖全部调用者。历史教训及证据见 [回归索引](REGRESSIONS.md)；执行方式见 [验证导航](VERIFICATION.md)。
 
 人工/真机重点：索引 ready 后连续长查询、事实纠正、按日期追读与 App/QQ 隔离。
+
+普通聊天在正文提交事务内保存五轮实际请求取材，精简检查包提供含私人记忆的候选、提交片段和来源时间。重生成按用户轮替换，导出检查回复修订。主动话题用助手消息判断作品切换，仅用户原话可更新用户进度。悬浮、前台及 QQ 的可重建 BGE 索引按模型路径和文本哈希共享已完成的向量，只读取本次候选。测试入口为 turn_recall_trace_test.dart、proactive_topic_evidence_test.dart、local_semantic_index_test.dart。

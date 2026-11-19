@@ -699,9 +699,12 @@ ANSWERED_HISTORY_ONLY = true
         'content': '【形态衔接事实】${formContext.transitionLabel}。'
           '恢复前后的经历属于同一人；历史形态只说明当时情境，不是另一套记忆或偏好，也不要求播报变身。'});
     }
+    if (recallTrace != null && !worldBookContext.hasRoleplay) {
+      await recallTrace.resolveSourceTimes(await db.database);
+    }
     return PromptBuildResult(
       messages: List<Map<String, Object?>>.unmodifiable(messages),
-      recallTrace: recallTrace,
+      recallTrace: worldBookContext.hasRoleplay ? null : recallTrace,
       worldBookContext: worldBookContext,
       formContext: formContext,
       deepReflection: deepReflection,

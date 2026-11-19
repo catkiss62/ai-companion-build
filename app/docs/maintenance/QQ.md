@@ -42,3 +42,5 @@ QQ专用结构化观察入口：[qq_vision_observation.dart](../../lib/core/ai/q
 回归：[qq_observation_v2_test.dart](../../test/qq_observation_v2_test.dart)、[qq_connection_preference_test.dart](../../test/qq_connection_preference_test.dart)、[QqPrivateServiceTest.kt](../../android/app/src/test/kotlin/com/aicompanion/localfirst/qq/QqPrivateServiceTest.kt)。真实偶发取消根因仍需新诊断，不将薄弱处修补写成现场根因确认。
 
 +456：同操作确定未发送并且来源、群与原图仍有效时，恢复后直接使用已保存的原图；部分投递及未知送达均不整批重发。
+
+休息时仅按可信 @ 选定回话序号，正文使用该条发言的绑定身份。未 @、唤醒冷却、语音及生图权限继续按休息分支判定。回归见 qq_group_runtime_v042137_test.dart。

@@ -64,40 +64,59 @@ void main() {
     },
   );
 
-  test(
-    'five committed turns, regenerated turn replacement and rollback',
-    () async {
-      sqfliteFfiInit();
-      final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-      addTearDown(db.close);
-      await db.execute(
-        'CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)',
-      );
-      Future<void> record(DatabaseExecutor txn, int i, int revision) =>
-          TurnRecallTrace.record(
-            txn,
-            {'channel': 'third'},
-            turn: 'u$i',
-            reply: 'a$i',
-            revision: revision,
-            at: i,
-            model: 'model',
-          );
-      for (var i = 0; i < 7; i++) {
-        await db.transaction((txn) => record(txn, i, 1));
-      }
-      await db.transaction((txn) => record(txn, 6, 2));
-      await expectLater(
-        db.transaction((txn) async {
-          await record(txn, 9, 1);
-          throw StateError('cancelled');
-        }),
-        throwsStateError,
-      );
-      final rows = await TurnRecallTrace.read(db);
-      expect(rows.map((r) => r['turn']), ['u6', 'u5', 'u4', 'u3', 'u2']);
-      expect(rows.first['revision'], 2);
-      expect(jsonEncode(rows), isNot(contains('u9')));
-    },
-  );
+  test('five committed turns, regenerated turn replacement and rollback', () async {
+    sqfliteFfiInit();
+    final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+    addTearDown(db.close);
+    await db.execute('CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)');
+    Future<void> record(DatabaseExecutor txn, int i, int revision) =>
+        TurnRecallTrace.record(
+          txn,
+          {'channel': 'third'},
+          turn: 'u$i',
+          reply: 'a$i',
+          revision: revision,
+          at: i,
+          model: 'model',
+        );
+    for (var i = 0; i < 7; i++) {
+      await db.transaction((txn) => record(txn, i, 1));
+    }
+    await db.transaction((txn) => record(txn, 6, 2));
+    await expectLater(
+      db.transaction((txn) async {
+        await record(txn, 9, 1);
+        throw StateError('cancelled');
+      }),
+      throwsStateError,
+    );
+    final rows = await TurnRecallTrace.read(db);
+    expect(rows.map((r) => r['turn']), ['u6', 'u5', 'u4', 'u3', 'u2']);
+    expect(rows.first['revision'], 2);
+    await db.execute(
+      'CREATE TABLE messages(id TEXT PRIMARY KEY, role TEXT, created_at INTEGER, source_revision INTEGER)',
+    );
+    await db.execute(
+      "INSERT INTO messages VALUES('a6','assistant',123,2),('a5','assistant',111,3)",
+    );
+    final visible = await TurnRecallTrace.forExport(db);
+    expect(visible.map((row) => row['reply']), ['a6']);
+    final legacy = TurnRecallTrace();
+    legacy.ranked([
+      MemoryItem(
+        id: 'm',
+        kind: 'event',
+        content: '旧记录',
+        importance: .5,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        sourceAssistantMessageId: 'a6',
+      ),
+    ]);
+    await legacy.resolveSourceTimes(db);
+    final hit =
+        (legacy.snapshot([], 'first')['ranked_candidates'] as List).single;
+    expect(hit['source_turn'].single['said_at_ms'], 123);
+    expect(jsonEncode(rows), isNot(contains('u9')));
+  });
 }

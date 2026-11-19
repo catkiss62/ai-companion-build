@@ -18,7 +18,7 @@ class TurnRecallTrace {
     return {
       'id': item.id,
       'actor': item.actorKey,
-      'source_turn': [
+      'source_turn': <Map<String, Object?>>[
         for (final role in ['user', 'assistant'])
           if (source[role] case final Map row)
             {
@@ -67,6 +67,37 @@ class TurnRecallTrace {
     if (text.isNotEmpty) _sections.add((kind: kind, text: text, meta: meta));
   }
 
+  Future<void> resolveSourceTimes(DatabaseExecutor db) async {
+    final unresolved = <Map<String, Object?>>[];
+    for (final entry in [..._candidates, ..._sections.map((s) => s.meta)]) {
+      if (entry['source_turn'] case final List sources) {
+        unresolved.addAll(
+          sources.whereType<Map<String, Object?>>().where(
+            (source) =>
+                source['said_at_ms'] == null && source['message_id'] is String,
+          ),
+        );
+      }
+    }
+    final ids = unresolved
+        .map((row) => row['message_id'] as String)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return;
+    final rows = await db.query(
+      'messages',
+      columns: ['id', 'role', 'created_at'],
+      where: 'id IN (${List.filled(ids.length, '?').join(',')})',
+      whereArgs: ids,
+    );
+    final byId = {for (final row in rows) row['id']: row};
+    for (final source in unresolved) {
+      final row = byId[source['message_id']];
+      if (row != null && row['role'] == source['speaker'])
+        source['said_at_ms'] = row['created_at'];
+    }
+  }
+
   static Map<String, Object?> _excerpt(String text, int max) {
     final chars = text.runes.take(max + 1).toList();
     return {
@@ -77,15 +108,30 @@ class TurnRecallTrace {
 
   Map<String, Object?> snapshot(
     List<Map<String, Object?>> messages,
-    String channel,
-  ) {
+    String channel, {
+    Map<String, String> historyTools = const {},
+  }) {
     final system = messages
         .where((m) => m['role'] == 'system')
         .map((m) => m['content'])
         .whereType<String>()
         .toList();
+    final toolMaterials = [
+      ...system,
+      ...messages
+          .where((m) => m['role'] == 'tool')
+          .map((m) => m['content'])
+          .whereType<String>(),
+    ];
     return {
       'channel': channel,
+      'history_tool_sections': [
+        for (final entry in historyTools.entries)
+          if (toolMaterials.any((content) => content.contains(entry.key)))
+            {'tool': entry.value, ..._excerpt(entry.key, 1400)}
+          else
+            {'tool': entry.value, 'status': 'absent_from_final_request'},
+      ],
       'ranked_status': rankedCount == null
           ? 'not_triggered'
           : rankedCount == 0
@@ -122,6 +168,27 @@ class TurnRecallTrace {
     } on FormatException {
       return [];
     }
+  }
+
+  static Future<List<dynamic>> forExport(DatabaseExecutor db) async {
+    final rows = await read(db);
+    if (rows.isEmpty) return [];
+    final current = await db.query(
+      'messages',
+      columns: ['id', 'source_revision'],
+      where: 'id IN (${List.filled(rows.length, '?').join(',')})',
+      whereArgs: [for (final row in rows) row['reply']],
+    );
+    final revisions = {
+      for (final row in current) row['id']: row['source_revision'],
+    };
+    return rows
+        .where(
+          (row) =>
+              row['revision'] is int &&
+              revisions[row['reply']] == row['revision'],
+        )
+        .toList();
   }
 
   static Future<void> record(

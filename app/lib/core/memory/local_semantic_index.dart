@@ -30,6 +30,7 @@ class LocalSemanticIndex {
   final Map<String, Float32List> _vectors = {};
   final Map<String, Float32List> _queries = {};
   Future<void>? _loading;
+  Directory? _parts;
   bool _building = false;
   DateTime? _retryAfter;
   String status = 'not_started';
@@ -116,29 +117,26 @@ class LocalSemanticIndex {
     } on TypeError {
       // Older or malformed cache format.
     }
-    final parts = Directory('${file.path}.vectors');
-    try {
-      // Read complete immutable vectors only. In-flight writers use temporary
-      // directories, and atomic publication never replaces another key.
-      final files = await parts
-          .list(followLinks: false)
-          .where((f) => f is File)
-          .toList();
-      for (var i = 0; i < files.length; i += 16) {
-        await Future.wait(
-          files.skip(i).take(16).map((entry) async {
-            final key = entry.uri.pathSegments.last;
-            if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(key)) return;
-            try {
-              _restore(key, await File(entry.path).readAsBytes());
-            } on FileSystemException {
-              // Concurrent cache eviction.
-            }
-          }),
-        );
-      }
-    } on FileSystemException {
-      // Empty cache on first use.
+    _parts = Directory('${file.path}.vectors');
+  }
+
+  Future<void> _restoreRequested(Iterable<String> keys) async {
+    final parts = _parts;
+    if (parts == null) return;
+    final missing = keys.where((k) => !_vectors.containsKey(k)).toList();
+    if (missing.isEmpty || !await parts.exists()) return;
+    // Read only keys that this caller can use. Other engines can publish new
+    // immutable files at any time, so a previous miss is never permanent.
+    for (var i = 0; i < missing.length; i += 16) {
+      await Future.wait(
+        missing.skip(i).take(16).map((key) async {
+          try {
+            _restore(key, await File('${parts.path}/$key').readAsBytes());
+          } on FileSystemException {
+            // Not built yet, or Android evicted this cache entry.
+          }
+        }),
+      );
     }
   }
 
@@ -221,6 +219,7 @@ class LocalSemanticIndex {
         return keys;
       });
     }
+    await _restoreRequested(texts.keys);
     final missing = texts.entries
         .where((e) => !_vectors.containsKey(e.key))
         .toList();

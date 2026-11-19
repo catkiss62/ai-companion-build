@@ -67,7 +67,13 @@ class ProactiveTopicEvidence {
   static TopicProgress? progressIn(String text, {required bool viewing}) {
     if (_otherActor.hasMatch(text)) return null;
     if (viewing) {
-      if (_titles.allMatches(text).length > 1) return null;
+      // Informal recaps commonly list titles without 《》 using arrows, or
+      // describe several past rewatches together. They do not identify the
+      // current episode of any one title.
+      if (_titles.allMatches(text).length > 1 ||
+          RegExp(r'→|->|(?:这几[个部]|这[两三]部|这[些几]部剧|每[一]?部).{0,10}(?:都|二刷)|(?:都[是已]?|以前|曾经)二刷|二刷过').hasMatch(text)) {
+        return null;
+      }
       // A retrospective can explain an old episode without updating today's
       // progress. Only a subsequent explicit present-tense clause can do so.
       final past = RegExp(r'上(?:周|星期|个?月)|那时候?|当时|以前|之前|前阵子|回想|记得那|去年');

@@ -101,6 +101,7 @@ void main() {
     await say('finish', '全剧看完了', 20);
     await say('recap', '上周《潮汐邮局》我才看到第十集', 1500);
     await say('multi', '《潮汐邮局》和《海边书店》都看到过第十集', 1510);
+    await say('plain-recap', '看过的顺序是海边书店→潮汐邮局→冬日小屋，这几个都是二刷', 1511);
     expect((await recall()).completed, isTrue);
     await say('restart', '之前看完过《潮汐邮局》，现在二刷到第三集了', 1520);
     expect((await recall()).prompt, contains('"status":"ongoing"'));

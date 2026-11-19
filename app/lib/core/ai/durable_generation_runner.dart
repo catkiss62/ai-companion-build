@@ -2202,7 +2202,7 @@ $finalGenerationReminder
             finalTextFromThird = initialWasThird;
             if (initialWasGemini) providerNotice = '';
             generated = initialGenerated;
-          submittedMessages = initialSubmittedMessages;
+            submittedMessages = initialSubmittedMessages;
             envelope = initialEnvelope;
             finalContent = initialFinalContent;
             operationGuard = initialOperationGuard;
@@ -2416,7 +2416,11 @@ $finalGenerationReminder
           secondChannelReply: finalTextFromGemini,
           onCommitAccepted: takeover.seal,
           recallSnapshot: promptBuild.recallTrace?.snapshot(submittedMessages,
-              finalTextFromThird ? 'third' : finalTextFromGemini ? 'second' : 'first'),
+              finalTextFromThird ? 'third' : finalTextFromGemini ? 'second' : 'first',
+              historyTools: {for (final r in agentToolResults)
+                if (r.promptData.isNotEmpty && const {'memory.search', 'chat_history.search',
+                    'chat_history.read', 'qq_history.search', 'qq_history.read', 'room_history.search',
+                    'room_history.read'}.contains(r.toolId)) r.promptData: r.toolId}),
           isCancelled: () => effectiveCancellation.isCancelled ||
               (takeover.requested && finalTextFromGemini),
           turnCommitEvidence: TurnCommitEvidence(deliveries: verifiedDeliveries,
