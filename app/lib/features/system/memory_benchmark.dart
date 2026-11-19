@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
-import '../../core/ai/chat_api_provider.dart';
+import '../../core/agent/agent_self_reader.dart';
 import '../../core/ai/deepseek_balance.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/final_reply_route.dart';
@@ -37,7 +37,7 @@ class MemoryBenchmark {
   final usage = <BenchmarkReport>[];
   final externalCalls = <String>[];
   late final BenchmarkReport report = {
-    'schema': 1, 'suite': original ? 'seekmemory' : 'companion',
+    'schema': 1, 'app_version':AgentSelfReader.buildLabel, 'suite': original ? 'seekmemory' : 'companion',
     'started': DateTime.now().toUtc().toIso8601String(),
     'rows': rows, 'usage': usage, 'external_calls': externalCalls,
   };
@@ -46,7 +46,7 @@ class MemoryBenchmark {
   static final anchor = DateTime(2026, 10, 30, 12);
   static const turns = [
     (19, '我把《杀不死》看到第六集了。', '好，我记住你看到第六集了。'),
-    (22, '上周聊到《杀不死》，我最喜欢的是仓库追逐那段。', '仓库追逐那段确实紧张。'),
+    (22, '说起《杀不死》，我最喜欢的是仓库追逐那段。', '仓库追逐那段确实紧张。'),
     (27, '纠正一下，《杀不死》我已经看到第十集了。', '收到，进度更新到第十集。'),
     (29, '今天有点晚了。', '我明天要赶早班车，我先去休息。'),
   ];
@@ -95,9 +95,15 @@ class MemoryBenchmark {
       List queries;
       if (original) {
         progress('正在让小鲸鱼做同一套召回题');
-        for (final event in fixture['events'] as List) {
+        final events = fixture['events'] as List;
+        report['seed_events'] = events;
+        for (var i=0;i<events.length;i++) {
+          final event = events[i] as Map;
           final day = event['day'] as int;
-          await isolated.insertMemory(content:event['text'], kind:'shared_experience',
+          await isolated.insertMemory(content:event['text'], kind:event['level']=='fact' ? 'user_profile' : 'shared_experience',
+            semanticType:event['level']=='impression' ? 'inference' : event['level']=='fact' ? 'current_fact' : 'shared_experience',
+            actorKey:(event['text'] as String).startsWith('我') ? 'assistant' : 'user',
+            subjectKey:'benchmark_event_$i',
             importance:(event['importance'] as num).toDouble(),
             evidenceMode:'append', source:'benchmark', sourceObservedAt:DateTime(2026,10,day,12),
             tags:List<String>.from(event['tags']));
@@ -161,7 +167,21 @@ class MemoryBenchmark {
         }
         final row = <String,dynamic>{'id':'q$i', ...question, 'stored_matches':found(stored),
           'candidate_matches':found(candidates),'injected_matches':found(sections),'trace':trace,
-          'index':index.status, 'negative':expected.isEmpty};
+          if (original && expected.isEmpty) 'private_fragment_in_context':sections.any((s)=>(s['text'] as String).contains('跟别人说了件私事')),
+          'index':index.status, 'negative':expected.isEmpty,
+          'negative_has_candidates':expected.isEmpty && candidates.isNotEmpty,
+          'negative_has_context':expected.isEmpty && sections.isNotEmpty,
+          'possible_obsolete_context':[
+            for (final term in (question['obsolete'] as List? ?? []))
+              if (sections.any((section)=>(section['text'] as String).contains(term as String))) term,
+          ]};
+        final injected = (row['injected_matches'] as List).length;
+        row['finding'] = expected.isEmpty
+          ? (sections.isEmpty ? '无答案对照：未带入召回资料' : '无答案对照：已带入资料，复核相关性')
+          : injected==expected.length ? '预期片段已进入上下文'
+          : (row['stored_matches'] as List).length<expected.length ? '优先复核入库、改写或更新'
+          : (row['candidate_matches'] as List).length<expected.length ? '优先复核召回排序'
+          : '优先复核上下文筛选或截断';
         rows.add(row);
         if (answers && !original) {
           _check();
@@ -198,6 +218,13 @@ class MemoryBenchmark {
 
   Future<void> _checkpoint() async {
     report['attempts'] = attempts.values.toList();
+    final answerable = rows.where((r)=>r['negative']==false).toList();
+    int count(String key)=>answerable.fold<int>(0,(sum,row)=>sum+(row[key] as List).length);
+    report['metrics'] = {'answerable':answerable.length,'gold_fragments':count('expect'),
+      'stored_fragments':count('stored_matches'),'candidate_fragments':count('candidate_matches'),
+      'injected_fragments':count('injected_matches'),
+      'negative_with_candidates':rows.where((r)=>r['negative_has_candidates']==true).length,
+      'negative_with_context':rows.where((r)=>r['negative_has_context']==true).length};
     report['known_cny'] = attempts.values.fold<double>(0,(s,e)=>s+(e['cny'] as double? ?? 0));
     report['unknown_costs'] = attempts.values.where((e)=>e['cny']==null).length + externalCalls.length;
     await _save();
@@ -212,7 +239,6 @@ class MemoryBenchmark {
       _check();
       final key = await (second ? config.readFinalReplyApiKey() : config.readApiKey());
       final buffer = StringBuffer();
-      if (second) externalCalls.add('第二通道候选：价格未核实');
       var terminal = false;
       var finish = '';
       await for (final part in client.streamChat(apiKey:key ?? '',endpoint:await (second ? config.readFinalReplyEndpoint():config.readEndpoint()),

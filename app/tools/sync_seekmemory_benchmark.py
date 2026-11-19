@@ -23,7 +23,7 @@ run = subprocess.run([sys.executable, 'benchmarks/run.py'], cwd=checkout,
                      capture_output=True, text=True, check=True)
 result = json.loads(run.stdout.strip().splitlines()[-1])
 report = json.loads((Path(result['output']) / 'memory.json').read_text())
-assert result['acceptance']['passed']
+assert result['acceptance']['passed'] and report['provenance']['code_revision'] == REVISION
 sys.path.insert(0, str(checkout))
 from benchmarks.dataset import build
 from benchmarks.memory_corpus import ANCHOR, CONFIG

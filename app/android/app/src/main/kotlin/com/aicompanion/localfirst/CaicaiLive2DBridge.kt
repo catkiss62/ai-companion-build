@@ -92,11 +92,13 @@ class CaicaiLive2DBridge(
                     if ((args?.get("profile") ?: Live2DProfiles.CAICAI) != profile ||
                         (args?.get("profile_generation") as? Number)?.toLong()?.let { it != Live2DProfiles.generation } == true)
                         return@setMethodCallHandler result.success(false)
-                    if (method == "captureAvatarDefaults" || method == "restoreAvatarDefaults") {
+                    if (method in setOf("captureAvatarDefaults", "validateAvatarDefaults", "restoreAvatarDefaults")) {
                         try {
                             if (method == "captureAvatarDefaults") result.success(portable.captureAvatar(profile))
                             else {
-                                portable.applyAvatar(profile, args?.get("arguments") as? Map<*, *> ?: error("保存状态格式无效"))
+                                val values = args?.get("arguments") as? Map<*, *> ?: error("保存状态格式无效")
+                                if (method == "validateAvatarDefaults") portable.validateAvatar(profile, values)
+                                else portable.applyAvatar(profile, values)
                                 result.success(true)
                             }
                         } catch (e: Exception) { result.error("avatar_defaults_failed", e.message, null) }

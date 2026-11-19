@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/platform/live2d_user_defaults.dart';
 import 'package:flutter/material.dart';
 import '../../core/ai/caicai_motion_planner.dart';
 import '../../core/database/app_database.dart';
@@ -23,7 +24,6 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
   Map<String, Object?> _status = const {};
   String? _error;
   bool _hasDefaults = false;
-  String _defaultsKey(String profile) => 'live2d_user_defaults_v1:$profile';
 
   Future<void> _defaults({required bool restore}) => _run(() async {
     final profile = _status['profile'] as String? ?? 'caicai';
@@ -34,7 +34,7 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
       }
     }
     checkProfile();
-    final key = _defaultsKey(profile);
+    final key = Live2DUserDefaults.key(profile);
     if (restore) {
       final raw = await _db.getSetting(key);
       if (raw == null) throw StateError('还没有保存状态');
@@ -43,8 +43,12 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
           (profile == 'caicai' && data['jev'] is! bool)) throw StateError('保存状态格式无效');
       checkProfile();
       final pending = '$key:restoring';
+      if (await CaicaiLive2DService.command('validateAvatarDefaults',data['settings']) != true) {
+        throw StateError('当前模型无法读取这份设置');
+      }
+      checkProfile();
       await _db.setSetting(pending, raw);
-      await _finishRestore(profile, raw, pending);
+      await Live2DUserDefaults.finish(_db,profile,raw);
     } else {
       final jev = await _db.getSetting('caicai_jev_motion') != '0';
       checkProfile();
@@ -58,17 +62,6 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
       content: Text(restore ? '已恢复保存状态' : '已保存当前状态'),duration:const Duration(seconds:2)));
   });
 
-  Future<void> _finishRestore(String profile, String raw, String pending) async {
-    final data = jsonDecode(raw) as Map;
-    if (CaicaiLive2DService.activeProfile != profile || data['profile'] != profile ||
-        await CaicaiLive2DService.command('restoreAvatarDefaults', data['settings']) != true) {
-      throw StateError('当前模型无法恢复，请稍后重试');
-    }
-    if (!await _db.setSettingsAtomically({
-      pending:'',
-      if (profile == 'caicai') 'caicai_jev_motion': data['jev'] == true ? '1' : '0',
-    },guardKey:pending,expectedGuardValue:raw)) throw StateError('恢复期间存档发生变化');
-  }
   bool get _deepseek => _status['profile'] == 'deepseek-avatar';
   double _gain=1, _speed=1, _pivot=.88;
   @override
@@ -79,10 +72,10 @@ class _Live2DSettingsPageState extends State<Live2DSettingsPage> {
 
       var status = await CaicaiLive2DService.diagnostics;
       final profile = status['profile'] as String? ?? 'caicai';
-      final key = _defaultsKey(profile);
+      final key = Live2DUserDefaults.key(profile);
       final pending = await _db.getSetting('$key:restoring') ?? '';
       if (pending.isNotEmpty) {
-        await _finishRestore(profile, pending, '$key:restoring');
+        await Live2DUserDefaults.finish(_db,profile,pending);
         status = await CaicaiLive2DService.diagnostics;
       }
       final motion = await _db.getSetting('caicai_jev_motion') != '0';

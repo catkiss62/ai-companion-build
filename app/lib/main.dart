@@ -1,3 +1,4 @@
+import 'core/platform/live2d_user_defaults.dart';
 import 'core/creative/creative_worker.dart';
 import 'core/ai/deepseek_balance.dart';
 import 'core/diagnostics/daily_spend.dart';
@@ -91,6 +92,10 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
           await AppDatabase.instance.database.timeout(const Duration(seconds: 30));
           await SnapshotRestoreCoordinator(AppDatabase.instance,
               PortableCompanionStorage()).ensureRecovered();
+          if (Platform.isAndroid) {
+            // A stage busy during startup can finish the same intent from its settings page.
+            try { await Live2DUserDefaults.resumeAtStartup(AppDatabase.instance); } catch (_) {}
+          }
           await CedarGameArrangementStore(AppDatabase.instance).migrateLegacy();
           await DailyWakeStore.read(await AppDatabase.instance.database, DateTime.now());
           if (Platform.isAndroid) {

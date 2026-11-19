@@ -139,14 +139,7 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
             settings.mediaPlaybackRequiresUserGesture = false
             settings.blockNetworkLoads = true
             addJavascriptInterface(object {
-                @JavascriptInterface fun bestScore(completedScore: Int): Int {
-                    val prefs = activity.getSharedPreferences("companion_runtime", android.content.Context.MODE_PRIVATE)
-                    synchronized(prefs) {
-                        val previous = prefs.getInt("word_slice_best", 0)
-                        if (completedScore <= previous) return previous
-                        return if (prefs.edit().putInt("word_slice_best", completedScore).commit()) completedScore else previous
-                    }
-                }
+                @JavascriptInterface fun bestScore(completedScore: Int) = recordWordSliceBest(activity, completedScore)
                 @JavascriptInterface fun pendantPosition(x: Double, y: Double) { main.post {
                     if (web === this@apply && x.isFinite() && y.isFinite()) { pendantX = x; pendantY = y }
                 } }
@@ -197,4 +190,14 @@ internal class WordSliceHost(private val activity: FlutterActivity, engine: Flut
         old?.removeJavascriptInterface("NativeSlice"); old?.stopLoading(); old?.destroy()
     }
     fun dispose() { disposed = true; enabled = false; destroyPage(); channel.setMethodCallHandler(null) }
+}
+
+
+internal fun recordWordSliceBest(context: android.content.Context, completedScore: Int): Int {
+    val prefs = context.getSharedPreferences("companion_runtime", android.content.Context.MODE_PRIVATE)
+    synchronized(prefs) {
+        val previous = prefs.getInt("word_slice_best", 0)
+        if (completedScore <= previous) return previous
+        return if (prefs.edit().putInt("word_slice_best", completedScore).commit()) completedScore else previous
+    }
 }

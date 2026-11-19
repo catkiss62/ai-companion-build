@@ -80,12 +80,15 @@ class _MemoryBenchmarkPageState extends State<MemoryBenchmarkPage> {
         const Divider(), Text('${result['suite']=='seekmemory'?'SeekMemory 原版测试':'小鲸鱼从零模拟'} · ${state??'部分结果'}',style:Theme.of(context).textTheme.titleMedium),
         if (result['upstream'] case final Map reference)
           Text('上游原脚本验收　${reference['acceptance']['passed']==true?'通过':'未通过'}'),
+        if (result['metrics'] case final Map metrics)
+          Text('小鲸鱼进入上下文的标准片段　${metrics['injected_fragments']} / ${metrics['gold_fragments']}'),
         if (amount!=null) Text('本次已估算金额　¥$amount${(result['unknown_costs']??0)>0?'　另有用量未能计价':''}'),
         if (result['balance_after'] case final String balance) Text('结束时$balance'),
         for (final row in rows) ExpansionTile(title:Text(row['text'] as String),subtitle:Text(row['negative']==true?'无答案对照 · 查看带入资料':
           '入库 ${(row['stored_matches'] as List).length}/${(row['expect'] as List).length}　候选 ${(row['candidate_matches'] as List).length}　进入上下文 ${(row['injected_matches'] as List).length}'),
           children:[Padding(padding:const EdgeInsets.all(12),child:SelectableText([
             if (row['negative']!=true) '标准片段：${(row['expect'] as List).join('、')}',
+            row['finding']?.toString() ?? '',
             '候选条数：${row['trace']['ranked_candidate_count']??0}',
             if (row['reply'] case final Map reply) '实际回答：${reply['text']}',
             '逐字命中仅作定位，改写、说话人和新旧进度可在导出报告中复核。',

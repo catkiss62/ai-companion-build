@@ -1,6 +1,5 @@
 """Run the unmodified upstream entry point on private bundled test data."""
 import importlib
-import json
 from pathlib import Path
 import sys
 import tempfile

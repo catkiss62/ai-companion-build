@@ -109,10 +109,15 @@ class PortableCompanionState(
     fun captureAvatar(profile: String): Map<String, Map<String, *>> =
         avatarFields(profile).mapValues { (group, fields) -> prefs(group).all.filterKeys { it in fields } }
 
-    fun applyAvatar(profile: String, raw: Map<*, *>) {
+    fun validateAvatar(profile: String, raw: Map<*, *>): Map<String, Map<String, Any?>> {
         val schema = avatarFields(profile)
         require(raw.keys == schema.keys)
-        val checked = validateGroups(raw, schema)
+        return validateGroups(raw, schema)
+    }
+
+    fun applyAvatar(profile: String, raw: Map<*, *>) {
+        val schema = avatarFields(profile)
+        val checked = validateAvatar(profile, raw)
         val previous = captureAvatar(profile)
         try {
             for ((group, fields) in schema) replace(prefs(group), fields.keys, checked.getValue(group))

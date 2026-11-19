@@ -347,7 +347,7 @@ class DeepSeekClient {
 
     try {
       cancellationToken?.throwIfCancelled();
-      if (billable) await _cost(costAttempt);
+      if (billable || runCostRecorder != null) await _cost(costAttempt);
       final response = await cancelWithToken(
         streamClient.send(request).timeout(requestTimeout), cancellationToken,
       );
@@ -415,7 +415,7 @@ class DeepSeekClient {
               // Accounting is diagnostic-only and must never fail a reply.
             }
           }
-          if (billable && json['usage'] is Map) await _cost({...costAttempt, 'usage': json['usage']});
+          if ((billable || runCostRecorder != null) && json['usage'] is Map) await _cost({...costAttempt, 'usage': json['usage']});
           final choices = json['choices'] as List?;
           if (choices == null || choices.isEmpty) return null;
           final first = choices.first as Map<String, dynamic>;
@@ -539,7 +539,7 @@ class DeepSeekClient {
     }
     try {
       cancellationToken?.throwIfCancelled();
-      if (billable) await _cost(costAttempt);
+      if (billable || runCostRecorder != null) await _cost(costAttempt);
       final response = await requestClient
           .post(
             Uri.parse(endpoint),
@@ -579,7 +579,7 @@ class DeepSeekClient {
       } on FormatException {
         throw const MalformedJsonCompletionException();
       }
-      if (billable) await _cost({...costAttempt, 'usage': root['usage']});
+      if (billable || runCostRecorder != null) await _cost({...costAttempt, 'usage': root['usage']});
       final choices = root['choices'];
       final usage = _usageEvent(
         root['usage'],

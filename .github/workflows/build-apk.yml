@@ -1314,6 +1314,7 @@ jobs:
             --tests 'com.aicompanion.localfirst.VoiceExportOwnershipTest' \
             --tests 'com.aicompanion.localfirst.VoiceExportPcmTuningTest' \
             --tests 'com.catkiss.senlive2dcompanion.RoomMotionInterpolatorTest' \
+            --tests 'com.aicompanion.localfirst.AvatarDefaultsTest' \
             --tests 'com.aicompanion.localfirst.Overlay*Test' \
             --tests 'com.aicompanion.localfirst.HistoricalAnrTraceSanitizerTest' \
             --tests 'com.aicompanion.localfirst.HistoricalNativeTombstoneSanitizerTest' \
