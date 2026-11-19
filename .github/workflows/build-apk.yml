@@ -598,7 +598,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: ai-companion-${{ github.event.pull_request.number || github.ref }}
+  group: ai-companion-${{ github.event.pull_request.number || github.ref }}${{ contains(github.event.head_commit.message, '[verify only]') && '-verify' || '' }}
   cancel-in-progress: true
 
 jobs:

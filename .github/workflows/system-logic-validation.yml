@@ -35,6 +35,10 @@ jobs:
       - name: Isolated memory benchmark and Live2D preferences
         working-directory: app
         run: flutter test --timeout 120s --reporter expanded test/memory_benchmark_test.dart test/live2d_settings_page_test.dart test/portable_live2d_refresh_v04258_test.dart
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Verify Flutter, Android and bundled grader Gradle configuration
         run: |
           install -D -m 0644 app/tools/ci/maven-central.gradle ~/.gradle/init.d/companion-maven-central.gradle
