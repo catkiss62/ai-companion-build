@@ -147,6 +147,7 @@ class DeepSeekClient {
 
   DeepSeekClient({
     this.runCostRecorder,
+    this.retryMalformedJson = false,
     http.Client? client,
     http.Client Function()? streamClientFactory,
     http.Client Function()? jsonClientFactory,
@@ -167,6 +168,7 @@ class DeepSeekClient {
 
   final http.Client _client;
   final Duration relayTailGrace;
+  final bool retryMalformedJson;
   final http.Client Function() _streamClientFactory;
   final http.Client Function() _jsonClientFactory;
   final Future<bool> Function()? _abortWhen;
@@ -490,157 +492,167 @@ class DeepSeekClient {
     String usageLane = 'unclassified',
     String usageExecutionId = '',
   }) async {
-    final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
-    final effectiveModel = provider.effectiveModel(
-      model,
-      configuredModel: modelName,
-    );
-    final promptShape = _promptShape(
-      messages,
-      const <Map<String, Object?>>[],
-    );
-    final abortWhen = _abortWhen;
-    final ownsClient = cancellationToken != null || abortWhen != null;
-    final requestClient = ownsClient ? _jsonClientFactory() : _client;
-    final usageClock = Stopwatch()..start();
-    final costAttempt = <String, Object?>{'id': const Uuid().v4(),
-      'at': DateTime.now().millisecondsSinceEpoch, 'model': effectiveModel,
-      'endpoint': endpoint, 'lane': usageLane};
-    final billable = !provider.isGeminiRelay;
-    var runtimeGateAborted = false;
-    var gateCheckRunning = false;
-    Timer? runtimeGateTimer;
-    if (cancellationToken != null) {
-      unawaited(cancellationToken.whenCancelled.then((_) {
-        requestClient.close();
-      }));
-    }
-    if (abortWhen != null) {
-      Future<void> checkRuntimeGate() async {
-        if (gateCheckRunning || runtimeGateAborted) return;
-        gateCheckRunning = true;
-        try {
-          if (await abortWhen()) {
-            runtimeGateAborted = true;
-            requestClient.close();
+    Future<Map<String, dynamic>> request() async {
+      final provider = requestProvider ?? ChatApiProvider.fromEndpoint(endpoint);
+      final effectiveModel = provider.effectiveModel(
+        model,
+        configuredModel: modelName,
+      );
+      final promptShape = _promptShape(
+        messages,
+        const <Map<String, Object?>>[],
+      );
+      final abortWhen = _abortWhen;
+      final ownsClient = cancellationToken != null || abortWhen != null;
+      final requestClient = ownsClient ? _jsonClientFactory() : _client;
+      final usageClock = Stopwatch()..start();
+      final costAttempt = <String, Object?>{'id': const Uuid().v4(),
+        'at': DateTime.now().millisecondsSinceEpoch, 'model': effectiveModel,
+        'endpoint': endpoint, 'lane': usageLane};
+      final billable = !provider.isGeminiRelay;
+      var runtimeGateAborted = false;
+      var gateCheckRunning = false;
+      Timer? runtimeGateTimer;
+      if (cancellationToken != null) {
+        unawaited(cancellationToken.whenCancelled.then((_) {
+          requestClient.close();
+        }));
+      }
+      if (abortWhen != null) {
+        Future<void> checkRuntimeGate() async {
+          if (gateCheckRunning || runtimeGateAborted) return;
+          gateCheckRunning = true;
+          try {
+            if (await abortWhen()) {
+              runtimeGateAborted = true;
+              requestClient.close();
+            }
+          } catch (_) {
+            // Gate probing is best effort; the provider timeout still applies.
+          } finally {
+            gateCheckRunning = false;
           }
-        } catch (_) {
-          // Gate probing is best effort; the provider timeout still applies.
-        } finally {
-          gateCheckRunning = false;
         }
-      }
 
-      runtimeGateTimer = Timer.periodic(
-        const Duration(milliseconds: 250),
-        (_) => unawaited(checkRuntimeGate()),
-      );
-      unawaited(checkRuntimeGate());
-    }
-    try {
-      cancellationToken?.throwIfCancelled();
-      if (billable || runCostRecorder != null) await _cost(costAttempt);
-      final response = await requestClient
-          .post(
-            Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${apiKey.trim()}',
-            },
-            body: jsonEncode({
-              'model': effectiveModel,
-              'messages': messages,
-              ...provider.thinkingRequestFields(
-                thinking: thinking,
-                effort: effort,
-                modelName: effectiveModel,
-              ),
-              if (maxTokens != null) 'max_tokens': maxTokens,
-              'response_format': {'type': 'json_object'},
-              'stream': false,
-            }),
-          )
-          .timeout(requestTimeout);
-      cancellationToken?.throwIfCancelled();
-      if (runtimeGateAborted) {
-        throw const GenerationSuspendedByRuntimeGateException();
-      }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw DeepSeekException(
-          response.statusCode,
-          _extractError(response.body),
+        runtimeGateTimer = Timer.periodic(
+          const Duration(milliseconds: 250),
+          (_) => unawaited(checkRuntimeGate()),
         );
+        unawaited(checkRuntimeGate());
       }
-      Map<String, dynamic> root;
       try {
-        final decoded = jsonDecode(response.body);
-        if (decoded is! Map) throw const FormatException();
-        root = decoded.cast<String, dynamic>();
-      } on FormatException {
-        throw const MalformedJsonCompletionException();
-      }
-      if (billable || runCostRecorder != null) await _cost({...costAttempt, 'usage': root['usage']});
-      final choices = root['choices'];
-      final usage = _usageEvent(
-        root['usage'],
-        lane: usageLane,
-        executionId: usageExecutionId,
-        streaming: false,
-        promptShape: promptShape,
-        provider: provider.storageValue,
-        modelHash: _shortHash(effectiveModel),
-        endpointHash: _endpointHash(endpoint),
-        usageLatencyMs: usageClock.elapsedMilliseconds,
-      );
-      if (usage != null) {
-        try {
-          await _onUsage?.call(usage);
-        } catch (_) {
-          // Accounting is diagnostic-only and must never fail a reply.
+        cancellationToken?.throwIfCancelled();
+        if (billable || runCostRecorder != null) await _cost(costAttempt);
+        final response = await requestClient
+            .post(
+              Uri.parse(endpoint),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${apiKey.trim()}',
+              },
+              body: jsonEncode({
+                'model': effectiveModel,
+                'messages': messages,
+                ...provider.thinkingRequestFields(
+                  thinking: thinking,
+                  effort: effort,
+                  modelName: effectiveModel,
+                ),
+                if (maxTokens != null) 'max_tokens': maxTokens,
+                'response_format': {'type': 'json_object'},
+                'stream': false,
+              }),
+            )
+            .timeout(requestTimeout);
+        cancellationToken?.throwIfCancelled();
+        if (runtimeGateAborted) {
+          throw const GenerationSuspendedByRuntimeGateException();
         }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw DeepSeekException(
+            response.statusCode,
+            _extractError(response.body),
+          );
+        }
+        Map<String, dynamic> root;
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is! Map) throw const FormatException();
+          root = decoded.cast<String, dynamic>();
+        } on FormatException {
+          throw const MalformedJsonCompletionException();
+        }
+        if (billable || runCostRecorder != null) await _cost({...costAttempt, 'usage': root['usage']});
+        final choices = root['choices'];
+        final usage = _usageEvent(
+          root['usage'],
+          lane: usageLane,
+          executionId: usageExecutionId,
+          streaming: false,
+          promptShape: promptShape,
+          provider: provider.storageValue,
+          modelHash: _shortHash(effectiveModel),
+          endpointHash: _endpointHash(endpoint),
+          usageLatencyMs: usageClock.elapsedMilliseconds,
+        );
+        if (usage != null) {
+          try {
+            await _onUsage?.call(usage);
+          } catch (_) {
+            // Accounting is diagnostic-only and must never fail a reply.
+          }
+        }
+        if (choices is! List || choices.isEmpty) {
+          throw const MalformedJsonCompletionException();
+        }
+        final firstRaw = choices.first;
+        if (firstRaw is! Map) {
+          throw const MalformedJsonCompletionException();
+        }
+        final first = firstRaw.cast<String, dynamic>();
+        final finishReason = first['finish_reason']?.toString().trim() ?? '';
+        // A syntactically valid object may still contain an incomplete result.
+        // Some compatible endpoints omit finish_reason; keep those compatible,
+        // but never cache or apply a result explicitly marked as interrupted.
+        if (finishReason.isNotEmpty && finishReason.toLowerCase() != 'stop') {
+          throw IncompleteJsonCompletionException(finishReason);
+        }
+        final messageRaw = first['message'];
+        if (messageRaw is! Map) {
+          throw const MalformedJsonCompletionException();
+        }
+        final message = messageRaw.cast<String, dynamic>();
+        final content = message['content'];
+        if (content is! String || content.trim().isEmpty) {
+          throw const EmptyJsonCompletionException();
+        }
+        try {
+          final decoded = jsonDecode(content.trim());
+          if (decoded is! Map) throw const FormatException();
+          return decoded.cast<String, dynamic>();
+        } on FormatException {
+          throw const MalformedJsonCompletionException();
+        }
+      } catch (_) {
+        if (cancellationToken?.isCancelled ?? false) {
+          throw const GenerationCancelledByUserException();
+        }
+        if (runtimeGateAborted) {
+          throw const GenerationSuspendedByRuntimeGateException();
+        }
+        rethrow;
+      } finally {
+        runtimeGateTimer?.cancel();
+        if (ownsClient) requestClient.close();
       }
-      if (choices is! List || choices.isEmpty) {
-        throw const MalformedJsonCompletionException();
-      }
-      final firstRaw = choices.first;
-      if (firstRaw is! Map) {
-        throw const MalformedJsonCompletionException();
-      }
-      final first = firstRaw.cast<String, dynamic>();
-      final finishReason = first['finish_reason']?.toString().trim() ?? '';
-      // A syntactically valid object may still contain an incomplete result.
-      // Some compatible endpoints omit finish_reason; keep those compatible,
-      // but never cache or apply a result explicitly marked as interrupted.
-      if (finishReason.isNotEmpty && finishReason.toLowerCase() != 'stop') {
-        throw IncompleteJsonCompletionException(finishReason);
-      }
-      final messageRaw = first['message'];
-      if (messageRaw is! Map) {
-        throw const MalformedJsonCompletionException();
-      }
-      final message = messageRaw.cast<String, dynamic>();
-      final content = message['content'];
-      if (content is! String || content.trim().isEmpty) {
-        throw const EmptyJsonCompletionException();
-      }
-      try {
-        final decoded = jsonDecode(content.trim());
-        if (decoded is! Map) throw const FormatException();
-        return decoded.cast<String, dynamic>();
-      } on FormatException {
-        throw const MalformedJsonCompletionException();
-      }
-    } catch (_) {
-      if (cancellationToken?.isCancelled ?? false) {
-        throw const GenerationCancelledByUserException();
-      }
-      if (runtimeGateAborted) {
-        throw const GenerationSuspendedByRuntimeGateException();
-      }
-      rethrow;
-    } finally {
-      runtimeGateTimer?.cancel();
-      if (ownsClient) requestClient.close();
+    }
+
+    try {
+      return await request();
+    } on MalformedJsonCompletionException catch (error) {
+      if (error is IncompleteJsonCompletionException || !retryMalformedJson || (cancellationToken?.isCancelled ?? false) ||
+          (await _abortWhen?.call() ?? false)) rethrow;
+      return request();
     }
   }
 

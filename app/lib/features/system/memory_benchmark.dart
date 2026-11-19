@@ -90,7 +90,7 @@ class MemoryBenchmark {
     } catch (_) { return 'DeepSeek 余额：暂时无法查询'; }
   }
 
-  DeepSeekClient _client({Future<void> Function(String,BenchmarkReport)? meter}) => DeepSeekClient(abortWhen:() async => stopped,
+  DeepSeekClient _client({Future<void> Function(String,BenchmarkReport)? meter}) => DeepSeekClient(retryMalformedJson:true, abortWhen:() async => stopped,
           runCostRecorder:(event) async {
             final id = event['id'].toString();
             final amount = DailySpend.estimate(event);

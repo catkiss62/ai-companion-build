@@ -46,6 +46,26 @@ void main() {
     });
   }
 
+  for (final recovers in [true, false]) {
+    test('exam retries malformed JSON once, recovers=$recovers', () async {
+      var calls = 0;
+      final client = DeepSeekClient(retryMalformedJson: true, client: MockClient((_) async {
+        calls++;
+        if (recovers && calls == 2) return reply('stop');
+        return http.Response('{"choices":[{"message":{"content":"{"}}]}', 200);
+      }));
+      final response = client.jsonCompletion(apiKey: 'test', model: DeepSeekModelProfile.flash,
+        messages: messages);
+      if (recovers) {
+        expect((await response)['text'], isNotEmpty);
+      } else {
+        await expectLater(response, throwsA(isA<MalformedJsonCompletionException>()));
+      }
+      expect(calls, 2);
+      client.close();
+    });
+  }
+
   test('legacy endpoints without finish reason remain compatible', () async {
     final client = DeepSeekClient(client: MockClient((_) async => reply(null)));
     final result = await client.jsonCompletion(apiKey: 'test',
