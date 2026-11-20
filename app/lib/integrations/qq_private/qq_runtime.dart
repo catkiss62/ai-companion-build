@@ -626,6 +626,11 @@ class QqRuntime {
       }
       if(canSketch)prompt+='\n${QqSketchService.prompt}';
       if(canIllustrate)prompt+='\n${QqIllustrationChoice.prompt}';
+      if (b.group) {
+        prompt+=canIllustrate
+            ? '\n群友想看图时可以婉拒、接梗或只聊设想。确定画就选本轮插画动作，再给成图写配文。'
+            : '\n本轮没有新插画可交付。可以自然接话、婉拒或聊设计设想；文字、语音和表情包都按实际内容表达。';
+      }
       if(explicitIllustration && !cancelledDrawing) {
         prompt+=canIllustrate?'\n${QqIllustrationChoice.requestedPrompt}':
           '\n本轮无法启动 QQ 生图。请用文字说明当前无法画图，勿请对方等待。';
@@ -681,10 +686,10 @@ class QqRuntime {
         illustrationChoice=QqIllustrationChoice.parse(raw);
       }
       final choice=StickerReplyChoice.parse(raw);
-      final prioritizeIllustration=explicitIllustration && illustrationChoice!=null;
+      final prioritizeIllustration=(b.group || explicitIllustration) && illustrationChoice!=null;
       var voiceChoice=!prioritizeIllustration && !wakingGroup && o.voiceEnabled?QqVoiceChoice.parse(raw):null;
       final echoChoice=!prioritizeIllustration && voiceChoice==null && echo!=null && (reusedDraft==null || reusedDraft!['echo_key']==echo.usageKey)?QqEchoChoice.parse(raw):null;
-      final sketchChoice=voiceChoice==null && echoChoice==null && canSketch?QqSketchChoice.parse(raw):null;
+      final sketchChoice=!prioritizeIllustration && voiceChoice==null && echoChoice==null && canSketch?QqSketchChoice.parse(raw):null;
       await store.illustrationAudit(b,'choice',now().millisecondsSinceEpoch,{
         'skipped':skippedIllustration,'selected':illustrationChoice!=null,
         'voice':voiceChoice!=null,'echo':echoChoice!=null,'sketch':sketchChoice!=null,
@@ -698,6 +703,27 @@ class QqRuntime {
         QqReplyParts.parse(QqEchoChoice.visible(QqVoiceChoice.visible(StickerReplyChoice.visible(QqSketchChoice.visible(QqIllustrationChoice.visible(raw))))));
       if (illustrationChoice != null) {
         parts = parts.map(QqIllustrationChoice.deliveredCaption).where((part) => part.isNotEmpty).toList();
+      } else if (b.group && sketchChoice == null) {
+        bool conflict(String line) => QqIllustrationChoice.needsPictureCorrection(
+            drawingRequest,drawingRequested,line);
+        if (parts.any(conflict) || voiceChoice != null && conflict(voiceChoice.text)) {
+          // Only a conflicting unsent draft needs another writer pass. Preserve the
+          // configured reply route; do not ask a planner on ordinary group turns.
+          final original=[...parts,if(voiceChoice!=null)voiceChoice.text].join('\n');
+          final corrected=await generator.generate(channel:channel,firstModel:model,
+            firstEffort:await FirstChannelModel.readEffort(store.db),
+            secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),
+            usageLane:'qq_group_reply',messages:[
+              {'role':'system','content':'你是群聊中的小鲸鱼。这一轮没有生成新插画，也没有发生生图服务故障。把草稿改成一句自然的纯文字回应，可以拒绝、接梗或聊设想。只输出可直接发给群友的一句话。'},
+              {'role':'user','content':jsonEncode({'本轮群消息':drawingRequest,'待改草稿':original})},
+            ]);
+          if (!await current()) throw StateError('context_invalidated');
+          final usable=corrected.trim().isNotEmpty && corrected!='WAIT' &&
+              corrected.runes.length<=1800 && !corrected.contains('<') && !conflict(corrected);
+          parts=[usable?corrected.trim():'这轮先不画啦'];
+          voiceChoice=null;
+          raw=parts.single;
+        }
       } else if (drawingRequested && sketchChoice == null) {
         parts = parts.map((part) => QqIllustrationChoice.unfulfilledPromise(part)
             ? '这次没能画出来。' : part).toList();

@@ -93,6 +93,31 @@ class QqReplyDelivery {
       }
       return;
     }
+    if (requireMedia && group) {
+      if (fileInfo.isEmpty || mediaCurrent!=null && !await mediaCurrent!()) throw QqApiException('stopped');
+      final first=chunks.isEmpty?'':chunks.first;
+      var separateCaption=false;
+      try {
+        try {
+          await part(first,fileInfo);
+        } on QqApiException catch (error) {
+          if (first.isEmpty || error.uncertain || !const {'api_22006','api_340069'}.contains(error.code)) rethrow;
+          await planned?.call(++expected);
+          await part('',fileInfo);
+          separateCaption=true;
+        }
+      } on QqApiException catch (error) {
+        if (error.code!='stopped' && await current()) {
+          // A status message has its own sequence. Never replay uncertain media.
+          await planned?.call(1);
+          await part(error.uncertain?'图画好了，没确认发成功。':'图画好了，这次没发出去。','');
+        }
+        rethrow;
+      }
+      if (separateCaption) await part(first,'');
+      for (final chunk in chunks.skip(1)) { await part(chunk,''); }
+      return;
+    }
     if (fileInfo.isEmpty) {
       for (final chunk in chunks) { await part(chunk, ''); }
       return;

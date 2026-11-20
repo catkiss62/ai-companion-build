@@ -68,6 +68,24 @@ class QqIllustrationChoice {
   static bool unfulfilledPromise(String text) =>
       clearlyAccepts(text) || (_wait.stringMatch(text)?.trim() == text.trim());
 
+  // A request cue scopes ambiguous roleplay language; it never authorizes a draw.
+  static final _pictureCue = RegExp(r'(?:来|发|给|整|出)(?:一|个|一小)?[张幅]|自拍|生图|画一?[张幅]');
+  static final _handoff = RegExp(r'(?:^|[，,！!。\s])(?:喏|给你看成品|看成品)[，,！!：:\s]|'
+      r'(?:都|已经|刚刚)?(?:换成[^，。！？\n]{1,24}|换好|装好|画好|画完|生成好|传好|发给你)了|'
+      r'(?:给你|我)(?:画的|画了|刚画完)|(?:这是|看看|看下)(?:这张|我画的)');
+  static final _explicitClaim = RegExp(r'(?:这张图|你的图|我(?:已经|刚刚|刚))(?:画好|画完|发出|生成好)了');
+  static final _hypothetical = RegExp(r'要是|如果|假如|可以考虑|我会|我想|打算|还没|没画|还没法|想象');
+
+  static bool needsPictureCorrection(String request, bool requested, String text) {
+    final inContext = requested || _pictureCue.hasMatch(request);
+    if (inContext && unfulfilledPromise(text)) return true;
+    for (final sentence in text.split(RegExp(r'[。！!？?；;\n]+'))) {
+      if (_hypothetical.hasMatch(sentence)) continue;
+      if (_explicitClaim.hasMatch(sentence) || inContext && _handoff.hasMatch(sentence)) return true;
+    }
+    return false;
+  }
+
   static String explicitRequestReply(String raw, String request) {
     final brief = request.replaceAll(RegExp('[<>]'), '');
     final bounded = brief.length <= 180 ? brief : brief.substring(0, 180);

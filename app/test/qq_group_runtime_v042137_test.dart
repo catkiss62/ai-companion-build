@@ -124,12 +124,13 @@ class _Voice extends QqVoiceService {
   }
 }
 class _Stickers extends QqStickers {
-  _Stickers(super.db);
+  _Stickers(super.db,{this.filename='one.png'});
+  final String filename;
   static const pack=StickerPackMeta(id:'fixture',name:'图库',description:'测试',license:'fixture',rootPath:'/unused',count:1);
   static const record=StickerRecord(packId:'fixture',path:'one.png',tag:'daily',caption:'随手一张无意义表情，也可故意错位',keywords:'',toneScope:'normal',intensity:1,enabled:true);
   @override Future<String> stamp()async=>'same-gallery';
   @override Future<List<StickerReplyCandidate>> candidates(String seed,String context,{bool group=false})async=>[const StickerReplyCandidate('s1',pack,record)];
-  @override Future<({Uint8List bytes,String filename})> bytes(StickerReplyCandidate c)async=>(bytes:Uint8List.fromList([1,2,3]),filename:'one.png');
+  @override Future<({Uint8List bytes,String filename})> bytes(StickerReplyCandidate c)async=>(bytes:Uint8List.fromList([1,2,3]),filename:filename);
 }
 http.Response _json(Object data)=>http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode(data)},'finish_reason':'stop'}]}),200,
   headers:{'content-type':'application/json'});
@@ -293,7 +294,7 @@ void main(){
       }
     });
   }
-  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'retry_image_only', 'uncertain_image', 'plain_refusal', 'clarify_image', 'bare_wait', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
+  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'retry_image_only', 'uncertain_image', 'plain_refusal', 'clarify_image', 'bare_wait', 'mecha_voice', 'mecha_text', 'mecha_design', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
     test('QQ drawing choice and delivery: $scenario', () async {
       final automatic = scenario.startsWith('automatic');
       final useSvg = scenario == 'automatic_svg';
@@ -302,7 +303,7 @@ void main(){
       final chibi = scenario.startsWith('chibi_');
       final selfie = scenario.startsWith('selfie_');
       final mentionRetry = scenario == 'chibi_mention_retry';
-      final textOnly = const {'plain_refusal', 'clarify_image', 'bare_wait'}.contains(scenario);
+      final textOnly = const {'plain_refusal', 'clarify_image', 'bare_wait', 'mecha_voice','mecha_text','mecha_design'}.contains(scenario);
       final retryWithCaption = scenario == 'retry_image_only' || scenario == 'uncertain_image';
       final target = automatic
           ? Iterable<int>.generate(1000).map((i) => 'auto-drawing-$i')
@@ -310,6 +311,7 @@ void main(){
                   (int.parse(QqStore.hash([cid(id), 1]).substring(0, 8), radix:16)%40 == 0) == useSvg)
           : 'group-a';
       options=options.copy(groups:{target},illustrationEnabled:scenario!='disabled');
+      if(scenario=='mecha_voice') options=options.copy(voiceEnabled:true);
       final startedAt=clock.millisecondsSinceEpoch;
       final sketchKey='qq_sketch_auto_last_v1:${cid(target)}';
       final illustrationKey='qq_illustration_auto_last_v1:${cid(target)}';
@@ -317,9 +319,9 @@ void main(){
         await db.setSetting(sketchKey,'${startedAt-1000}');
         await db.setSetting('qq_sketch_auto_global_v1','${startedAt-1000}');
       }
-      if(selfie)await db.setSetting(illustrationKey,'${startedAt-1000}');
+      if(selfie || scenario.startsWith('mecha'))await db.setSetting(illustrationKey,'${startedAt-1000}');
       const pngData='iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAK0lEQVR42u3NQQEAQAQAMC6hYNJJdCX4bQWW1ROXXhwTCAQCgUAgEAgEWz7rPQHu8hmbmAAAAABJRU5ErkJggg==';
-      var planned=0,generated=0,svgPlans=0;
+      var planned=0,generated=0,svgPlans=0,corrections=0;
       var offeredIllustration=false,offeredSketch=false;
       await runtime.stop();
       runtime=create(illustrationClient:IllustrationClient(clientFactory:()=>MockClient((request) async {
@@ -338,12 +340,19 @@ void main(){
       try {
         handler=(r,b)async {
           if(b['stream']==true){
+            if(r.body.contains('待改草稿')){
+              corrections++;
+              return _sse('要是把尾巴换成推进器，刹车怎么办？');
+            }
             offeredIllustration=r.body.contains('【可选生图】');
             offeredSketch=r.body.contains('【可选小涂鸦】');
             if(chibi || selfie)return _sse(selfie?'给你画个自拍。':'这次给你画个Q版。');
             if(scenario=='styled_cancelled')return _sse('好，先聊点别的');
             if(scenario=='plain_refusal')return _sse('这次我先不画。');
             if(scenario=='clarify_image')return _sse('你要横版还是竖版？');
+            if(scenario=='mecha_text')return _sse('喏，机械外骨骼加等离子尾翼推进器');
+            if(scenario=='mecha_voice')return _sse('<qq_voice>{"language":"zh","text":"尾巴都换成推进器了，这下是真的能上天下海了，帅不帅？"}</qq_voice>');
+            if(scenario=='mecha_design')return _sse('要是把尾巴换成推进器，刹车怎么办？');
             if(scenario=='bare_wait')return _sse('等着');
             if(retryWithCaption)return _sse(
                 '先说一声<qq_next_message/>雨夜的灯<qq_illustration>雨夜插画</qq_illustration>');
@@ -392,6 +401,8 @@ void main(){
           clock=clock.add(const Duration(seconds:30));
         }
         final request = switch (scenario) {
+          'mecha_text' => '快来一张看看',
+          'mecha_design' || 'mecha_voice' => '再来来一张机甲鲸鱼少女看看吧',
           'chibi_mention_retry' => '<@fixture-bot> 现在呢？再试试生成张q版的',
           'chibi_format' => '用生图的Q版',
           'selfie_draw' => '画个自拍',
@@ -402,7 +413,7 @@ void main(){
         if(drawsStyled) await accept('qq-drawing-reaction','哈哈哈',target:target);
         if(scenario=='styled_cancelled')await accept('qq-drawing-cancel','先别画了',target:target);
         await runtime.process(cid(target));
-        expect(offeredIllustration,scenario!='disabled' && scenario!='styled_cancelled');
+        expect(offeredIllustration,scenario!='disabled' && scenario!='styled_cancelled' && !scenario.startsWith('mecha'));
         expect(offeredSketch,useSvg);
         expect(planned,useSvg||textOnly||scenario=='disabled'||styled&&!drawsStyled?0:1);
         expect(generated,planned);
@@ -443,17 +454,20 @@ void main(){
           expect(api.sent,hasLength(1));
         }
         if(scenario=='retry_image_only'){
-          expect(api.imageSendSequences,[2,2]);
+          expect(api.imageSendSequences,[1,1]);
           expect(api.sent.map((message)=>message['text']),['先说一声','雨夜的灯']);
-          expect(api.sent.last['fileInfo'],'fixture-image-token');
+          expect(api.sent.first['fileInfo'],'fixture-image-token');
         }
         if(scenario=='uncertain_image'){
-          expect(api.imageSendSequences,[2]);
-          expect(api.sent.single['text'],'先说一声');
+          expect(api.imageSendSequences,[1]);
+          expect(api.sent.single['text'],'图画好了，没确认发成功。');
         }
         if(scenario=='plain_refusal')expect(api.sent.single['text'],'这次我先不画。');
         if(scenario=='clarify_image')expect(api.sent.single['text'],'你要横版还是竖版？');
-        if(scenario=='bare_wait')expect(api.sent.single['text'],'这次没能画出来。');
+        if(scenario=='bare_wait' || scenario.startsWith('mecha')){
+          expect(api.sent.single['text'],'要是把尾巴换成推进器，刹车怎么办？');
+          expect(corrections,scenario=='mecha_design'?0:1);
+        }
         expect(api.sent.every((x)=>!(x['text'] as String).contains('<qq_')),isTrue);
         final saved=generated>0 && !const {'generation_failure','disabled_during_generation'}.contains(scenario);
         expect(await db.companionAlbumItems(),hasLength(saved?1:0));
@@ -1006,6 +1020,18 @@ void main(){
     expect(api.uploads,1);expect(api.sent.single['fileInfo'],'fixture-image-token');expect(api.sent.single['text'],'');
     expect(await (await db.database).query('message_attachments'),isEmpty);
     expect((await (await db.database).query('qq_images')).single['description'],contains('故意错位'));
+  });
+  test('a JPEG sticker cannot validate an illustration caption',()async{
+    await runtime.stop();
+    runtime=create(stickerService:_Stickers(db,filename:'one.jpg'));
+    handler=(r,b)async=>b['stream']==true
+        ?_sse(r.body.contains('待改草稿')?'我想先聊聊配色':'喏，机械外骨骼加推进器！<sticker_choice>with_text:s1</sticker_choice>')
+        :_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});
+    await accept('jpeg-caption','快来一张看看');
+    await runtime.process(cid());
+    expect(api.imageFiles,['one.jpg']);
+    expect(api.sent.single['text'],'我想先聊聊配色');
+    expect(await db.companionAlbumItems(),isEmpty);
   });
   test('group image and text can be semantically mismatched without an extra value gate',()async{
     await runtime.stop();vision=_Vision(secure);runtime=create(stickerService:_Stickers(db));
