@@ -24,35 +24,73 @@ class OfficialMemoryExam {
   Future<void> put(DatabaseExecutor db,String key,dynamic value) async {
     await db.insert('records',{'key':key,'value':jsonEncode(value)},conflictAlgorithm:ConflictAlgorithm.replace);
   }
-  Future<dynamic> get(Database db,String key) async {
+  Future<dynamic> get(DatabaseExecutor db,String key) async {
     final rows=await db.query('records',columns:['value'],where:'key=?',whereArgs:[key]);
     return rows.isEmpty?null:jsonDecode(rows.single['value'] as String);
   }
-  Future<List<Map<String,dynamic>>> records(Database db,String prefix) async {
+  Future<List<Map<String,dynamic>>> records(DatabaseExecutor db,String prefix) async {
     final rows=await db.query('records',columns:['value'],where:'key LIKE ?',whereArgs:['$prefix:%'],orderBy:'key');
     return [for(final row in rows) jsonDecode(row['value'] as String) as Map<String,dynamic>];
   }
-  Future<int> count(Database db,String prefix) async => Sqflite.firstIntValue(await db.rawQuery(
+  Future<int> count(DatabaseExecutor db,String prefix) async => Sqflite.firstIntValue(await db.rawQuery(
     'SELECT COUNT(*) FROM records WHERE key LIKE ?', ['$prefix:%']))??0;
+  // Legacy journals could lag the last committed turn, even for a completed
+  // person. Read only the small cursor in each existing person's database.
+  Future<Map<String,int>> _personTurns(Directory root) async {
+    final turns = <String,int>{};
+    if (!await root.exists()) return turns;
+    await for (final entry in root.list(followLinks:false)) {
+      if (entry is! Directory) continue;
+      final person = entry.path.split(Platform.pathSeparator).last;
+      if (person == 'question') continue; // Disposable copy for a single answer.
+      final file = File('${entry.path}/simulation.sqlite');
+      if (!await file.exists()) continue;
+      final db = await databaseFactory.openDatabase(file.path,
+          options:OpenDatabaseOptions(readOnly:true,singleInstance:false));
+      try {
+        // A process can also exit before the simulation schema is committed.
+        if ((await db.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='settings'")).isEmpty) continue;
+        final rows = await db.query('settings',columns:['value'],
+            where:'key=?',whereArgs:['fixed_exam_last_turn']);
+        if (rows.isNotEmpty) {
+          final cursor = int.tryParse(rows.single['value'].toString());
+          if (cursor != null) turns[person] = cursor;
+        }
+      } finally { await db.close(); }
+    }
+    return turns;
+  }
+
   Future<Map<String,dynamic>> status() async {
     final dir=await _root();
     if(!await File('${dir.path}/journal.sqlite').exists()) return {};
+    final durable=await _personTurns(dir);
     final db=await _openJournal(dir);
     try {
-      final state=await _status(db);
-      if ((state['summary']?['scored']??0)!=state['judged']) {
-        final scored=await records(db,'judge');
-        state['summary']=await native('summary',{'judgments':[for(final v in scored)v['judgment']]});
-      }
-      return state;
+      return await db.transaction((txn)=>_status(txn,durable));
     } finally {await db.close();}
   }
-  Future<Map<String,dynamic>> _status(Database db) async {
-    final money=await records(db,'cost');
+
+  Future<Map<String,dynamic>> _status(DatabaseExecutor db,Map<String,int> durable,
+      {List<Map<String,dynamic>>? reviews,List<Map<String,dynamic>>? costs}) async {
+    final money=costs??await records(db,'cost');
+    final judged=reviews?.length??await count(db,'judge');
+    var summary=await get(db,'summary');
+    if ((summary?['scored']??0)!=judged) {
+      final scored=reviews??await records(db,'judge');
+      summary=await native('summary',{'judgments':[for(final v in scored)v['judgment']]});
+    }
+    final cursors=Map<String,int>.of(durable);
+    for (final row in await records(db,'cursor')) {
+      final person=row['person'] as String, turn=row['turn'] as int;
+      if (turn>(cursors[person]??0)) cursors[person]=turn;
+    }
+    final turns=cursors.isEmpty ? await get(db,'turns')??0 :
+        cursors.values.fold<int>(0,(sum,turn)=>sum+turn);
     final unknown=money.where((e)=>e['cny']==null).length;
     return {'state':await get(db,'state'),'stage':await get(db,'stage'),'id':await get(db,'run_id'),
-      'answered':await count(db,'answer'),'judged':await count(db,'judge'),'turns':await get(db,'turns')??0,
-      'summary':await get(db,'summary'),'balance_before':await get(db,'balance_before'),'balance_after':await get(db,'balance_after'),
+      'answered':await count(db,'answer'),'judged':judged,'turns':turns,
+      'summary':summary,'balance_before':await get(db,'balance_before'),'balance_after':await get(db,'balance_after'),
       'cny':money.fold<double>(0,(sum,e)=>sum+(e['cny'] as num? ?? 0).toDouble()),
       'unknown':unknown, 'error':await get(db,'error')};
   }
@@ -131,6 +169,7 @@ class OfficialMemoryExam {
           session.report['account_start']=await get(log,'account_start');
         }
         var cursor=int.tryParse(await initial.getSetting('fixed_exam_last_turn')??'0')??0;
+        if (cursor>0) await put(log,'cursor:$person',{'person':person,'turn':cursor});
         await initial.retryFailedPostTurnJobsManually();
         for(final q in exam){
           session._check();
@@ -160,8 +199,6 @@ class OfficialMemoryExam {
               cursor=n;
               await db.setSetting('fixed_exam_last_turn','$cursor');
               await put(log,'cursor:$person',{'person':person,'turn':cursor});
-              final cursors=await records(log,'cursor');
-              await put(log,'turns',cursors.fold<int>(0,(sum,c)=>sum+(c['turn'] as int)));
             }
             await memoryIndex.waitForIndex();
             await db.close();personDb=null;live=null;
@@ -283,18 +320,23 @@ class OfficialMemoryExam {
 
   Future<File> export() async {
     final dir=await _root();
+    final durable=await _personTurns(dir);
     final db=await _openJournal(dir);
     try{
       final file=File('${dir.path}/chat-memory-$suite.json.gz');
-      final output=<String,dynamic>{'schema':1,'suite':suite,'edition':'1.0',
-        'revision':await get(db,'source'),'app':AgentSelfReader.buildLabel,'started':await get(db,'started'),
-        'status':await _status(db),'account_start':await get(db,'account_start'),
-        'account_end':await get(db,'account_end'),'account_change_units':await get(db,'account_change_units'),
-        'configuration':{'history':'native post-turn extraction; no hidden answers','recent_turns_max':6,
-          'exam_timezone':'+08:00','maintenance':['native post-turn extraction','daily continuity','memory fading at logical time'],
-          'dream_replayed':false,'background_jobs_replayed':false,
-          'writer':'configured app route','judge':'configured first channel; author-side semantic review'},
-        'answers':await records(db,'answer'),'reviews':await records(db,'judge'),'pending_reviews':await records(db,'pending'),'costs':await records(db,'cost')};
+      final output=await db.transaction((txn) async {
+        final reviews=await records(txn,'judge');
+        final costs=await records(txn,'cost');
+        return <String,dynamic>{'schema':1,'suite':suite,'edition':'1.0',
+          'revision':await get(txn,'source'),'app':AgentSelfReader.buildLabel,'started':await get(txn,'started'),
+          'status':await _status(txn,durable,reviews:reviews,costs:costs),'account_start':await get(txn,'account_start'),
+          'account_end':await get(txn,'account_end'),'account_change_units':await get(txn,'account_change_units'),
+          'configuration':{'history':'native post-turn extraction; no hidden answers','recent_turns_max':6,
+            'exam_timezone':'+08:00','maintenance':['native post-turn extraction','daily continuity','memory fading at logical time'],
+            'dream_replayed':false,'background_jobs_replayed':false,
+            'writer':'configured app route','judge':'configured first channel; author-side semantic review'},
+          'answers':await records(txn,'answer'),'reviews':reviews,'pending_reviews':await records(txn,'pending'),'costs':costs};
+      });
       await file.writeAsBytes(gzip.encode(utf8.encode(jsonEncode(output))),flush:true);
       return file;
     }finally{await db.close();}

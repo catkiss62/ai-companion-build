@@ -2210,20 +2210,31 @@ class ChatController extends ChangeNotifier {
           projected = await ensureLanguageVariant(message, language);
         }
       } on BrainWorkInvalidated {
-        if (playbackIntent.valid) await ttsPlayback.stop();
+        if (request == _manualSpeechRequest && playbackIntent.valid) await ttsPlayback.stop();
         return;
       } catch (error) {
-        if (playbackIntent.valid) await ttsPlayback.stop();
+        if (_disposed || request != _manualSpeechRequest || !playbackIntent.valid) return;
+        // stop() releases this claim and advances the queue generation once.
+        final releasedGeneration = ttsPlayback.generation + 1;
+        bool stillCurrent() => !_disposed && request == _manualSpeechRequest &&
+            ttsPlayback.generation == releasedGeneration;
+        await ttsPlayback.stop();
+        if (!stillCurrent()) return;
         final detail = 'language_variant_${language.key}: $error';
-        await db.setSetting(
-          'last_tts_error',
-          detail.length <= 320 ? detail : detail.substring(0, 320),
-        );
+        final database = await db.database;
+        await database.transaction((txn) async {
+          if (stillCurrent()) {
+            await txn.rawInsert('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                ['last_tts_error', detail.length <= 320 ? detail : detail.substring(0, 320)]);
+          }
+        });
+        if (!stillCurrent()) return;
         await android.recordTtsClientFailure(
           phase: 'language_variant_failed',
           language: language.key,
           code: error.runtimeType.toString(),
         );
+        if (!stillCurrent()) return;
         rethrow;
       }
     }

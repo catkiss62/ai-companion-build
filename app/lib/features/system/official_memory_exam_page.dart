@@ -11,7 +11,7 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
   String suite='demo';
   Map<String,dynamic> status={};
   String stage='';
-  bool busy=false,loading=true,stopping=false;
+  bool busy=false,exporting=false,loading=true,stopping=false;
   OfficialMemoryExam? active;
   @override
   void initState(){super.initState();_load();}
@@ -21,7 +21,7 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
     if(mounted && selected==suite) setState((){status=value;loading=false;});
   }
   Future<void> _run({required bool fresh}) async{
-    if(busy||loading) return;
+    if(busy||exporting||loading) return;
     final run=OfficialMemoryExam(suite,(value){if(mounted)setState(()=>stage=value);});
     if(fresh && status.isNotEmpty){
       final yes=await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
@@ -36,11 +36,15 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
     finally{if(mounted){setState((){busy=false;active=null;});await _load();}}
   }
   Future<void> _export() async{
+    if (exporting || busy || loading) return;
+    final selected=suite;
+    setState(()=>exporting=true);
     try{
-      final file=await OfficialMemoryExam(suite,(_){}).export();
+      final file=await OfficialMemoryExam(selected,(_){}).export();
       await AndroidBridge.instance.saveDiagnosticReport(sourcePath:file.path,
-        suggestedName:'chat-memory-1.0-$suite-${DateTime.now().millisecondsSinceEpoch}.json.gz');
+        suggestedName:'chat-memory-1.0-$selected-${DateTime.now().millisecondsSinceEpoch}.json.gz');
     }catch(_){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('报告导出失败')));}
+    finally{if(mounted)setState(()=>exporting=false);}
   }
   String _percentage(double rate) {
     final percentage = (rate * 100).toStringAsFixed(1);
@@ -122,7 +126,7 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
         if(busy)...[const LinearProgressIndicator(),Text(stopping?'正在保存进度':stage),
           TextButton(onPressed:stopping?null:(){setState(()=>stopping=true);active?.stop();},child:const Text('暂停'))]
         else ...[
-          if(!complete) FilledButton(onPressed:loading?null:()=>_run(fresh:false),child:Text(status.isEmpty?'开始本卷（会产生 API 费用）':'继续本卷')),
+          if(!complete) FilledButton(onPressed:loading||exporting?null:()=>_run(fresh:false),child:Text(status.isEmpty?'开始本卷（会产生 API 费用）':'继续本卷')),
           if(status.isNotEmpty)...[
             Text('${state??'已保存'} · 已整理 ${status['turns']} 轮 · 已答 ${status['answered']} / ${run.total}'),
             _overallScore(complete ? '总通过率' : '已判题目通过率', summary['passed'] as int? ?? 0, status['judged'] as int? ?? 0),
@@ -137,8 +141,8 @@ class _OfficialMemoryExamState extends State<OfficialMemoryExamPage>{
                     title: Text({'persona':'按人物','content_tags':'按考点','interval_days':'按间隔天数'}[group.key] ?? group.key.toString()),
                     children: _groupRows(group.key.toString(), group.value as Map),
                   ),
-            OutlinedButton(onPressed:_export,child:const Text('导出报告和逐题证据（压缩 JSON）')),
-            TextButton(onPressed:()=>_run(fresh:true),child:const Text('重新开始本卷')),
+            OutlinedButton(onPressed:exporting?null:_export,child:const Text('导出报告和逐题证据（压缩 JSON）')),
+            TextButton(onPressed:exporting?null:()=>_run(fresh:true),child:const Text('重新开始本卷')),
           ],
         ],
     ])));

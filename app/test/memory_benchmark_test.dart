@@ -9,10 +9,19 @@ import '../lib/core/ai/memory_extractor.dart';
 import '../lib/core/desire/desire_engine.dart';
 import '../lib/core/models/chat_message.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../lib/core/database/app_database.dart';
 import '../lib/core/memory/local_semantic_index.dart';
 import '../lib/features/system/memory_benchmark.dart';
+
+class _ExamPaths extends PathProviderPlatform {
+  _ExamPaths(this.path);
+  final String path;
+  @override
+  Future<String?> getApplicationSupportPath() async => path;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +43,55 @@ void main() {
       await reopened.close();await separate.close();
     } finally {await dir.delete(recursive:true);}
   });
+  test('page and exported report recover committed turns and grades without running models', () async {
+    final temp = await Directory.systemTemp.createTemp('exam-checkpoints-');
+    final previous = PathProviderPlatform.instance;
+    PathProviderPlatform.instance = _ExamPaths(temp.path);
+    databaseFactory = databaseFactoryFfi;
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var summaries = 0;
+    messenger.setMockMethodCallHandler(OfficialMemoryExam.channel, (call) async {
+      expect(call.method, 'summary');
+      final grades = jsonDecode(call.arguments as String)['judgments'] as List;
+      expect(grades, [{'passed': true}]);
+      summaries++;
+      return jsonEncode({'scored': grades.length, 'passed': 1});
+    });
+    addTearDown(() async {
+      messenger.setMockMethodCallHandler(OfficialMemoryExam.channel, null);
+      PathProviderPlatform.instance = previous;
+      await temp.delete(recursive:true);
+    });
+    final exam = OfficialMemoryExam('formal', (_) {});
+    expect(await exam.status(), isEmpty);
+    final root = Directory('${temp.path}/chat-exam-v1/formal');
+    for (final entry in {'first':5, 'second':1, 'question':99}.entries) {
+      final home = await Directory('${root.path}/${entry.key}').create(recursive:true);
+      final sim = await AppDatabase.simulation(databaseFactoryFfi, LocalSemanticIndex(enabled:false),directory:home);
+      await sim.setSetting('fixed_exam_last_turn', entry.value.toString());
+      await sim.close();
+    }
+    final journal = await databaseFactoryFfi.openDatabase('${root.path}/journal.sqlite',
+        options:OpenDatabaseOptions(version:1,onCreate:(db,_) =>
+          db.execute('CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL)')));
+    await exam.put(journal,'turns',3);
+    await exam.put(journal,'cursor:first',{'person':'first','turn':4});
+    await exam.put(journal,'summary',{'passed':0,'scored':0});
+    await exam.put(journal,'judge:q',{'id':'q','judgment':{'passed':true}});
+    await exam.put(journal,'answer:q',{'id':'q'});
+    await journal.close();
+    final state = await exam.status();
+    expect(state['turns'],6);
+    expect(state['summary'],{'scored':1,'passed':1});
+    final file = await exam.export();
+    final report = jsonDecode(utf8.decode(gzip.decode(await file.readAsBytes())));
+    expect(report['suite'],'formal');
+    expect(report['status'],state);
+    expect(report['status']['judged'],report['reviews'].length);
+    expect(report['status']['answered'],report['answers'].length);
+    expect(summaries,2);
+  });
+
   test('two open simulations do not share messages or settings; closed simulation fails closed', () async {
     final a = await AppDatabase.simulation(databaseFactoryFfi,LocalSemanticIndex(enabled:false));
     final b = await AppDatabase.simulation(databaseFactoryFfi,LocalSemanticIndex(enabled:false));

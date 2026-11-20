@@ -255,6 +255,49 @@ void main() {
     expect(await db.getSetting('tts_language'), 'zh');
   });
 
+  for (final superseded in [true, false]) {
+    test('translation failure belongs only to current speech (superseded=$superseded)', () async {
+      const system = MethodChannel('ai_companion/system');
+      const tts = MethodChannel('ai_companion/tts');
+      final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      var reports = 0;
+      messenger.setMockMethodCallHandler(system, (call) async {
+        if (call.method == 'recordTtsClientFailure') reports++;
+        return null;
+      });
+      messenger.setMockMethodCallHandler(tts, (call) async => call.method == 'claimPlayback' ? 7 : null);
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(system, null);
+        messenger.setMockMethodCallHandler(tts, null);
+      });
+      final source = await complete(await start(), '「第一句」');
+      final entered = Completer<void>(), release = Completer<void>();
+      final chat = ChatController(db: db, client: DeepSeekClient(client: MockClient((_) async {
+        if (!entered.isCompleted) entered.complete();
+        await release.future;
+        return http.Response('denied', 401);
+      })));
+      addTearDown(chat.dispose);
+      await db.setSetting('last_tts_error','prior');
+      final pending = chat.speakMessage(source,language:ChatLanguage.english);
+      await entered.future;
+      if (superseded) {
+        final newer = chat.ttsPlayback.createIntent(ownerId:'second');
+        release.complete();
+        await pending;
+        expect(newer.valid,isTrue);
+        expect(await db.getSetting('last_tts_error'),'prior');
+        expect(reports,0);
+      } else {
+        final result = expectLater(pending,throwsA(anything));
+        release.complete();
+        await result;
+        expect(await db.getSetting('last_tts_error'),startsWith('language_variant_en:'));
+        expect(reports,1);
+      }
+    });
+  }
+
   test('cached foreign speech cannot replay a superseded reply', () async {
     final id = await start();
     final old = await complete(id, '「旧正文」');
