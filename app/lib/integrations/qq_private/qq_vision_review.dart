@@ -1,12 +1,13 @@
 import '../../core/qq/qq_mention_targets.dart';
 import '../../core/qq/qq_message_material.dart';
 
-typedef QqReviewSource = ({Map<String, Object?> row, List<String> urls});
+typedef QqReviewSource = ({Map<String, Object?> row, List<String> urls, int expiresAt});
 
 /// Temporary attachment locators for questions about recently received images.
 /// No image bytes or locators enter archives, diagnostics or model prompts.
 class QqVisionReview {
-  static const _lifetimeMs = 4 * 60 * 1000;
+  static const _groupLifetime = Duration(minutes: 30);
+  static const _privateLifetime = Duration(minutes: 4);
   static const _recentMs = 90 * 1000;
   final _sources = <int, QqReviewSource>{};
   final _observations = <String, String>{};
@@ -57,18 +58,21 @@ class QqVisionReview {
     return ordinal >= 0 && ordinal < count ? ordinal : null;
   }
 
-  void remember(Map<String, Object?> row, List<String> urls, int now) {
+  void remember(Map<String, Object?> row, List<String> urls, int now, {required bool group}) {
     if (urls.isEmpty) return;
     prune(now);
+    final lifetime = group ? _groupLifetime : _privateLifetime;
+    final expiresAt = (row['received_at'] as int) + lifetime.inMilliseconds;
+    if (now >= expiresAt) return;
     final seq = row['seq'] as int;
     if (!_sources.containsKey(seq) && _sources.length >= 32) {
       _sources.remove(_sources.keys.first);
     }
-    _sources[seq] = (row: row, urls: urls);
+    _sources[seq] = (row: row, urls: urls, expiresAt: expiresAt);
   }
 
   void prune(int now) => _sources.removeWhere(
-    (_, source) => now - (source.row['received_at'] as int) >= _lifetimeMs,
+    (_, source) => now >= source.expiresAt,
   );
 
   QqReviewSource? resolve(Map<String, Object?> focus, int now, int resetAt) {

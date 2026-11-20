@@ -874,7 +874,7 @@ void main(){
     await runtime.accept(event('source-image','随手发图',image:true)..['msg_idx']='picture-index',group:true);
     await runtime.process(cid());
     expect(vision.questions, ['']);
-    clock=clock.add(const Duration(seconds:3));
+    clock=clock.add(const Duration(minutes:21));
     final focus=event('quoted-detail','右下角写的什么？',mention:true)
       ..addAll({'message_type':103,'ref_msg_idx':'picture-index'});
     await runtime.accept(focus,group:true);
@@ -891,10 +891,11 @@ void main(){
     await runtime.accept({...focus,'id':'quoted-other-group','group_openid':'group-b'},group:true);
     await runtime.process(cid('group-b'));
     expect(vision.calls,2);
-    clock=clock.add(const Duration(minutes:5));
+    clock=clock.add(const Duration(minutes:8,seconds:57));
     await runtime.accept({...focus,'id':'quoted-expired','timestamp':clock.toUtc().toIso8601String()},group:true);
     await runtime.process(cid());
     expect(vision.calls,2);
+    expect(vision.questions,hasLength(3)); // expired and other-group quotes never opened the source
   });
   test('QQ uses the attached picture and question in a single vision request', () async {
     handler=(r,b)async=>b['stream']==true?_sse('看到了'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'direct'});

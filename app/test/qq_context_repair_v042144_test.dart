@@ -19,6 +19,7 @@ import 'package:ai_companion_localfirst/integrations/qq_private/qq_incoming.dart
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_stickers.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_store.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision.dart';
+import 'package:ai_companion_localfirst/integrations/qq_private/qq_vision_review.dart';
 
 class _Secure extends SecureConfig {
   _Secure():super.forTesting(const FlutterSecureStorage());
@@ -100,6 +101,29 @@ void main() {
     expect(selected.map((c)=>c.record.usageKey).toSet().length,8);
     expect(QqStickers.choicePrompt(selected),contains('Q版鲸鱼娘'));
     expect(QqStickers.groupSelection('seed','Q版鲸鱼娘',pool,{}).first.pack.id,'q-whale-001');
+  });
+
+  test('quoted group URLs expire at thirty minutes, private at four, implicit at ninety seconds', () {
+    final review = QqVisionReview();
+    Map<String,Object?> row(int seq) => {
+      'seq':seq, 'received_at':0, 'observed_at':0, 'conversation_id':'test',
+      'platform_id':'pic-$seq', 'content':'', 'context_meta':'',
+    };
+    void remember(int seq, {bool group=true}) =>
+        review.remember(row(seq), ['fixture-$seq'], 0, group:group);
+    final focus=row(40);
+    QqReviewSource? lookup(String id,int time) =>
+        review.resolve({...focus,'reply_to':id},time,0);
+    remember(1);
+    expect(lookup('',90000),isNotNull);
+    expect(lookup('',90001),isNull);
+    remember(2,group:false);
+    expect(lookup('pic-2',239999),isNotNull);
+    expect(lookup('pic-2',240000),isNull);
+    for (int i=3;i<=34;i++) { remember(i); }
+    expect(lookup('pic-1',1000000),isNull);
+    expect(lookup('pic-34',1799999),isNotNull);
+    expect(lookup('pic-34',1800000),isNull);
   });
 
   final still=base64Decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAIAAAAUMWhjAAAAJElEQVR4nGP8z0BbwERj80ctGLVg1IJRC0YtGLVg1IJRC6gEAPHIAS8Wxt4fAAAAAElFTkSuQmCC');

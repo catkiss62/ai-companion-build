@@ -365,7 +365,7 @@ class QqRuntime {
       if (!wakingGroup) {
         for (final row in b.rows) {
           final urls = _imageUrls[row['seq']];
-          if (urls != null) _visionReview.remember(row, urls, visionAt);
+          if (urls != null) _visionReview.remember(row, urls, visionAt, group: b.group);
         }
       }
       final questionSource = followupQuestion.isEmpty
