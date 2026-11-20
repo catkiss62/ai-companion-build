@@ -47,7 +47,7 @@ class QqVision {
       }
     }
     try {
-      downloaded=await withRetry(() => SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
+      downloaded=await withRetry<DownloadedPublicImage>(() => SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
         filePrefix:'qq',temporaryDirectory:root,totalTimeout:const Duration(seconds:20)));
       final original=await downloaded.file.readAsBytes();
       final contentHash=sha256.convert(original).toString();
