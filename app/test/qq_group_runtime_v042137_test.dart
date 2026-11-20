@@ -190,6 +190,19 @@ void main(){
     await runtime.checkGroupPresence();
     expect(requests,isEmpty);
     clock=date.add(Duration(minutes:540+window.roll(6,840)));
+    Future<void> observed(String target, DateTime received) async {
+      final seq = await store.append(fence:await store.capture(),scope:scope,
+        kind:'group',target:target,platformId:'quiet-check',sender:'member',text:'好',
+        observedAt:received.millisecondsSinceEpoch,receivedAt:received.millisecondsSinceEpoch);
+      await (await db.database).update('qq_conversations',{'checked_seq':seq},
+        where:'id=?',whereArgs:[cid(target)]);
+    }
+    await observed('group-a',clock.subtract(const Duration(minutes:9,seconds:59)));
+    await observed('group-b',clock);
+    await runtime.checkGroupPresence();
+    expect(requests,isEmpty);
+    expect(await db.getSetting('qq_presence_last_day:$scope'),isNull);
+    clock=clock.add(const Duration(seconds:1));
     await runtime.checkGroupPresence();
     expect(api.sent.single['messageId'],'');
     expect(api.sent.single['target'],'group-a');

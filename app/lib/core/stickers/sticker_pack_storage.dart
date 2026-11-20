@@ -45,6 +45,8 @@ class StickerPackStorage {
   static const enabledPacksSetting = 'sticker_enabled_pack_ids_v1';
   static const usageHistorySetting = 'sticker_usage_history_v1';
   static const captionOverridesSetting = 'sticker_caption_overrides_v1';
+  static const _retiredPackId = 'dafeiyu-001';
+  static const _retiredPath = 'memes/happy/1787190868178_73.jpg';
   static const maxArchiveBytes = 512 * 1024 * 1024;
   static const maxExpandedBytes = 768 * 1024 * 1024;
   static const maxEntries = 2400;
@@ -659,20 +661,45 @@ class StickerPackStorage {
       if (await File(p.join(entity.path, StickerSharedFiles.manifestName)).exists()) {
         throw const FormatException('外部存档不能引用本机共享表情文件');
       }
-      final pack = await _validateExtractedPack(entity);
+      final pack = await _validateExtractedPack(entity, retireSticker: false);
       if (pack.id != p.basename(entity.path)) {
         throw const FormatException('表情包存档 ID 与目录不一致');
       }
     }
   }
 
-  Future<StickerPackMeta> _validateExtractedPack(Directory root) async {
-    final pack = await _readPack(root);
+  Future<StickerPackMeta> _validateExtractedPack(Directory root, {bool retireSticker = true}) async {
+    final pack = await _readPack(root, retireSticker: retireSticker);
     await readRecords(pack, applyEdits: false);
     return pack;
   }
 
-  Future<StickerPackMeta> _readPack(Directory root) async {
+  // Called under the shared media lock on installed packs or import staging.
+  // Delete the row last so an interrupted cleanup can repeat from the index.
+  Future<void> _retireDafeiyuSticker(Directory root, Database index) async {
+    final entry = await index.query('memes', columns: ['path'],
+        where: 'path=?', whereArgs: [_retiredPath], limit: 1);
+    if (entry.isEmpty) return;
+    final shared = await _sharedFiles();
+    final mapping = await shared.readMap(root);
+    final released = mapping.remove(_retiredPath);
+    if (released != null) {
+      final file = File(p.join(root.path, StickerSharedFiles.manifestName));
+      final staged = File('${file.path}.saving');
+      await staged.writeAsString(jsonEncode({'version': 1, 'originals': mapping}), flush: true);
+      await staged.rename(file.path);
+      if (!(await shared.ownedOriginals()).contains(released) &&
+          await db.mediaBlobById(p.basenameWithoutExtension(released)) == null) {
+        final unused = File(p.join((await shared.mediaRoot).path, released));
+        if (await unused.exists()) await unused.delete();
+      }
+    }
+    final legacy = File(p.join(root.path, _retiredPath));
+    if (await legacy.exists()) await legacy.delete();
+    await index.delete('memes', where: 'path=?', whereArgs: [_retiredPath]);
+  }
+
+  Future<StickerPackMeta> _readPack(Directory root, {bool retireSticker = true}) async {
     final manifestFile = File(p.join(root.path, 'manifest.json'));
     final indexFile = File(p.join(root.path, 'index.db'));
     if (!await manifestFile.exists() || !await indexFile.exists()) {
@@ -683,13 +710,15 @@ class StickerPackStorage {
     final manifest = raw.map((key, value) => MapEntry(key.toString(), value));
     final id = (manifest['id']?.toString() ?? p.basename(root.path)).trim();
     if (!_validPackId(id)) throw const FormatException('manifest 的 id 无效');
+    final retire = retireSticker && id == _retiredPackId;
     final countDb = await openDatabase(
       indexFile.path,
-      readOnly: true,
+      readOnly: !retire,
       singleInstance: false,
     );
     int count;
     try {
+      if (retire) await _retireDafeiyuSticker(root, countDb);
       count =
           Sqflite.firstIntValue(
             await countDb.rawQuery('SELECT COUNT(*) FROM memes'),
@@ -701,10 +730,15 @@ class StickerPackStorage {
     if (count <= 0 || count > maxStickers) {
       throw const FormatException('表情包索引数量无效');
     }
+    var description = manifest['description']?.toString() ?? '';
+    if (id == _retiredPackId) {
+      description = description.replaceFirst('DeepSeek 鲸鱼娘 chibi 表情包，49 张',
+          'DeepSeek 鲸鱼娘 chibi 表情包，$count 张');
+    }
     return StickerPackMeta(
       id: id,
       name: _bounded(manifest['name']?.toString() ?? id, 80),
-      description: _bounded(manifest['description']?.toString() ?? '', 240),
+      description: _bounded(description, 240),
       license: _bounded(manifest['license']?.toString() ?? 'unspecified', 80),
       rootPath: root.path,
       count: count,

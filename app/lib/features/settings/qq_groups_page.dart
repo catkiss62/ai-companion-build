@@ -63,7 +63,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
             await QqOptions.update((fresh) {final ids={...fresh.groups};enabled?ids.add(g['target'] as String):ids.remove(g['target']);return fresh.copy(groups:ids);},namespace:_config.namespace);})),
           if (_options.groups.contains(g['target'])) SwitchListTile(
             title:const Text('允许她在这个群主动冒泡'),
-            subtitle:const Text('清醒时偶尔露个脸，也可以带一张自己画的图。'),
+            subtitle:const Text('清醒期间，本群连续 10 分钟没有收到群友消息，她才有机会露个脸，也可以带一张自己画的图。'),
             value:_options.presenceGroups.contains(g['target']),
             onChanged:_busy?null:(value)=>_run(() async {
               final target=g['target'] as String;

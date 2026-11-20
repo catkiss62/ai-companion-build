@@ -7,6 +7,7 @@ import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
 import 'package:ai_companion_localfirst/core/stickers/simple_sticker_archive.dart';
+import 'package:ai_companion_localfirst/core/storage/sticker_shared_files.dart';
 import 'package:ai_companion_localfirst/features/chat/sticker_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +52,46 @@ void main() {
   Future<StickerPackMeta> fixture() async => (await storage.importZip(
     await zip('猫咪表情', {'猫咪表情/猫咪开心.png': png}),
   )).imports.single.pack;
+
+  test('retire one imported Dafeiyu sticker on upgrade and on reimport', () async {
+    const id = 'dafeiyu-001';
+    const retired = 'memes/happy/1787190868178_73.jpg';
+    final packs = await storage.rootDirectory;
+    final dir = Directory('${packs.path}/$id');
+    await Directory('${dir.path}/memes/happy').create(recursive: true);
+    final manifest = utf8.encode(jsonEncode({
+      'id': id, 'name': '大肥鱼', 'description': 'DeepSeek 鲸鱼娘 chibi 表情包，49 张',
+    }));
+    await File('${dir.path}/manifest.json').writeAsBytes(manifest);
+    final index = await openDatabase('${dir.path}/index.db');
+    await index.execute('CREATE TABLE memes(path TEXT PRIMARY KEY,tag TEXT,file_name TEXT,caption TEXT,keywords TEXT)');
+    final paths = [retired, for (var i=0; i<48; i++) 'memes/happy/$i.png'];
+    for (final path in paths) {
+      await index.insert('memes', {'path':path, 'file_name':path.split('/').last,
+        'tag':'happy', 'caption':'开心', 'keywords':''});
+      await File('${dir.path}/$path').writeAsBytes(png);
+    }
+    await index.close();
+    final oldZip = await zip('大肥鱼', {
+      'manifest.json':manifest, 'index.db':await File('${dir.path}/index.db').readAsBytes(),
+      for (final path in paths) path:png,
+    });
+    final shared = StickerSharedFiles(packRootOverride:packs,
+        mediaRootOverride:Directory('${packs.parent.path}/media_blobs'));
+    await shared.migrate(dir, paths);
+    await db.setSetting(StickerPackStorage.enabledPacksSetting,jsonEncode([id]));
+    for (var attempt=0; attempt<2; attempt++) {
+      if (attempt==1) expect((await storage.importZip(oldZip)).imports.single.replaced,isTrue);
+      final catalog = await storage.loadPickerCatalog();
+      expect(catalog.items,hasLength(48));
+      expect(catalog.items.any((e)=>e.record.path==retired),isFalse);
+      final pack = (await storage.scanPacks()).single;
+      expect(pack.count,48);
+      expect(pack.description,contains('48 张'));
+      expect((await shared.readMap(dir)).containsKey(retired),isFalse);
+      expect(await catalog.items.first.file.readAsBytes(),png);
+    }
+  });
 
   test(
     'ordinary ZIP creates named category and repeats replace, preserving manual edits',

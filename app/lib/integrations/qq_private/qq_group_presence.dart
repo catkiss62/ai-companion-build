@@ -43,14 +43,24 @@ extension _GroupPresence on QqRuntime {
       return saved==null || saved==authority;
     }
     if(!await authorized())return;
-    if(at.millisecondsSinceEpoch-(convo['last_reply_at'] as int)<30*60000)return;
-    final claimed=await store.write(fence,(txn) async {
-      if(await BrainWorkFence.value(txn,key)==window.day)return false;
+    // Check silence and capture the draft's sequence fence in the same claim.
+    // A busy group can still qualify later inside today's original window.
+    final latest=await store.write(fence,(txn) async {
+      if(await BrainWorkFence.value(txn,key)==window.day)return null;
+      final cutoff=at.subtract(const Duration(minutes:10)).millisecondsSinceEpoch;
+      final activity=await txn.rawQuery(
+        "SELECT 1 FROM qq_archive WHERE conversation_id=? AND role='user' AND received_at>? LIMIT 1",
+        [cid,cutoff]);
+      if(activity.isNotEmpty)return null;
+      final state=await txn.query('qq_conversations',columns:['last_reply_at'],
+        where:'id=?',whereArgs:[cid],limit:1);
+      if(state.isEmpty || at.millisecondsSinceEpoch-(state.single['last_reply_at'] as int)<30*60000)return null;
+      final context=await txn.query('qq_archive',columns:['seq','role','content'],
+        where:'conversation_id=?',whereArgs:[cid],orderBy:'seq DESC',limit:4);
       await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[key,window.day]);
-      return true;
+      return context;
     });
-    if(!claimed)return;
-    final latest=await sql.query('qq_archive',columns:['seq','role','content'],where:'conversation_id=?',whereArgs:[cid],orderBy:'seq DESC',limit:4);
+    if(latest==null)return;
     final through=latest.firstOrNull?['seq'] as int? ?? 0;
     Future<bool> current() async {
       if(_enqueued.contains(cid) || _timers.containsKey(cid) || !await _enabled() || await resting() || !await store.current(fence) || !await authorized())return false;
