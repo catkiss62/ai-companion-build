@@ -1,7 +1,7 @@
 status=success
-run_id=44717850195
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44717850195
-head_sha=eef0f897418fc93fe647e37a0b6593c44385ea48
+run_id=44733736306
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44733736306
+head_sha=fd1a7f69aea0510e7b9f58b26dea7b8da93ad127
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-06033409c3aaf65563bbe9f2de46c7f3524883bff036c9f10a99649367e029b5  AI-Companion-v0.42.223-467-Presence-Collection-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b1a191729e1324f05b28
+3a3d305fa6d2f861d38d69e468d268e63577f7b46dffd9d740910d1e97021088  AI-Companion-v0.42.224-468-Group-Quiet-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a603ebc62d70c87a209
