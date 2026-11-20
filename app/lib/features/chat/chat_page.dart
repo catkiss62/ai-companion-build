@@ -1537,20 +1537,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                               ),
                             ),
                           ),
-                          if (controller.error != null)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              child: Text(
-                                controller.error!,
-                                style: TextStyle(
-                                  color:
-                                      Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                            ),
+                          if (controller.error case final error?)
+                            _chatNotice(context, error, onDismiss: controller.dismissError, error: true),
                           if (controller.temporaryHint case final hint?)
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1649,10 +1637,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
     BuildContext context,
     String notice, {
     required VoidCallback onDismiss,
+    bool error = false,
   }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isError = GenerationPresentationPolicy.isErrorNotice(notice);
+    final isError = error || GenerationPresentationPolicy.isErrorNotice(notice);
     final color = isError ? scheme.error : scheme.onSurfaceVariant;
     return Container(
       width: double.infinity,

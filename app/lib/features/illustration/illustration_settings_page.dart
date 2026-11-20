@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
@@ -15,14 +16,16 @@ class IllustrationSettingsPage extends StatefulWidget {
       _IllustrationSettingsPageState();
 }
 
-class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> {
+class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> with InlineFeedbackState<IllustrationSettingsPage> {
   final _url = TextEditingController();
   final _key = TextEditingController();
   bool _enabled = false;
   bool _autonomous = false;
   bool _diary = false;
   bool _busy = true;
-  String _notice = '';
+  String get _notice => inlineFeedback.text ?? '';
+  set _notice(String value) => inlineFeedback.replace(value);
+
 
   @override
   void initState() {
@@ -64,7 +67,7 @@ class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> {
         IllustrationJob.configRevisionKey,
         DateTime.now().microsecondsSinceEpoch.toString(),
       );
-      if (mounted) setState(() => _notice = '生图设置已保存。');
+      if (mounted) setState(() => briefFeedback = '生图设置已保存。');
     } catch (_) {
       if (mounted) setState(() => _notice = '生图设置保存失败，请重试。');
     } finally {
@@ -85,7 +88,7 @@ class _IllustrationSettingsPageState extends State<IllustrationSettingsPage> {
     try {
       final result = await _generateTest(value);
       if (!mounted) return;
-      setState(() => _notice = '连接成功，已收到一张测试图片。');
+      setState(() => briefFeedback = '连接成功，已收到一张测试图片。');
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(

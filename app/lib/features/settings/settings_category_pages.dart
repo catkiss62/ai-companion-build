@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import '../../core/autonomy/layered_public_web_provider.dart';
 import '../../core/autonomy/public_web_topic.dart';
 import '../../core/diagnostics/third_channel_diagnostics.dart';
@@ -43,7 +44,7 @@ class ModelNetworkSettingsPage extends StatefulWidget {
 }
 
 class _ModelNetworkSettingsPageState
-    extends State<ModelNetworkSettingsPage> {
+    extends State<ModelNetworkSettingsPage> with InlineFeedbackState<ModelNetworkSettingsPage> {
   final _db = AppDatabase.instance;
   final _secure = SecureConfig.instance;
   final _android = AndroidBridge.instance;
@@ -103,7 +104,8 @@ class _ModelNetworkSettingsPageState
   bool _weatherEnabled = false;
   bool _testingWeb = false;
   bool _testingWeather = false;
-  String? _status;
+  String? get _status => inlineFeedback.text;
+  set _status(String? value) => inlineFeedback.replace(value);
   String? _statusSection;
 
   Future<void> _transferConfig(String action) async {
@@ -140,13 +142,17 @@ class _ModelNetworkSettingsPageState
           content: await transfer.exportSaved(),
           suggestedName: 'ai_companion_model_network_$now.json',
         );
-        if (mounted) setState(() => _status = saved
-            ? '模型与联网配置已导出；文件包含 API Key。'
-            : '已取消导出。');
+        if (mounted) setState(() {
+          if (saved) {
+            _status = '模型与联网配置已导出；文件包含 API Key。';
+          } else {
+            briefFeedback = '已取消导出。';
+          }
+        });
       } else {
         final text = await _android.openPromptPack();
         if (text == null) {
-          if (mounted) setState(() => _status = '已取消导入。');
+          if (mounted) setState(() => briefFeedback = '已取消导入。');
           return;
         }
         await transfer.importSaved(text);
@@ -158,7 +164,7 @@ class _ModelNetworkSettingsPageState
         if (!mounted) return;
         setState(() => _loading = true);
         await _load();
-        if (mounted) setState(() => _status = '模型与联网配置导入完成，页面已刷新。');
+        if (mounted) setState(() => briefFeedback = '模型与联网配置导入完成，页面已刷新。');
       }
     } catch (error) {
       if (mounted) setState(() => _status = '配置${exporting ? '导出' : '导入'}失败：$error');
@@ -325,7 +331,7 @@ class _ModelNetworkSettingsPageState
       if (mounted) {
         setState(() {
           _effort = normalizedEffort;
-          _status = _chatProvider.isGeminiRelay
+          briefFeedback = _chatProvider.isGeminiRelay
               ? '双模型配置已保存：DeepSeek 负责内部工作，第二通道负责最终回复。'
               : 'DeepSeek 单通道配置已保存。';
         });
@@ -340,7 +346,7 @@ class _ModelNetworkSettingsPageState
       await _secure.writeThirdChannel(ThirdChannelConfig(enabled: _thirdEnabled,
         baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort));
       await _db.wakeRetryableGenerationJobs();
-      if (mounted) setState(() => _status = '第三通道配置已保存。');
+      if (mounted) setState(() => briefFeedback = '第三通道配置已保存。');
     } catch (error) { if (mounted) setState(() => _status = '第三通道保存失败：$error'); }
   }
 
@@ -375,7 +381,7 @@ class _ModelNetworkSettingsPageState
       await _secure.writeVisionModel(_visionModel.text);
       await _secure.writeVisionApiKey(_visionKey.text);
       await _db.setSetting(RoutedVisionClient.qwenEnabledKey, _qwenEnabled ? '1' : '0');
-      if (mounted) setState(() => _status = '千问视觉配置已保存。');
+      if (mounted) setState(() => briefFeedback = '千问视觉配置已保存。');
     } catch (error) {
       if (mounted) setState(() => _status = '千问视觉保存失败：$error');
     }
@@ -386,7 +392,7 @@ class _ModelNetworkSettingsPageState
       await _secure.writeOpenRouterApiKey(_openRouterKey.text);
       await _secure.writeJevEnabled(_jevEnabled);
       if (mounted) {
-        setState(() => _status = _jevEnabled
+        setState(() => briefFeedback = _jevEnabled
             ? 'Jev 短判断已启用；未填 Key 或调用失败时使用原 DeepSeek 判断。'
             : 'Jev 短判断已关闭，使用原 DeepSeek 判断。');
       }
@@ -491,7 +497,7 @@ class _ModelNetworkSettingsPageState
         'public_web_extra_sources',
         _extraSources.text.trim(),
       );
-      if (mounted) setState(() => _status = '公开网页来源配置已保存。');
+      if (mounted) setState(() => briefFeedback = '公开网页来源配置已保存。');
     } catch (error) {
       if (mounted) setState(() => _status = '网页来源保存失败：$error');
     }
@@ -588,7 +594,7 @@ class _ModelNetworkSettingsPageState
       await _db.setSetting('weather_enabled', _weatherEnabled ? '1' : '0');
       if (mounted) setState(() {
         _weatherHost.text = savedHost;
-        _status = '天气设置已保存；实况每 10 分钟按需刷新。';
+        briefFeedback = '天气设置已保存；实况每 10 分钟按需刷新。';
       });
       return true;
     } catch (_) {
@@ -622,7 +628,7 @@ class _ModelNetworkSettingsPageState
       await _secure.writeAgnesEndpoint(_agnesEndpoint.text);
       await _secure.writeAgnesModel(_agnesModel.text);
       await _secure.writeAgnesApiKey(_agnesKey.text);
-      if (mounted) setState(() => _status = 'Agnes 配置已保存。');
+      if (mounted) setState(() => briefFeedback = 'Agnes 配置已保存。');
     } catch (error) {
       if (mounted) setState(() => _status = 'Agnes 保存失败：$error');
     }
@@ -1018,7 +1024,7 @@ class _ModelNetworkSettingsPageState
                           throw const FormatException('工作接口未能保存，请重试');
                         }
                         await _db.setSettingsAtomically({'creative_work_model': model, 'creative_work_effort': _workEffort.apiName});
-                        if (mounted) setState(() => _status = '工作模型已保存，对下一次委托生效');
+                        if (mounted) setState(() => briefFeedback = '工作模型已保存，对下一次委托生效');
                       }), child: const Text('保存工作模型')),
                       TextButton(onPressed: _testingWork ? null : () => _sectionAction('work', _testWorkProfile),
                         child: Text(_testingWork ? '正在测试…' : '测试已保存的工作接口')),
@@ -1042,7 +1048,7 @@ class _ModelNetworkSettingsPageState
                         }),
                       TextButton(onPressed: !_creativeAutonomy ? null : () => _sectionAction('work', () async {
                         await CreativeStore(_db).resumeAutonomous();
-                        if (mounted) setState(() => _status = '已允许暂停的自主创作在空闲时继续');
+                        if (mounted) setState(() => briefFeedback = '已允许暂停的自主创作在空闲时继续');
                       }), child: const Text('继续暂停的自主创作')),
 
                     ],
@@ -1597,13 +1603,14 @@ class DeviceDataSettingsPage extends StatefulWidget {
       _DeviceDataSettingsPageState();
 }
 
-class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
+class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> with InlineFeedbackState<DeviceDataSettingsPage> {
   final _db = AppDatabase.instance;
   final _android = AndroidBridge.instance;
   bool _activeBrain = true;
   bool _loading = true;
   bool _resetting = false;
-  String? _status;
+  String? get _status => inlineFeedback.text;
+  set _status(String? value) => inlineFeedback.replace(value);
 
   @override
   void initState() {
@@ -1733,7 +1740,7 @@ class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
       try {
         await _android.wakeBackgroundBrain(reason: 'conversation_context_reset');
       } catch (_) {}
-      if (mounted) setState(() => _status = '新的对话上下文已建立。');
+      if (mounted) setState(() => briefFeedback = '新的对话上下文已建立。');
     } catch (error) {
       if (mounted) setState(() => _status = '建立新上下文失败：$error');
     } finally {

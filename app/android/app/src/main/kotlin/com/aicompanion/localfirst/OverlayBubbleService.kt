@@ -1219,7 +1219,7 @@ class OverlayBubbleService : Service() {
         val epoch = lifetime.windowEpoch
         if (!lifetime.matches(epoch) || !chatExpanded || chatRemovalPending || chatRoot == null) return
         if (chatRoot?.isAttachedToWindow != true || !backgroundBrainReady)
-            setChatStatus("正在读取聊天记录…")
+            if (clearChatHint == null) setChatStatus("正在读取聊天记录…")
         val request = historyRefresh.request(epoch,
             ready = chatRoot?.isAttachedToWindow == true && backgroundBrainReady,
             opened = opened) ?: return
@@ -1229,7 +1229,7 @@ class OverlayBubbleService : Service() {
             retryRefresh(opened, attempt)
             return
         }
-        setChatStatus("正在读取聊天记录…")
+        if (clearChatHint == null) setChatStatus("正在读取聊天记录…")
         // An unresponsive isolate must not leave this window permanently busy.
         mainHandler.postDelayed({
             if (isCurrentChatWindow(epoch) && historyRefresh.current(request)) {
@@ -1268,7 +1268,7 @@ class OverlayBubbleService : Service() {
                             chatAdapter?.notifyDataSetChanged()
                             chatLoadOlder?.visibility = if (parsed.size >= OVERLAY_RECENT_LIMIT) View.VISIBLE else View.GONE
                             scrollChatToBottom()
-                            setChatStatus(null)
+                            if (clearChatHint == null) setChatStatus(null)
                             if (pending) refreshOverlayMessages(opened = false, attempt = 0)
                         } else {
                             retryRefresh(opened, attempt)
@@ -1457,6 +1457,7 @@ class OverlayBubbleService : Service() {
                                 else -> error.ifBlank { "发送失败。" }
                             },
                             (!ok && !cancelled) || noticeIsError,
+                            temporary = cancelled || map?.get("temporary_hint") == true,
                         )
                     }
                 }
@@ -1550,7 +1551,8 @@ class OverlayBubbleService : Service() {
                         val error = map?.get("error") as? String ?: ""
                         setComposerGenerationState(sending = active || error.isNotBlank())
                         setChatStatus(error.takeIf { it.isNotBlank() } ?:
-                            if (active) "原回复已处理，正在同步当前任务…" else "已停止这轮回复。", error.isNotBlank())
+                            if (active) "原回复已处理，正在同步当前任务…" else "已停止这轮回复。", error.isNotBlank(),
+                            temporary = !active && error.isBlank())
                         if (active || error.isNotBlank()) beginGenerationPolling()
                         refreshOverlayMessages(opened = false, attempt = 0)
                     }
@@ -1825,7 +1827,9 @@ class OverlayBubbleService : Service() {
         lastRenderedGeneration = visible
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
-        if (!sharedSending) setChatStatus(statusText.takeIf { it.isNotBlank() })
+        if (!sharedSending && (clearChatHint == null || statusText.isNotBlank())) {
+            setChatStatus(statusText.takeIf { it.isNotBlank() })
+        }
         if (wasSending && !composerSending) refreshOverlayMessages(opened = false, attempt = 0)
     }
 
@@ -2008,7 +2012,17 @@ class OverlayBubbleService : Service() {
             }
     }
 
-    private fun setChatStatus(text: String?, error: Boolean = false) {
+    private var clearChatHint: Runnable? = null
+
+    private fun setChatStatus(text: String?, error: Boolean = false, temporary: Boolean = false) {
+        clearChatHint?.let { mainHandler.removeCallbacks(it) }
+        clearChatHint = null
+        if (temporary && !text.isNullOrBlank()) {
+            val view = chatStatus
+            val task = Runnable { if (chatStatus === view) setChatStatus(null) }
+            clearChatHint = task
+            mainHandler.postDelayed(task, 4_000L)
+        }
         chatStatus?.apply {
             if (text.isNullOrBlank()) {
                 clearAnimation()
@@ -3238,6 +3252,8 @@ class OverlayBubbleService : Service() {
         chatAdapter = null
         chatInput = null
         chatSend = null
+        clearChatHint?.let { mainHandler.removeCallbacks(it) }
+        clearChatHint = null
         chatStatus = null
         chatLoadOlder = null
         chatParams = null

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/ai/chat_api_provider.dart';
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/database/brain_work_fence.dart';
 import 'package:ai_companion_localfirst/core/illustration/illustration_client.dart';
@@ -30,6 +32,18 @@ class _Paths extends PathProviderPlatform {
   Future<String?> getApplicationSupportPath() async => path;
   @override
   Future<String?> getTemporaryPath() async => path;
+}
+
+// Switch devices after the foreground job has acquired its lease.
+class _SuspendBeforeStream extends SecureConfig {
+  _SuspendBeforeStream(this.db) : super.forTesting(const FlutterSecureStorage());
+  final AppDatabase db;
+
+  @override
+  Future<ChatApiProvider> readChatProvider() async {
+    await db.setSetting('active_brain', '0');
+    return ChatApiProvider.deepSeek;
+  }
 }
 
 void main() {
@@ -159,6 +173,42 @@ void main() {
       await db.releaseLocalLease(lease);
     },
   );
+
+  test('a suspended generation displays the four-second hint above the composer', () async {
+    final reply = await complete(await start(), '旧回复');
+    final chat = ChatController(db: db, secureConfig: _SuspendBeforeStream(db),
+        externalRecoveryOrchestrator: true);
+    addTearDown(chat.dispose);
+    await chat.regenerateLatestReply(reply);
+    expect(chat.error, isNull);
+    expect(chat.temporaryHint, contains('这轮回复已安全暂停'));
+    chat.notice = '稍后收到的重要提示';
+    await Future<void>.delayed(const Duration(milliseconds: 4100));
+    expect(chat.temporaryHint, isNull);
+    expect(chat.notice, '稍后收到的重要提示');
+    expect((await db.messageById('user'))?.content, '测试');
+  });
+
+  testWidgets('repeated hints renew the full interval and pending timers respect replacement and disposal',
+      (tester) async {
+    var expired = 0;
+    final feedback = InlineFeedback(() => expired++);
+    feedback.replace('已保存', temporary: true);
+    await tester.pump(const Duration(seconds: 3));
+    feedback.replace('已保存', temporary: true);
+    await tester.pump(const Duration(milliseconds: 3999));
+    expect(feedback.text, '已保存');
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(feedback.text, isNull);
+    feedback.replace('已取消', temporary: true);
+    feedback.replace('需要处理');
+    await tester.pump(const Duration(seconds: 4));
+    expect(feedback.text, '需要处理');
+    feedback.replace('已保存', temporary: true);
+    feedback.dispose();
+    await tester.pump(const Duration(seconds: 4));
+    expect(expired, 1);
+  });
 
   test('temporary regenerate hint expires without clearing an important notice', () async {
     final chat = ChatController(db:db);

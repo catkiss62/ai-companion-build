@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../ai/deepseek_client.dart';
@@ -26,7 +27,9 @@ class ModelDialogueController extends ChangeNotifier {
   ModelDialogueRoom? room;
   List<ModelDialogueMessage> messages=const [];
   bool loading=true,busy=false;
-  String preview='',speaking='',error='',notice='';
+  String preview='',speaking='',error='';
+  late final _hint = InlineFeedback(_notify);
+  String get notice => _hint.text ?? '';
   int attempt=0;
   bool _disposed=false;
   GenerationCancellationToken? _cancellation;
@@ -50,7 +53,7 @@ class ModelDialogueController extends ChangeNotifier {
   /// Return true once user text has been durably accepted, even if HTTP fails.
   Future<bool> advance({String userText=''}) async {
     if(_disposed||busy||loading||room==null||room!.ended)return false;
-    busy=true;preview='';speaking='';error='';notice='';attempt=0;
+    busy=true;preview='';speaking='';error='';_hint.replace(null);attempt=0;
     final cancellation=GenerationCancellationToken();_cancellation=cancellation;
     var accepted=false,leased=false;
     _notify();
@@ -60,12 +63,18 @@ class ModelDialogueController extends ChangeNotifier {
       if(current==null||current.ended)throw StateError('room_not_ready');
       for(final speaker in modelDialogueSpeakers) {
         if(!config.forSpeaker(speaker).matches(current)) {
-          notice='本轮使用当前模型设置；历史发言保留原模型来源。';
+          _hint.replace('本轮使用当前模型设置；历史发言保留原模型来源。', temporary: true);
+          _notify();
+          break;
         }
       }
       leased=await repository.db.tryAcquireLocalLease('chat_turn_lease',holdFor:const Duration(minutes:3));
       cancellation.throwIfCancelled();
-      if(!leased)throw const ModelDialogueConfigurationError('其他聊天正在生成，请稍后再继续。');
+      if(!leased) {
+        _hint.replace('其他聊天正在生成，请稍后再继续。', temporary: true);
+        _notify();
+        return false;
+      }
       final fence=await repository.db.captureBrainWorkFence(leaseKey:'chat_turn_lease');
       cancellation.throwIfCancelled();if(fence==null)throw const BrainWorkInvalidated();
       final recent=messages.reversed.take(2).toList().reversed.map((m)=>
@@ -102,7 +111,7 @@ class ModelDialogueController extends ChangeNotifier {
       cancellation.throwIfCancelled();
       if(!saved)throw const BrainWorkInvalidated();
     } on GenerationCancelledByUserException {
-      if(notice.isEmpty)notice='已停止，未完成的模型输出未加入对谈。';
+      if(notice.isEmpty)_hint.replace('已停止，未完成的模型输出未加入对谈。', temporary: true);
     } on GenerationSuspendedByRuntimeGateException {
       error='运行状态已变化，本次对谈已停止。重新打开房间后可继续。';
     } on BrainWorkInvalidated {
@@ -131,7 +140,7 @@ class ModelDialogueController extends ChangeNotifier {
     _renewTimer?.cancel();
     final ticket=_ticket;
     if(ticket!=null){try{await repository.cancelTicket(ticket);}catch(_) {}}
-    if(busy&&_cancellation!=null)notice='已停止，未完成的模型输出未加入对谈。';
+    if(busy&&_cancellation!=null)_hint.replace('已停止，未完成的模型输出未加入对谈。', temporary: true);
     _notify();
   }
   Future<bool> end() async {
@@ -143,7 +152,7 @@ class ModelDialogueController extends ChangeNotifier {
     } catch(_) {error='当前状态暂时无法结束房间，请重新打开后再试。';_notify();return false;}
   }
   @override void dispose() {
-    _disposed=true;_cancellation?.cancel();_renewTimer?.cancel();_previewTimer?.cancel();
+    _disposed=true;_hint.dispose();_cancellation?.cancel();_renewTimer?.cancel();_previewTimer?.cancel();
     final ticket=_ticket;
     if(ticket!=null)unawaited(repository.cancelTicket(ticket).then((_) {}).catchError((_) {}));
     gateway.close();super.dispose();

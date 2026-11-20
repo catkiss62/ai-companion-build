@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
@@ -14,7 +15,7 @@ class PersonalityAppearancePage extends StatefulWidget {
 }
 
 class _PersonalityAppearancePageState
-    extends State<PersonalityAppearancePage> {
+    extends State<PersonalityAppearancePage> with InlineFeedbackState<PersonalityAppearancePage> {
   static const _appearanceAsset =
       'assets/appearance/large_whale_mirror.jpg';
 
@@ -24,7 +25,8 @@ class _PersonalityAppearancePageState
   bool loading = true;
   bool _moeExpressionEnabled = true;
   MoeExpressionMode _moeExpressionMode = MoeExpressionMode.obvious;
-  String? status;
+  String? get status => inlineFeedback.text;
+  set status(String? value) => inlineFeedback.replace(value);
 
   @override
   void initState() {
@@ -51,7 +53,7 @@ class _PersonalityAppearancePageState
     if (mounted) {
       setState(() {
         _moeExpressionEnabled = value;
-        status = value
+        briefFeedback = value
             ? '动态表达倾向已开始影响表达；内部数值和属性名称不会写进对话。'
             : '动态表达倾向仍会旁路更新，但不再影响对话表达。';
       });
@@ -63,7 +65,7 @@ class _PersonalityAppearancePageState
     if (mounted) {
       setState(() {
         _moeExpressionMode = mode;
-        status = '表现强度已切换为“${mode.label}”。';
+        briefFeedback = '表现强度已切换为“${mode.label}”。';
       });
     }
   }

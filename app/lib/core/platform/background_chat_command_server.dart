@@ -124,8 +124,9 @@ class BackgroundChatCommandServer {
           'request_id': requestId,
           'generation_active': controller.generationActive || await db.blockingGenerationJob() != null,
           'cancelled': sendEpoch != _overlaySendEpoch,
-          'error': controller.error ?? (accepted ? '' : '回复通道正忙，消息尚未发送，请重试。'),
+          'error': controller.error ?? (accepted ? '' : controller.temporaryHint ?? '回复通道正忙，消息尚未发送，请重试。'),
           'notice': controller.notice ?? '',
+          'temporary_hint': !accepted && controller.error == null && controller.temporaryHint != null,
           'notice_is_error':
               GenerationPresentationPolicy.isErrorNotice(controller.notice),
           'messages': await _presentRecentMessages(8),
@@ -170,7 +171,7 @@ class BackgroundChatCommandServer {
         if (accepted) onWake?.call('notification_inline_reply');
         return <String, Object?>{
           'ok': accepted, 'accepted': accepted, 'request_id': replyId,
-          'error': accepted ? '' : controller.error ?? '回复通道正忙，消息尚未接受。',
+          'error': accepted ? '' : controller.error ?? controller.temporaryHint ?? '回复通道正忙，消息尚未接受。',
         };
       case 'speakMessage':
         final id = _stringArg(call.arguments, 'messageId');

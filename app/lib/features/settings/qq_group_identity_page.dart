@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../integrations/qq_private/qq_archive_reader.dart';
@@ -15,10 +16,13 @@ class QqGroupIdentityPage extends StatefulWidget {
   @override State<QqGroupIdentityPage> createState()=>_QqGroupIdentityPageState();
 }
 
-class _QqGroupIdentityPageState extends State<QqGroupIdentityPage> {
+class _QqGroupIdentityPageState extends State<QqGroupIdentityPage> with InlineFeedbackState<QqGroupIdentityPage> {
   final _manual=TextEditingController();
   List<Map<String,Object?>> _members=[];
-  String? _selected,_bound;String _notice='';
+  String? _selected,_bound;
+  String get _notice => inlineFeedback.text ?? '';
+  set _notice(String value) => inlineFeedback.replace(value);
+
   bool _loading=true,_busy=false,_manualMode=false;QqDisplayNames _names=QqDisplayNames();
   @override void initState(){super.initState();_load();}
   Future<void> _load() async {
@@ -47,7 +51,7 @@ class _QqGroupIdentityPageState extends State<QqGroupIdentityPage> {
       final ok=await QqGroupBinding.confirmLocal(widget.config,widget.group,member,
         requireObserved:!_manualMode,db:widget.database);
       if(!ok) throw StateError('identity_changed');
-      await _load();if(mounted) setState(()=>_notice=clear?'已解除本群本人身份。':'已保存，之后本群会按平台身份认出你。');
+      await _load();if(mounted) setState(()=>briefFeedback=clear?'已解除本群本人身份。':'已保存，之后本群会按平台身份认出你。');
     } catch(_) {if(mounted) setState(()=>_notice='未能保存，绑定或群消息可能已变化，请刷新后重试。');}
     finally {if(mounted) setState(()=>_busy=false);}
   }

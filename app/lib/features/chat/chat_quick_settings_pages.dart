@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import '../../core/ai/autonomous_expression_choice.dart';
 import 'dart:io';
 
@@ -553,7 +554,7 @@ class VoiceEmotionSettingsPage extends StatefulWidget {
 }
 
 class _VoiceEmotionSettingsPageState
-    extends State<VoiceEmotionSettingsPage> {
+    extends State<VoiceEmotionSettingsPage> with InlineFeedbackState<VoiceEmotionSettingsPage> {
   final _db = AppDatabase.instance;
   final _tts = TtsService();
   final _replacementController = TextEditingController();
@@ -573,7 +574,8 @@ class _VoiceEmotionSettingsPageState
   TtsStatus? _ttsStatus;
   String _lastResolvedVoice = '';
   bool _ttsBusy = false;
-  String? _status;
+  String? get _status => inlineFeedback.text;
+  set _status(String? value) => inlineFeedback.replace(value);
   bool _loading = true;
 
   @override
@@ -646,7 +648,7 @@ class _VoiceEmotionSettingsPageState
       setState(() {
         _ttsAutoAffinity = next.autoAffinityEnabled;
         _ttsStatus = next;
-        _status = enabled
+        briefFeedback = enabled
             ? '自动核亲和已开启；下次朗读会重建五个 ONNX 会话。'
             : '自动核亲和已关闭；下次朗读会恢复原推理配置。';
       });
@@ -696,7 +698,7 @@ class _VoiceEmotionSettingsPageState
       'tts_replacements_json',
       _replacementController.text.trim(),
     );
-    if (mounted) setState(() => _status = 'TTS 文字替换已保存。');
+    if (mounted) setState(() => briefFeedback = 'TTS 文字替换已保存。');
   }
 
   Future<String> _importChineseRoberta() async {

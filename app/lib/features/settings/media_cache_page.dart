@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -17,7 +18,7 @@ class MediaCachePage extends StatefulWidget {
   State<MediaCachePage> createState() => _MediaCachePageState();
 }
 
-class _MediaCachePageState extends State<MediaCachePage> {
+class _MediaCachePageState extends State<MediaCachePage> with InlineFeedbackState<MediaCachePage> {
   final AppDatabase _db = AppDatabase.instance;
   final MediaBlobStorage _blobStorage = MediaBlobStorage();
   late final MediaStorageOptimizer _optimizer = MediaStorageOptimizer(
@@ -28,7 +29,8 @@ class _MediaCachePageState extends State<MediaCachePage> {
   final Set<String> _selected = <String>{};
   bool _loading = true;
   bool _working = false;
-  String? _status;
+  String? get _status => inlineFeedback.text;
+  set _status(String? value) => inlineFeedback.replace(value);
 
   @override
   void initState() {
@@ -100,7 +102,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
           ) ??
           false;
       if (!confirmed) {
-        if (mounted) setState(() => _status = '已取消；没有修改任何媒体。');
+        if (mounted) setState(() => briefFeedback = '已取消；没有修改任何媒体。');
         return;
       }
       if (mounted) setState(() => _status = '正在建立共享引用并校验文件…');
@@ -165,7 +167,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
       if (!mounted) return;
       setState(() {
         _selected.clear();
-        _status = '已删除 ${orphans.length} 份未被其他位置引用的媒体缓存。';
+        briefFeedback = '已删除 ${orphans.length} 份未被其他位置引用的媒体缓存。';
       });
       await _reload();
     } catch (error) {

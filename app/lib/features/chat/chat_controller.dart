@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import '../../core/ai/routed_vision_client.dart';
 import '../../core/ai/final_reply_control.dart';
 import '../../core/ai/first_channel_model.dart';
@@ -181,18 +182,22 @@ class ChatController extends ChangeNotifier {
   AgentToolActivity? agentActivity;
   List<AgentToolActivity> agentActivities = <AgentToolActivity>[];
   String? error;
-  String? temporaryHint;
-  Timer? _hintTimer;
+  late final _hint = InlineFeedback(_safeNotify);
+  String? get temporaryHint => _hint.text;
 
   void _showTemporaryHint(String text) {
-    _hintTimer?.cancel();
-    temporaryHint = text;
-    _hintTimer = Timer(const Duration(seconds: 4), () {
-      temporaryHint = null;
-      _safeNotify();
-    });
+    if (_disposed) return;
+    _hint.replace(text, temporary: true);
+    _safeNotify();
   }
+
+  void dismissError() {
+    error = null;
+    _safeNotify();
+  }
+
   String? notice;
+  String? _draftNotice;
   String? _visionFallbackMessageId;
   String? get visionFallbackNotice => _visionFallbackMessageId == null
       ? null
@@ -265,7 +270,6 @@ class ChatController extends ChangeNotifier {
       if (wasFailed && !await db.retryFailedGenerationJob(jobId, useDeepSeek:true)) {
         _externalDeepSeekSelected = false;
         _showTemporaryHint('这条回复状态已变化，请稍后重试。');
-        _safeNotify();
         return;
       }
       final accepted = wasFailed || await db.selectDeepSeekForGeneration(jobId);
@@ -1324,6 +1328,7 @@ class ChatController extends ChangeNotifier {
     if ((userStickerPack == null) != (userSticker == null)) return false;
     error = null;
 
+    _hint.replace(null);
     final stableMessageId = requestedMessageId?.trim();
     if (stableMessageId != null && stableMessageId.isNotEmpty) {
       final existing = await db.messageById(stableMessageId);
@@ -1383,7 +1388,7 @@ class ChatController extends ChangeNotifier {
         await _restoreIncompleteReplyDraft();
         error = '请先处理上一条截断回复：重新生成，或保留这段回复。';
       } else {
-        error = '刚才那轮回复还在恢复，请等她接回来后再发送新消息。';
+        _showTemporaryHint('刚才那轮回复还在恢复，请等她接回来后再发送新消息。');
         unawaited(_scheduleGenerationRecovery());
       }
       _safeNotify();
@@ -1397,7 +1402,6 @@ class ChatController extends ChangeNotifier {
     );
     if (!chatLease) {
       _showTemporaryHint('另一处聊天窗口正在发送消息，请等她这一轮回复完成后再试。');
-      _safeNotify();
       return false;
     }
 
@@ -1544,7 +1548,7 @@ class ChatController extends ChangeNotifier {
         messages = await db.recentMessages(limit: 120);
         generationInterruptions =
             await db.recentGenerationInterruptions(limit: 20);
-        error = '这一轮没有被删除，已经转入自动恢复。';
+        _showTemporaryHint('这一轮没有被删除，已经转入自动恢复。');
       } else {
         error = cancellation.isCancelled ? null : e.toString();
       }
@@ -1703,7 +1707,7 @@ class ChatController extends ChangeNotifier {
           if (playbackIntent?.valid == true) await ttsPlayback.stop();
           return;
         } catch (translationError) {
-          error = '外语版本生成失败，已保留中文正文：$translationError';
+          _showTemporaryHint('外语版本生成失败，已保留中文正文：$translationError');
         }
       }
       final speechLanguage = latestSpeechLanguage == ChatLanguage.chinese ||
@@ -1743,6 +1747,7 @@ class ChatController extends ChangeNotifier {
       await _stopTurnAudio();
       incompleteReplyDraft = result.assistant;
       incompleteReplyJobId = job.id;
+      _draftNotice = result.notice;
       notice = result.notice;
       error = null;
       _safeNotify();
@@ -1762,10 +1767,10 @@ class ChatController extends ChangeNotifier {
       error = null;
     } else if (result.retryScheduled) {
       await _stopTurnAudio();
-      error = '网络/API 中断。这条消息已经安全保存在本机，恢复连接后会自动继续。';
+      _showTemporaryHint('网络/API 中断。这条消息已经安全保存在本机，恢复连接后会自动继续。');
     } else if (result.status == 'suspended') {
       await _stopTurnAudio();
-      error = '这轮回复已安全暂停；她回到当前设备后会继续。';
+      _showTemporaryHint('这轮回复已安全暂停；她回到当前设备后会继续。');
     } else {
       await _stopTurnAudio();
       error = result.error?.toString() ?? '这一轮生成失败。';
@@ -1778,7 +1783,7 @@ class ChatController extends ChangeNotifier {
     await _stopTurnAudio();
     final restarted = await db.restartGenerationDraft(jobId);
     if (!restarted) {
-      error = '这份待处理回复已经发生变化，请刷新页面后再试。';
+      _showTemporaryHint('这份待处理回复已经发生变化，请刷新页面后再试。');
       await _restoreIncompleteReplyDraft();
       _safeNotify();
       return;
@@ -1806,7 +1811,6 @@ class ChatController extends ChangeNotifier {
     final job = await db.restartLatestCompletedReply(assistant.id);
     if (job == null) {
       _showTemporaryHint('只能重新生成当前最新回复；如果后台仍在整理，请稍后再试。');
-      _safeNotify();
       return;
     }
     messages = await db.recentMessages(limit: 160);
@@ -1825,7 +1829,6 @@ class ChatController extends ChangeNotifier {
     );
     if (!ownsLease) {
       _showTemporaryHint('另一处聊天窗口正在使用回复通道，请稍后再确认。');
-      _safeNotify();
       return;
     }
     final cancellation = GenerationCancellationToken();
@@ -1843,7 +1846,9 @@ class ChatController extends ChangeNotifier {
       if (result.completed) {
         incompleteReplyDraft = null;
         incompleteReplyJobId = null;
-        notice = result.notice;
+        if (notice == _draftNotice) notice = null;
+        _draftNotice = null;
+        if (result.notice case final confirmation?) _showTemporaryHint(confirmation);
         _holdFinalSmallForm(result.assistant!, voice: false);
         messages = await db.recentMessages(limit: 120);
         if (user != null && user.isUser) {
@@ -1920,8 +1925,7 @@ class ChatController extends ChangeNotifier {
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
-      error = '图片识别已经完成；另一处聊天窗口暂时占用回复通道，本轮会自动继续。';
-      _safeNotify();
+      _showTemporaryHint('图片识别已经完成；另一处聊天窗口暂时占用回复通道，本轮会自动继续。');
       return;
     }
 
@@ -1976,7 +1980,7 @@ class ChatController extends ChangeNotifier {
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
-      error = '这一轮没有被删除，已经转入自动恢复。';
+      _showTemporaryHint('这一轮没有被删除，已经转入自动恢复。');
     } finally {
       sending = false;
       nsfwRouting = false;
@@ -2370,7 +2374,7 @@ class ChatController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _hintTimer?.cancel();
+    _hint.dispose();
     _disposed = true;
     _petSpeechHeartbeat?.cancel();
     _petSpeechHeartbeat = null;

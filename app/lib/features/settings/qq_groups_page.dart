@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'qq_archive_month_page.dart';
 import 'qq_group_learning_page.dart';
 import '../../integrations/qq_private/qq_sketch.dart';
@@ -17,12 +18,15 @@ class QqGroupsPage extends StatefulWidget {
   const QqGroupsPage({super.key});
   @override State<QqGroupsPage> createState()=>_QqGroupsPageState();
 }
-class _QqGroupsPageState extends State<QqGroupsPage> {
+class _QqGroupsPageState extends State<QqGroupsPage> with InlineFeedbackState<QqGroupsPage> {
   final _core=TextEditingController(),_public=TextEditingController(),_persona=TextEditingController();
   bool _autoSketch=true;
   QqOptions _options=const QqOptions();QqPrivateConfig _config=const QqPrivateConfig();
   List<Map<String,Object?>> _groups=[];List<Map<String,dynamic>> _requests=[];
-  bool _loading=true,_busy=false;String _notice='';QqDisplayNames _names=QqDisplayNames();
+  bool _loading=true,_busy=false;
+  String get _notice => inlineFeedback.text ?? '';
+  set _notice(String value) => inlineFeedback.replace(value);
+  QqDisplayNames _names=QqDisplayNames();
   @override void initState(){super.initState();_load(initial:true);}
   Future<void> _load({bool initial=false}) async {
     try {
@@ -110,7 +114,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
           helperText:'这里保存的内容会对已开启的群公开。留空也可聊天；私人完整记忆仍不会注入群模型。',helperMaxLines:3)),
         FilledButton(onPressed:_busy?null:()=>_run(() async {
           await QqOptions.update((fresh)=>fresh.copy(core:_core.text.trim(),publicMemory:_public.text.trim(),publicPersona:_persona.text),namespace:_config.namespace);
-          if(mounted) setState(()=>_notice='公开资料已保存。');}),child:const Text('保存公开资料')),
+          if(mounted) setState(()=>briefFeedback='公开资料已保存。');}),child:const Text('保存公开资料')),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许QQ发送语音（私聊和群聊）'),
           subtitle:const Text('以明确要求为主，可偶尔选择纯语音；支持中、日、英语。台词随档案保存，音频临时清理；不控制App自动朗读。'),
           value:_options.voiceEnabled,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(voiceEnabled:v),namespace:_config.namespace);})),

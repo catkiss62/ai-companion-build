@@ -889,6 +889,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 
   Widget _conversationPanel(ImmersiveRoom? room) => Column(
         children: [
+          if (controller.temporaryHint case final hint?)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Text(hint, style: Theme.of(context).textTheme.bodySmall),
+            ),
           if (controller.error != null)
             MaterialBanner(
               content: Text(

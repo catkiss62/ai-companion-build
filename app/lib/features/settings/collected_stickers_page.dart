@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/stickers/collected_sticker_archive.dart';
 import '../../core/platform/android_bridge.dart';
@@ -15,14 +16,15 @@ class CollectedStickersPage extends StatefulWidget {
   const CollectedStickersPage({super.key});
   @override State<CollectedStickersPage> createState()=>_CollectedStickersPageState();
 }
-class _CollectedStickersPageState extends State<CollectedStickersPage> {
+class _CollectedStickersPageState extends State<CollectedStickersPage> with InlineFeedbackState<CollectedStickersPage> {
   final db=AppDatabase.instance;
   late final storage=CollectedStickerStorage(db:db);
   late final packs=StickerPackStorage(db:db);
   List<StickerPickerEntry> entries=[];
   Map<String,Map<String,Object?>> sources={};
   bool busy=true,automatic=true;
-  String? status;
+  String? get status => inlineFeedback.text;
+  set status(String? value) => inlineFeedback.replace(value);
   String filter='all';
   List<StickerPickerEntry> get visible=>entries.where((e) {
     final source=sources[e.record.path]?['source'];
@@ -67,7 +69,7 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
   Future<void> _exportPack() => _run(() async {
     final file=await CollectedStickerArchive(db).exportZip();
     try {
-      if(await AndroidBridge.instance.saveCollectedStickerZip(file.path,file.uri.pathSegments.last)) status='已导出收集的表情';
+      if(await AndroidBridge.instance.saveCollectedStickerZip(file.path,file.uri.pathSegments.last)) briefFeedback='已导出收集的表情';
     } finally {await file.parent.delete(recursive:true);}
   });
 
@@ -89,13 +91,13 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
       final caption=await _captionDialog('',file:File(image.path));
       if(caption==null)return;
       final added=await storage.collect(await image.readAsBytes(),caption:caption,source:'user',sourceId:'manual');
-      status=added?'已添加表情':'图片已存在，没有重复保存；可在列表修改语义';await _load();
+      await _load();briefFeedback=added?'已添加表情':'图片已存在，没有重复保存；可在列表修改语义';
     });
   }
   Future<void> _edit(StickerPickerEntry entry) async {
     final caption=await _captionDialog(entry.record.caption,file:entry.file);
     if(caption==null)return;
-    await _run(() async {await packs.saveCaptionEdits({entry.record.usageKey:caption});status='语义已保存';await _load();});
+    await _run(() async {await packs.saveCaptionEdits({entry.record.usageKey:caption});await _load();briefFeedback='语义已保存';});
   }
   Future<void> _album() => _run(() async {
     final picked=await showDialog<CompanionAlbumItem>(context:context,
@@ -106,7 +108,7 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
     if(caption==null)return;
     // Preserve the original item/hash; only the human-provided caption changes.
     final added=await storage.collectAlbum(picked,caption:caption);
-    status=added?'已加入收集的表情':'这张图已收藏，没有重复保存';await _load();
+    await _load();briefFeedback=added?'已加入收集的表情':'这张图已收藏，没有重复保存';
   });
   Future<void> _remove(StickerRecord record) async {
     final yes=await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
@@ -114,7 +116,7 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
       actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('取消')),
         FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('删除'))]));
     if(yes!=true)return;
-    await _run(() async {await storage.remove(record.path);status='已删除收藏';await _load();});
+    await _run(() async {await storage.remove(record.path);await _load();briefFeedback='已删除收藏';});
   }
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:const Text('收集的表情')),

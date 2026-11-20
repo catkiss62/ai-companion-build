@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import '../diagnostics/third_channel_diagnostics.dart';
 import '../ai/first_channel_model.dart';
 import 'dart:async';
@@ -113,6 +114,10 @@ class ImmersiveRoomController extends ChangeNotifier {
   TtsQueueState ttsState = TtsQueueState.idle;
   String? error;
   String? notice;
+  String? _draftNotice;
+  late final _hint = InlineFeedback(_safeNotify);
+  String? get temporaryHint => _hint.text;
+
   ImmersiveMessage? incompleteReplyDraft;
   Map<String, Object?>? _finalModelRoute;
   String? incompleteReplyUserMessageId;
@@ -256,7 +261,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       holdFor: const Duration(minutes: 10),
     );
     if (!ownsLease) {
-      error = '另一个沉浸房间正在生成，请等那一轮结束。';
+      _hint.replace('另一个沉浸房间正在生成，请等那一轮结束。', temporary: true);
       _safeNotify();
       return;
     }
@@ -697,6 +702,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       await _saveIncompleteReplyDraft(sourceUser: user,
           cancellation: cancellation, workFence: workFence,
           content: content, reasoning: reasoning);
+      _draftNotice = message;
       notice = message;
       error = null;
     } on GenerationCancelledByUserException {
@@ -791,7 +797,10 @@ class ImmersiveRoomController extends ChangeNotifier {
               DateTime.now().millisecondsSinceEpoch,
         ),
       );
-      notice ??= '有一条截断回复尚未处理；它还没有进入房间上下文或摘要。';
+      if (notice == null) {
+        _draftNotice = '有一条截断回复尚未处理；它还没有进入房间上下文或摘要。';
+        notice = _draftNotice;
+      }
     } catch (_) {
       if (repository.stateFence != null && await _canWrite()) {
         await _clearIncompleteReplyDraft();
@@ -837,7 +846,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       holdFor: const Duration(minutes: 2),
     );
     if (!ownsLease) {
-      error = '另一个沉浸房间正在写入，请稍后再确认。';
+      _hint.replace('另一个沉浸房间正在写入，请稍后再确认。', temporary: true);
       _safeNotify();
       return;
     }
@@ -869,7 +878,10 @@ class ImmersiveRoomController extends ChangeNotifier {
       _incompleteReplyRaw = null;
       messages = await repository.messagesForRoom(roomId);
       room = await repository.roomById(roomId);
-      notice = '已确认截断回复；它现在会进入房间上下文与后续摘要。';
+      if (notice == _draftNotice) notice = null;
+      _draftNotice = null;
+      _hint.replace('已确认截断回复；它现在会进入房间上下文与后续摘要。', temporary: true);
+      _safeNotify();
       final endpoint = await secureConfig.readEndpoint();
       final model =
           DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
@@ -927,7 +939,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           holdFor: const Duration(minutes: 10),
         );
     if (!ownsLease) {
-      error = '另一个沉浸房间正在生成，请稍后再试。';
+      _hint.replace('另一个沉浸房间正在生成，请稍后再试。', temporary: true);
       _safeNotify();
       return;
     }
@@ -1110,7 +1122,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       holdFor: const Duration(minutes: 10),
     );
     if (!ownsLease) {
-      error = '另一个沉浸房间正在生成，请稍后再试。';
+      _hint.replace('另一个沉浸房间正在生成，请稍后再试。', temporary: true);
       _safeNotify();
       return;
     }
@@ -1121,7 +1133,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       assistantMessageId: assistant.id,
     );
     if (userMessageId == null) {
-      error = '只能重新生成当前最新且尚未归入滚动摘要的回复。';
+      _hint.replace('只能重新生成当前最新且尚未归入滚动摘要的回复。', temporary: true);
       _safeNotify();
       return;
     }
@@ -1544,6 +1556,7 @@ ${batch.text}''',
   @override
   void dispose() {
     _disposed = true;
+    _hint.dispose();
     _streamNotifyTimer?.cancel();
     _cancellation?.cancel();
     unawaited(ttsPlayback.stop());

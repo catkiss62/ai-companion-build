@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -17,7 +18,7 @@ class CedarToySettingsPage extends StatefulWidget {
   State<CedarToySettingsPage> createState() => _CedarToySettingsPageState();
 }
 
-class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
+class _CedarToySettingsPageState extends State<CedarToySettingsPage> with InlineFeedbackState<CedarToySettingsPage> {
   final _db = AppDatabase.instance;
   final _secure = SecureConfig.instance;
   final _username = TextEditingController();
@@ -29,7 +30,9 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
   bool _hasToken = false;
   bool _autonomyEnabled = true;
   bool _gameShareEnabled = true;
-  String _status = '尚未测试连接';
+  String get _status => inlineFeedback.text ?? '';
+  set _status(String value) => inlineFeedback.replace(value);
+
 
   @override
   void initState() {
@@ -83,7 +86,7 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
         if (!mounted) return;
         setState(() {
           _hasToken = true;
-          _status = loginOnly ? '已恢复并安全保存连接' : '已注册/登录并安全保存连接';
+          briefFeedback = loginOnly ? '已恢复并安全保存连接' : '已注册/登录并安全保存连接';
         });
       });
 
@@ -91,7 +94,7 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
         await _secure.writeCedarToyToken(_token.text);
         _token.clear();
         _hasToken = (await _secure.readCedarToyToken())?.trim().isNotEmpty ?? false;
-        if (mounted) setState(() => _status = _hasToken ? 'Token 已安全保存' : 'Token 已清除');
+        if (mounted) setState(() => briefFeedback = _hasToken ? 'Token 已安全保存' : 'Token 已清除');
       });
 
   Future<CedarToyClient> _client() async {
@@ -141,7 +144,7 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
         await _secure.clearCedarToyToken();
         if (mounted) setState(() {
           _hasToken = false;
-          _status = '本机连接已清除；远端账号没有删除';
+          briefFeedback = '本机连接已清除；远端账号没有删除';
         });
       });
 
@@ -310,7 +313,7 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
                     ),
                   ]),
                   const SizedBox(height: 18),
-                  Text(_busy ? '正在连接 Cedar Toy…' : _status),
+                  if (_busy || _status.isNotEmpty) Text(_busy ? '正在连接 Cedar Toy…' : _status),
                   const SizedBox(height: 10),
                   const Text('密码仅用于本次 HTTPS 登录；成功后立即清空。Token、密码和绑定码不会进入模型 Prompt。'),
                 ],

@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/presentation/inline_feedback.dart';
 import '../chat/sticker_picker_sheet.dart';
 import 'collected_stickers_page.dart';
 import '../../core/stickers/collected_sticker_archive.dart';
@@ -17,7 +18,7 @@ class StickerSettingsPage extends StatefulWidget {
   State<StickerSettingsPage> createState() => _StickerSettingsPageState();
 }
 
-class _StickerSettingsPageState extends State<StickerSettingsPage> {
+class _StickerSettingsPageState extends State<StickerSettingsPage> with InlineFeedbackState<StickerSettingsPage> {
   final _db = AppDatabase.instance;
   final _android = AndroidBridge.instance;
   late final StickerPackStorage _storage = StickerPackStorage(db: _db);
@@ -25,7 +26,8 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
   Set<String> _enabled = <String>{};
   String _mode = 'natural';
   bool _busy = true;
-  String? _status;
+  String? get _status => inlineFeedback.text;
+  set _status(String? value) => inlineFeedback.replace(value);
 
   @override
   void initState() {
@@ -59,7 +61,7 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
       final picked = await _android.openPlainBackup();
       cachePath = picked?['filePath']?.toString();
       if (cachePath == null || cachePath.isEmpty) {
-        if (mounted) setState(() => _status = '已取消导入。');
+        if (mounted) setState(() => briefFeedback = '已取消导入。');
         return;
       }
       final collection=await CollectedStickerArchive(_storage.db).importZip(cachePath);
@@ -121,7 +123,7 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
     try {
       await _storage.deletePack(pack.id);
       if (mounted) {
-        setState(() => _status = '已删除 ${StickerDisplayLabels.packName(pack)}。');
+        setState(() => briefFeedback = '已删除 ${StickerDisplayLabels.packName(pack)}。');
       }
     } catch (error) {
       if (mounted) setState(() => _status = '删除失败：$error');
