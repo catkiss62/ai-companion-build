@@ -103,27 +103,37 @@ void main() {
     expect(QqStickers.groupSelection('seed','Q版鲸鱼娘',pool,{}).first.pack.id,'q-whale-001');
   });
 
-  test('quoted group URLs expire at thirty minutes, private at four, implicit at ninety seconds', () {
+  test('group review keeps ten pictures per group in original message slots', () {
     final review = QqVisionReview();
-    Map<String,Object?> row(int seq) => {
-      'seq':seq, 'received_at':0, 'observed_at':0, 'conversation_id':'test',
+    Map<String,Object?> row(int seq,String cid) => {
+      'seq':seq, 'received_at':0, 'observed_at':0, 'conversation_id':cid,
       'platform_id':'pic-$seq', 'content':'', 'context_meta':'',
     };
-    void remember(int seq, {bool group=true}) =>
-        review.remember(row(seq), ['fixture-$seq'], 0, group:group);
-    final focus=row(40);
-    QqReviewSource? lookup(String id,int time) =>
-        review.resolve({...focus,'reply_to':id},time,0);
-    remember(1);
-    expect(lookup('',90000),isNotNull);
-    expect(lookup('',90001),isNull);
-    remember(2,group:false);
-    expect(lookup('pic-2',239999),isNotNull);
-    expect(lookup('pic-2',240000),isNull);
-    for (int i=3;i<=34;i++) { remember(i); }
-    expect(lookup('pic-1',1000000),isNull);
-    expect(lookup('pic-34',1799999),isNotNull);
-    expect(lookup('pic-34',1800000),isNull);
+    void remember(int seq,int count,String cid,{bool group=true}) =>
+        review.remember(row(seq,cid),List.generate(count,(i)=>'$seq-$i'),0,group:group);
+    QqReviewSource? lookup(int? seq,String cid,int time) =>
+        review.resolve({...row(100,cid),'reply_to':seq==null?'':'pic-$seq'},time,0);
+    remember(1,4,'a');
+    expect(lookup(null,'a',90000),isNotNull);
+    expect(lookup(null,'a',90001),isNull);
+    remember(3,6,'a');
+    expect(lookup(1,'a',86400000)!.urls,['1-0','1-1','1-2','1-3']);
+    remember(2,1,'a'); // late processing, still older than message 3
+    remember(1,4,'a'); // redelivery does not resurrect the evicted first slot
+    expect(lookup(1,'a',86400000)!.urls,[null,'1-1','1-2','1-3']);
+    expect(lookup(2,'a',86400000)!.urls,['2-0']);
+    remember(4,8,'b');
+    remember(5,5,'a');
+    expect(lookup(1,'a',86400000),isNull);
+    expect(lookup(2,'a',86400000),isNull);
+    expect(lookup(3,'a',86400000)!.urls,[null,'3-1','3-2','3-3','3-4','3-5']);
+    expect(lookup(4,'b',86400000)!.urls,hasLength(8));
+    expect(lookup(4,'a',86400000),isNull);
+    remember(6,1,'private',group:false);
+    expect(lookup(6,'private',239999),isNotNull);
+    expect(lookup(6,'private',240000),isNull);
+    review.clear();
+    expect(lookup(5,'a',86400000),isNull);
   });
 
   final still=base64Decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAIAAAAUMWhjAAAAJElEQVR4nGP8z0BbwERj80ctGLVg1IJRC0YtGLVg1IJRC6gEAPHIAS8Wxt4fAAAAAElFTkSuQmCC');

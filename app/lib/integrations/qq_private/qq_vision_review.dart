@@ -1,15 +1,17 @@
+import 'dart:collection';
 import '../../core/qq/qq_mention_targets.dart';
 import '../../core/qq/qq_message_material.dart';
 
-typedef QqReviewSource = ({Map<String, Object?> row, List<String> urls, int expiresAt});
+typedef QqReviewSource = ({Map<String, Object?> row, List<String?> urls});
 
 /// Temporary attachment locators for questions about recently received images.
 /// No image bytes or locators enter archives, diagnostics or model prompts.
 class QqVisionReview {
-  static const _groupLifetime = Duration(minutes: 30);
+  static const _groupImageLimit = 10;
   static const _privateLifetime = Duration(minutes: 4);
   static const _recentMs = 90 * 1000;
-  final _sources = <int, QqReviewSource>{};
+  final _privateSources = <int, QqReviewSource>{};
+  final _groupSources = <String, SplayTreeMap<int, QqReviewSource>>{};
   final _observations = <String, String>{};
 
   static final _picture = RegExp(r'图|截图|动图|画面|照片|表情包|附件');
@@ -60,19 +62,44 @@ class QqVisionReview {
 
   void remember(Map<String, Object?> row, List<String> urls, int now, {required bool group}) {
     if (urls.isEmpty) return;
-    prune(now);
-    final lifetime = group ? _groupLifetime : _privateLifetime;
-    final expiresAt = (row['received_at'] as int) + lifetime.inMilliseconds;
-    if (now >= expiresAt) return;
     final seq = row['seq'] as int;
-    if (!_sources.containsKey(seq) && _sources.length >= 32) {
-      _sources.remove(_sources.keys.first);
+    final QqReviewSource source = (row: row, urls: List<String?>.of(urls));
+    if (!group) {
+      prune(now);
+      if (now - (row['received_at'] as int) >= _privateLifetime.inMilliseconds) return;
+      if (!_privateSources.containsKey(seq) && _privateSources.length >= 32) {
+        _privateSources.remove(_privateSources.keys.first);
+      }
+      _privateSources[seq] = source;
+      return;
     }
-    _sources[seq] = (row: row, urls: urls, expiresAt: expiresAt);
+
+    final cid = row['conversation_id'] as String;
+    final sources = _groupSources.putIfAbsent(cid, () => SplayTreeMap<int, QqReviewSource>());
+    if (sources.containsKey(seq)) return;
+    sources[seq] = source;
+    var remaining = _groupImageLimit;
+    // Archive sequence and original attachment order determine recency, even
+    // if two incoming messages finish processing in a different order.
+    for (final key in sources.keys.toList().reversed) {
+      if (remaining == 0) {
+        sources.remove(key);
+        continue;
+      }
+      final slots = sources[key]!.urls;
+      for (var i=slots.length-1; i>=0; i--) {
+        if (slots[i] == null) continue;
+        if (remaining > 0) {
+          remaining--;
+        } else {
+          slots[i] = null; // Preserve the original ordinal for a quoted album.
+        }
+      }
+    }
   }
 
-  void prune(int now) => _sources.removeWhere(
-    (_, source) => now >= source.expiresAt,
+  void prune(int now) => _privateSources.removeWhere(
+    (_, source) => now - (source.row['received_at'] as int) >= _privateLifetime.inMilliseconds,
   );
 
   QqReviewSource? resolve(Map<String, Object?> focus, int now, int resetAt) {
@@ -82,7 +109,8 @@ class QqVisionReview {
     final reference = material.reference;
     final quoted =
         material.kind == 'quote' || reply.isNotEmpty || reference.isNotEmpty;
-    final candidates = _sources.values
+    final sources = _groupSources[focus['conversation_id']] ?? _privateSources;
+    final candidates = sources.values
         .where((source) {
           final row = source.row;
           if (row['conversation_id'] != focus['conversation_id'] ||
@@ -114,7 +142,8 @@ class QqVisionReview {
   }
 
   void clear() {
-    _sources.clear();
+    _privateSources.clear();
+    _groupSources.clear();
     _observations.clear();
   }
 }

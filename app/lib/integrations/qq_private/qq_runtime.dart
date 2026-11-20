@@ -251,6 +251,15 @@ class QqRuntime {
     }
     _imageUrls.putIfAbsent(seq,()=>urls); // URLs are volatile; never enter snapshots or prompts.
     final cid=QqStore.conversationId(scope(c),group?'group':'private',target);
+    if (group && urls.isNotEmpty) {
+      final row = (await (await store.db.database).query('qq_archive',
+          columns: ['id','seq','version','conversation_id','platform_id','received_at','observed_at',
+            'accepted_identity','accepted_policy','context_meta'],
+          where:'seq=? AND conversation_id=? AND platform_id=?',whereArgs:[seq,cid,id],limit:1)).firstOrNull;
+      if (row != null && !_stopped) {
+        _visionReview.remember(row,urls,now().millisecondsSinceEpoch,group:true);
+      }
+    }
     await _schedule(cid);
     _summaryTimers.remove(cid)?.cancel();
     _summaryTimers[cid]=Timer(const Duration(minutes:5),()=>_enqueueSummary(cid));
@@ -362,10 +371,10 @@ class QqRuntime {
       final followupQuestion = wakingGroup || hasFocusAttachments
           ? '' : QqVisionReview.followupQuestion(replyRow);
       final visionAt = now().millisecondsSinceEpoch;
-      if (!wakingGroup) {
+      if (!b.group) {
         for (final row in b.rows) {
           final urls = _imageUrls[row['seq']];
-          if (urls != null) _visionReview.remember(row, urls, visionAt, group: b.group);
+          if (urls != null) _visionReview.remember(row, urls, visionAt, group: false);
         }
       }
       final questionSource = followupQuestion.isEmpty
@@ -927,6 +936,8 @@ class QqRuntime {
     if (source == null) return unavailable;
     final ordinal = QqVisionReview.ordinalFor(question, source.urls.length);
     if (ordinal == null) return unavailable;
+    final url = source.urls[ordinal];
+    if (url == null) return unavailable;
     final seq = source.row['seq'] as int;
     final images = await store.images(seq);
     final image = images.where((row) => row['ordinal'] == ordinal).firstOrNull;
@@ -941,7 +952,7 @@ class QqRuntime {
     final cacheScope = '${focus['accepted_identity']}:$cid:$resetAt';
     releaseSlot?.call();
     try {
-      final result = await vision.observe(source.urls[ordinal], firstModel: model, current: valid,
+      final result = await vision.observe(url, firstModel: model, current: valid,
         firstChannel: true, fallback: false, question: question,
         cached: (fingerprint) async => _visionReview.cached('$cacheScope:$fingerprint') ??
             await store.cachedImage(cid, fingerprint));
