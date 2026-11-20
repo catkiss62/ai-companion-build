@@ -4,7 +4,7 @@ import 'dart:convert';
 abstract final class QqIllustrationAudit {
   static const key = 'qq_illustration_decisions_v1';
   static const stages = {'eligibility', 'choice', 'generated', 'sent'};
-  static const fields = {'group', 'enabled', 'busy', 'cancelled', 'configured', 'eligible',
+  static const fields = {'group', 'presence', 'enabled', 'busy', 'cancelled', 'configured', 'eligible',
     'requested', 'skipped', 'selected', 'voice', 'echo', 'sketch', 'accepted'};
   static List<Map<String, dynamic>> decode(String raw) {
     try {

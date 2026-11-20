@@ -62,6 +62,7 @@ class CollectedStickerArchive {
       final archive=ZipDecoder().decodeStream(input);
       final manifest=archive.findFile(marker);
       if(manifest==null) return null;
+      if(manifest.isSymbolicLink) throw const FormatException('收藏包清单无效');
       if(!manifest.isFile || manifest.size>2*1024*1024 || archive.length>StickerPackStorage.maxStickers+1) {
         throw const FormatException('收藏包清单无效');
       }
@@ -82,10 +83,17 @@ class CollectedStickerArchive {
         var added=0;
         for(final r in rows) {
           final f=images[r['path']]!;
-          final bytes=f.content;
-          if('memes/${sha256.convert(bytes)}${SimpleStickerArchive.imageExtension(bytes)}'!=f.name) throw const FormatException('收藏图片校验失败');
-          if(await CollectedStickerStorage(db:db).collect(bytes,caption:r['caption'] as String,
-            source:r['source'] as String,sourceId:'import',collectedAt:r['at'] as int?)) added++;
+          try {
+            final bytes=f.content;
+            if('memes/${sha256.convert(bytes)}${SimpleStickerArchive.imageExtension(bytes)}'!=f.name) throw const FormatException('收藏图片校验失败');
+            if(await CollectedStickerStorage(db:db).collect(bytes,caption:r['caption'] as String,
+              source:r['source'] as String,sourceId:'import',collectedAt:r['at'] as int?)) added++;
+          } catch(error) {
+            throw FormatException('已新增 $added 张，读取这张时停止。可修复后重复导入：$error');
+          } finally {
+            // ZipDecoder caches inflated bytes. Release each GIF before reading the next.
+            f.clear();
+          }
         }
         return CollectionImportResult(added,rows.length-added);
       },db:db);

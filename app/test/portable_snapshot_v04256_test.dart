@@ -660,6 +660,44 @@ void main() {
     expect(await store.collect(image,caption:'重复',source:'qq',sourceId:'test2'),false);
   });
 
+  test('legacy v3 collection is extracted explicitly and a later full restore preserves local edits', () async {
+    await fixture();
+    final store=CollectedStickerStorage(db:db), packs=StickerPackStorage(db:db);
+    final gif=base64Decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    await store.collect(gif,caption:'旧表情',source:'qq',sourceId:'test');
+    final pack=(await packs.scanPacks()).firstWhere((p)=>p.id==CollectedStickerStorage.packId);
+    final record=(await packs.readRecords(pack)).single;
+    final bundle=await service.exportBackupBundle();
+    final archive=await decode(bundle.filePath);
+    final state=object(archive,'state.json'), manifest=object(archive,'manifest.json');
+    final portable=state['portable_state'] as Map;
+    portable['version']=3;
+    portable['resource_files']='external_with_collection';
+    final hashes=<String,String>{};
+    var length=0;
+    for(final entry in {'index.db':File(p.join(pack.rootPath,'index.db')),
+      'manifest.json':File(p.join(pack.rootPath,'manifest.json')),record.path:await packs.fileFor(pack,record)}.entries) {
+      final path='stickers/${pack.id}/${entry.key}', bytes=await entry.value.readAsBytes();
+      hashes[path]=sha256.convert(bytes).toString();length+=bytes.length;
+      (portable['file_paths']['stickers'] as List).add('${pack.id}/${entry.key}');
+      archive.addFile(ArchiveFile('portable/$path',bytes.length,bytes));
+    }
+    manifest['portable_bytes']=length;manifest['portable_files']=hashes;
+    final bytes=utf8.encode(jsonEncode(state));
+    manifest['state_bytes']=bytes.length;manifest['state_sha256']=sha256.convert(bytes).toString();
+    archive.addFile(ArchiveFile('state.json',bytes.length,bytes));
+    final meta=utf8.encode(jsonEncode(manifest));archive.addFile(ArchiveFile('manifest.json',meta.length,meta));
+    await writeArchive(archive,bundle.filePath);
+    await packs.deletePack(pack.id);
+    expect((await service.extractLegacyCollection(bundle.filePath)).added,1);
+    await packs.saveCaptionEdits({record.usageKey:'本机改过'});
+    expect((await service.extractLegacyCollection(bundle.filePath)).existing,1);
+    await service.restoreBackupBundle(bundle.filePath);
+    final retained=(await packs.readRecords(pack)).single;
+    expect(retained.caption,'本机改过');
+    expect(await (await packs.fileFor(pack,retained)).readAsBytes(),gif);
+  });
+
   test('collection restore failure rolls back current images and meanings', () async {
     await fixture();
     final store=CollectedStickerStorage(db:db), packs=StickerPackStorage(db:db);

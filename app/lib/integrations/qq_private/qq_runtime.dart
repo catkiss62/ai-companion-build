@@ -286,6 +286,7 @@ class QqRuntime {
   }
   /// Public for deterministic production-path regression, not a second route.
   Future<void> process(String cid)=>_process(cid);
+  Future<void> checkGroupPresence()=>_offerPresence();
   Future<void> _process(String cid,{void Function()? releaseSlot}) async {
     if(!await _enabled()) return;
     final c=await configReader();final o=await optionsReader();

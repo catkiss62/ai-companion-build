@@ -35,7 +35,14 @@ extension _GroupPresence on QqRuntime {
     final id='presence:${window.hash}';
     final sql=await store.db.database;
     final convo=(await sql.query('qq_conversations',where:'id=?',whereArgs:[cid])).firstOrNull;
-    if(convo==null || _enqueued.contains(cid) || _timers.containsKey(cid))return;
+    if(convo==null || _enqueued.contains(cid) || _timers.containsKey(cid) || (await store.pending(cid)).isNotEmpty)return;
+    final authorityKey=QqShareStore.policyKey(c.namespace);
+    final authority=QqStore.hash(opts.toJson());
+    Future<bool> authorized() async {
+      final saved=await store.db.getSetting(authorityKey);
+      return saved==null || saved==authority;
+    }
+    if(!await authorized())return;
     if(at.millisecondsSinceEpoch-(convo['last_reply_at'] as int)<30*60000)return;
     final claimed=await store.write(fence,(txn) async {
       if(await BrainWorkFence.value(txn,key)==window.day)return false;
@@ -46,7 +53,7 @@ extension _GroupPresence on QqRuntime {
     final latest=await sql.query('qq_archive',columns:['seq','role','content'],where:'conversation_id=?',whereArgs:[cid],orderBy:'seq DESC',limit:4);
     final through=latest.firstOrNull?['seq'] as int? ?? 0;
     Future<bool> current() async {
-      if(_enqueued.contains(cid) || _timers.containsKey(cid) || !await _enabled() || await resting() || !await store.current(fence))return false;
+      if(_enqueued.contains(cid) || _timers.containsKey(cid) || !await _enabled() || await resting() || !await store.current(fence) || !await authorized())return false;
       final fresh=await configReader();
       if(!_sameDevice(fresh) || QqRuntime.policy(fresh,await optionsReader())!=QqRuntime.policy(c,opts) ||
         now().difference(at)>const Duration(minutes:10))return false;
@@ -71,6 +78,8 @@ extension _GroupPresence on QqRuntime {
       var words=QqIllustrationChoice.visible(raw).trim();
       if(words=='WAIT' || words.runes.length>180 || words.contains(RegExp(r'[<>]')) || !await current())return;
       final choice=imageAllowed?QqIllustrationChoice.parse(raw):null;
+      await store.illustrationAudit(batch,'choice',at.millisecondsSinceEpoch,{'group':true,'presence':true,
+        'eligible':imageAllowed,'requested':false,'selected':choice!=null});
       if(choice==null && (words.isEmpty || QqIllustrationChoice.needsPictureCorrection('',true,words)))return;
       if(!await QqGroupJudge(client,secure,decisions:groupDecisions).addressSafe(model:model,text:words,sticker:choice?.brief??'',current:current))return;
       var fileInfo='',description='';
@@ -82,6 +91,7 @@ extension _GroupPresence on QqRuntime {
           final picture=await illustrations.generateReserved(batch:batch,choice:choice,connection:connection,secure:secure,
             planner:client,context:'在群中随意露个脸。',current:current);
           description=picture.description;
+          await store.illustrationAudit(batch,'generated',now().millisecondsSinceEpoch,{'presence':true});
           fileInfo=await api.uploadImage(group:true,target:target,bytes:picture.image.bytes,filename:picture.filename,current:current);
           if(choice.only)words='';
         } catch(error) {
@@ -101,6 +111,7 @@ extension _GroupPresence on QqRuntime {
             await txn.update('qq_conversations',{'last_reply_at':time},where:'id=?',whereArgs:[cid]);
           });
         });
+      if(fileInfo.isNotEmpty)await store.illustrationAudit(batch,'sent',now().millisecondsSinceEpoch,{'presence':true});
       status('presence_sent');
     } catch(error) {
       await store.recordFailure(fence,'presence',error,operation:id,conversation:cid);

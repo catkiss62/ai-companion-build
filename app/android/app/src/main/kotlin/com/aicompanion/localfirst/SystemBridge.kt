@@ -976,7 +976,7 @@ class SystemBridge(
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            type = "application/octet-stream"
+            type = if (stickerZip) "application/zip" else "application/octet-stream"
             putExtra(Intent.EXTRA_TITLE, fileName)
         }
         beginDirectPickerOverlayGuard("plain_backup_save_picker")

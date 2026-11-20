@@ -176,6 +176,29 @@ void main(){
     handler=(r,b)async=>b['stream']==true?_sse('哈哈哈'):_json(b['max_tokens']==60?{'safe':true}:{'participation':'watch'});
     runtime=create();
   });
+  test('group presence uses active group delivery once and respects opt-out and sleep',() async {
+    final scope=QqRuntime.scope(config);
+    await store.discover(await store.capture(),scope,'group','group-a');
+    var date=DateTime(2026,1,1);
+    while(!QqPresenceWindow(scope,date).offered) {date=date.add(const Duration(days:1));}
+    final window=QqPresenceWindow(scope,date);
+    clock=date.add(Duration(minutes:540+window.roll(6,840)));
+    await runtime.checkGroupPresence();
+    expect(api.sent,isEmpty);
+    options=options.copy(presenceGroups:{'group-a'});
+    clock=date;
+    await runtime.checkGroupPresence();
+    expect(requests,isEmpty);
+    clock=date.add(Duration(minutes:540+window.roll(6,840)));
+    await runtime.checkGroupPresence();
+    expect(api.sent.single['messageId'],'');
+    expect(api.sent.single['target'],'group-a');
+    final count=requests.length;
+    await runtime.checkGroupPresence();
+    expect(api.sent,hasLength(1));
+    expect(requests,hasLength(count));
+  });
+
   test('QQ autonomous illustration cooldown is per group and separate from SVG', () async {
     final sql = await db.database;
     final fence = await store.capture();
