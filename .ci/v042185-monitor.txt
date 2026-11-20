@@ -1,7 +1,7 @@
 status=success
-run_id=44604296272
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44604296272
-head_sha=c21936fbc117dfce3fd670afc29d328d05147b11
+run_id=44650619278
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/44650619278
+head_sha=e4b465972cafcbdc7246c1468866a3d64ab78b90
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-128486e286f7b3e87a5b2b3718f05471953fdc1b44c8145cd2f4ea2edbc178ff  AI-Companion-v0.42.220-464-Settings-Navigation-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b11e50d32cb1cf16ab94
+c7005f0206210859d06b22fd42ef2bae658d5aaab1831a832a12aa66041f7ecc  AI-Companion-v0.42.221-465-Exam-Recovery-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-30fd021a1983fd0b41a0
