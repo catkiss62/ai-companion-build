@@ -386,7 +386,8 @@ class SystemBridge(
                     passphrase = call.argument<String>("passphrase") ?: "",
                     result = result,
                 )
-                "savePlainBackup" -> startPlainBackupSave(
+                "savePlainBackup", "saveCollectedStickerZip" -> startPlainBackupSave(
+                    stickerZip = call.method == "saveCollectedStickerZip",
                     sourcePath = call.argument<String>("sourcePath") ?: "",
                     suggestedName = call.argument<String>("suggestedName")
                         ?: "AI_Companion_Backup.aibackup",
@@ -696,14 +697,14 @@ class SystemBridge(
             Thread {
                 runCatching {
                     when (operation) {
-                        "plain_backup_save" -> {
+                        "plain_backup_save", "sticker_zip_save" -> {
                             try {
                                 val source = File(requireNotNull(sourcePath))
                                 require(source.isFile) { "plain_backup_source_missing" }
                                 require(source.length() in 1..MAX_PLAIN_BACKUP_BYTES) {
                                     "plain_backup_source_size_invalid"
                                 }
-                                val portable = PortableBackupZipVerifier.verify(source)
+                                val portable = if (operation == "plain_backup_save") PortableBackupZipVerifier.verify(source) else null
                                 val output = requireNotNull(
                                     activity.contentResolver.openOutputStream(uri, "w"),
                                 ) { "plain_backup_output_open_failed" }
@@ -732,9 +733,9 @@ class SystemBridge(
                                     "sha256" to sourceDigest.second,
                                     "uri" to uri.toString(),
                                     "verified" to true,
-                                    "zipVerified" to true,
-                                    "zipEntryCount" to portable.entryCount,
-                                    "zipExpandedBytes" to portable.expandedBytes,
+                                    "zipVerified" to (portable != null),
+                                    "zipEntryCount" to portable?.entryCount,
+                                    "zipExpandedBytes" to portable?.expandedBytes,
                                 )
                             } catch (error: Throwable) {
                                 runCatching {
@@ -957,16 +958,17 @@ class SystemBridge(
     }
 
     private fun startPlainBackupSave(
+        stickerZip: Boolean,
         sourcePath: String,
         suggestedName: String,
         result: MethodChannel.Result,
     ) {
-        if (!beginPlainBackupOperation("plain_backup_save", sourcePath, result)) return
+        if (!beginPlainBackupOperation(if (stickerZip) "sticker_zip_save" else "plain_backup_save", sourcePath, result)) return
         val safeName = suggestedName
             .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
             .take(120)
             .ifBlank { "AI_Companion_Backup.aibackup" }
-        val fileName = if (safeName.endsWith(".aibackup", ignoreCase = true)) {
+        val fileName = if (stickerZip) safeName.removeSuffix(".zip") + ".zip" else if (safeName.endsWith(".aibackup", ignoreCase = true)) {
             safeName
         } else {
             "$safeName.aibackup"

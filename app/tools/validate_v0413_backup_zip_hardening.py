@@ -80,15 +80,15 @@ for token in (
 ):
     assert token in verifier, token
 
-save = system.split('"plain_backup_save" ->', 1)[1].split(
+save = system.split('"plain_backup_save", "sticker_zip_save" ->', 1)[1].split(
     '"plain_backup_open" ->', 1
 )[0]
 for token in (
-    "PortableBackupZipVerifier.verify(source)",
+    'if (operation == "plain_backup_save") PortableBackupZipVerifier.verify(source)',
     "copyWithDigest(",
     "savedDigest == sourceDigest",
-    '"zipVerified" to true',
-    '"zipEntryCount" to portable.entryCount',
+    '"zipVerified" to (portable != null)',
+    '"zipEntryCount" to portable?.entryCount',
 ):
     assert token in save, token
 

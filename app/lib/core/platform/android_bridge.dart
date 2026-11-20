@@ -695,6 +695,12 @@ class AndroidBridge {
     return raw?['filePath'] as String?;
   }
 
+  Future<bool> saveCollectedStickerZip(String path,String name) async {
+    final result = await _channel.invokeMapMethod<String,dynamic>('saveCollectedStickerZip',
+      {'sourcePath':path,'suggestedName':name});
+    return result?['verified'] == true;
+  }
+
   Future<Map<String, Object?>?> savePlainBackup({
     required String sourcePath,
     required String suggestedName,

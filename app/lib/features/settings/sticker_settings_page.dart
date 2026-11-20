@@ -1,5 +1,6 @@
 import '../chat/sticker_picker_sheet.dart';
 import 'collected_stickers_page.dart';
+import '../../core/stickers/collected_sticker_archive.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -59,6 +60,11 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
       cachePath = picked?['filePath']?.toString();
       if (cachePath == null || cachePath.isEmpty) {
         if (mounted) setState(() => _status = '已取消导入。');
+        return;
+      }
+      final collection=await CollectedStickerArchive(_storage.db).importZip(cachePath);
+      if(collection!=null) {
+        if(mounted)setState(()=>_status=collection.message);
         return;
       }
       final result = await _storage.importZip(cachePath);

@@ -55,6 +55,8 @@ import 'qq_voice.dart';
 import '../../core/tts/tts_playback_tuning.dart';
 import 'qq_echo.dart';
 
+part 'qq_group_presence.dart';
+
 /// Independent coordinator. Reception only persists and schedules; all model
 /// work is scheduled here, never in the WebSocket acceptance path. One drawing
 /// may yield the foreground lane; each conversation retains its original lock.
@@ -75,7 +77,8 @@ class QqRuntime {
        enabledReader:secure.readJevEnabled,keyReader:secure.readOpenRouterApiKey);
   final _imageExpires=<int,int>{};
   final QqIngressBuffer ingressBuffer;
-  Timer? _replyRecoveryTimer;
+  Timer? _replyRecoveryTimer, _presenceTimer;
+  bool _checkingPresence=false;
   bool _recoveringReplies=false;
   final QqStore store;final QqApi api;final SecureConfig secure;final QqPrivateConfig config;
   final Future<bool> Function() allowed;
@@ -149,6 +152,9 @@ class QqRuntime {
       await _scheduleMaintenance(cid);
     }
     _replyRecoveryTimer?.cancel();
+    _presenceTimer?.cancel();
+    _presenceTimer=Timer.periodic(const Duration(minutes:2),(_)=>_schedulePresence());
+    _schedulePresence();
     _replyRecoveryTimer=Timer.periodic(const Duration(seconds:5),(_)=>unawaited(wakeReplies()));
     await wakeReplies();
   }
@@ -626,6 +632,9 @@ class QqRuntime {
       }
       if(canSketch)prompt+='\n${QqSketchService.prompt}';
       if(canIllustrate)prompt+='\n${QqIllustrationChoice.prompt}';
+      if (b.group && canIllustrate && !drawingRequested) {
+        prompt+='\n群里没人求图，你也可以自己起意画。当玩笑已经有具体画面、想展示一个造型或想画张庆祝图时，把插画当作这轮一个自然的首选。你可以直接画，也可以继续用文字。';
+      }
       if (b.group) {
         prompt+=canIllustrate
             ? '\n群友想看图时可以婉拒、接梗或只聊设想。确定画就选本轮插画动作，再给成图写配文。'
@@ -1119,7 +1128,7 @@ class QqRuntime {
     } finally {client.close();_clients.remove(client);}
   }
   Future<void> stop() async {
-    _stopped=true;_replyRecoveryTimer?.cancel();for(final t in [..._timers.values,..._summaryTimers.values,..._maintenanceTimers.values]) {t.cancel();}
+    _stopped=true;_presenceTimer?.cancel();_replyRecoveryTimer?.cancel();for(final t in [..._timers.values,..._summaryTimers.values,..._maintenanceTimers.values]) {t.cancel();}
     _timers.clear();_summaryTimers.clear();_maintenanceTimers.clear();_imageUrls.clear();_imageExpires.clear();_visionReview.clear();_activeDecision?.cancel();
     for(final client in _clients.toList()) {client.close();}vision.close();voice.close();echoes.clear();publicWeb.clear();
     await _acceptTail;

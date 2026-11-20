@@ -62,6 +62,18 @@ class _QqGroupsPageState extends State<QqGroupsPage> {
           value:_options.groups.contains(g['target']),onChanged:_busy?null:(enabled)=>_run(() async {
             await QqOptions.update((fresh) {final ids={...fresh.groups};enabled?ids.add(g['target'] as String):ids.remove(g['target']);return fresh.copy(groups:ids);},namespace:_config.namespace);})),
           if (_options.groups.contains(g['target'])) SwitchListTile(
+            title:const Text('允许她在这个群主动冒泡'),
+            subtitle:const Text('清醒时偶尔露个脸，也可以带一张自己画的图。'),
+            value:_options.presenceGroups.contains(g['target']),
+            onChanged:_busy?null:(value)=>_run(() async {
+              final target=g['target'] as String;
+              await QqOptions.update((fresh) {
+                final groups={...fresh.presenceGroups};
+                if(value && fresh.groups.contains(target)){groups.add(target);}else{groups.remove(target);}
+                return fresh.copy(presenceGroups:groups);
+              },namespace:_config.namespace);
+            })),
+          if (_options.groups.contains(g['target'])) SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('允许本群查公开网页'),
             subtitle: const Text('群友明确请她查，或她需要核对公开消息时可用。只向搜索服务发送公开查询词或公开链接。'),

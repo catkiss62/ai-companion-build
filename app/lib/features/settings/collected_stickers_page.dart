@@ -1,4 +1,7 @@
 import 'package:image_picker/image_picker.dart';
+import '../../core/stickers/collected_sticker_archive.dart';
+import '../../core/platform/android_bridge.dart';
+import '../../core/sync/snapshot_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
@@ -61,6 +64,23 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
     Future<void>.delayed(const Duration(milliseconds:350),controller.dispose);
     return result;
   }
+  Future<void> _exportPack() => _run(() async {
+    final file=await CollectedStickerArchive(db).exportZip();
+    try {
+      if(await AndroidBridge.instance.saveCollectedStickerZip(file.path,file.uri.pathSegments.last)) status='已导出收集的表情';
+    } finally {await file.parent.delete(recursive:true);}
+  });
+
+  Future<void> _importPack() => _run(() async {
+    final selected=await AndroidBridge.instance.openPlainBackup();
+    final path=selected?['filePath'] as String?;
+    if(path==null || path.isEmpty)return;
+    try {
+      final result=await CollectedStickerArchive(db).importZip(path) ?? await SnapshotService(db).extractLegacyCollection(path);
+      status=result.message;
+    } finally {await File(path).delete();await _load();}
+  });
+
   Future<void> _upload() async {
     await _run(() async {
       final image=await ImagePicker().pickImage(source:ImageSource.gallery,requestFullMetadata:false);
@@ -104,6 +124,10 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> {
         await db.setSetting(CollectedStickerStorage.autoSetting,'$v');automatic=v;})),
       TextButton.icon(onPressed:busy?null:_upload,icon:const Icon(Icons.add_photo_alternate_outlined),label:const Text('单张上传')),
       TextButton.icon(onPressed:busy?null:_album,icon:const Icon(Icons.photo_library_outlined),label:const Text('从相册收藏')),
+      Wrap(children:[
+        TextButton.icon(onPressed:busy?null:_importPack,icon:const Icon(Icons.file_open_outlined),label:const Text('导入收藏')),
+        TextButton.icon(onPressed:busy||entries.isEmpty?null:_exportPack,icon:const Icon(Icons.file_upload_outlined),label:const Text('导出收藏')),
+      ]),
       Wrap(spacing:8,children:[for(final pair in const {'all':'全部','hers':'她收集的','mine':'我添加的'}.entries)
         ChoiceChip(label:Text(pair.value),selected:filter==pair.key,onSelected:(_)=>setState(()=>filter=pair.key))]),
       if(status!=null)Padding(padding:const EdgeInsets.all(8),child:Text(status!)),

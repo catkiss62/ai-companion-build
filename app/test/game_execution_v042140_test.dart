@@ -1,3 +1,4 @@
+import 'package:ai_companion_localfirst/core/desire/daily_wake_store.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,11 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel,
       (call) async => call.method == 'runtimeProcessEpoch' ? 'execution-fixture' : null);
     db = await AppDatabase.createForTesting(databaseFactoryFfi); store = CedarToyActivityStore(db);
+    // Exercise game execution with an unambiguous wake boundary in this fixture.
+    final today=DateTime.now();
+    await db.setSetting(DailyWakeStore.keyFor(today),jsonEncode({
+      'minute':today.hour==8 && today.minute<30?540:480,'sampledAt':today.millisecondsSinceEpoch}));
+
   });
   tearDown(() async { await db.closeForTesting(); TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null); });
   Future<CedarGameSession> step(String command, String result, {bool error = false, bool notable = false}) => store.recordPlay(

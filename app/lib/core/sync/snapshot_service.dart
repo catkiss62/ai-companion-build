@@ -1,4 +1,6 @@
 import '../stickers/sticker_pack_storage.dart';
+import '../stickers/collected_sticker_storage.dart';
+import '../stickers/collected_sticker_archive.dart';
 import '../database/cedar_media_schema.dart';
 import '../models/room_background_config.dart';
 import 'dart:convert';
@@ -228,6 +230,10 @@ class SnapshotService {
       // usedMs while runtime grants/leases remain excluded from the archive.
       await CedarPlaySessionStore(db).pause(DateTime.now());
       final exported = await db.exportAll();
+      final filtered=_collectionSettings(exported,{},false);
+      final tables=exported['tables'] as Map;
+      tables['settings']=[for(final row in tables['settings'] as List)
+        if(filtered.containsKey(row['key'])) {...row as Map,'value':filtered[row['key']]} else row];
       if (!isTakeover) _normalizeBackupRuntimeSettings(exported);
       final now = DateTime.now().toUtc();
       final temp = await getTemporaryDirectory();
@@ -600,6 +606,7 @@ class SnapshotService {
       await db.importAll(
         validated.backup,
         runtimeSettingOverrides: <String, String>{
+        ...await _localCollectionSettings(validated.backup),
         'device_id': localDeviceId,
         'state_lineage_id': metadata.lineageId,
         'state_generation': '${metadata.sourceGeneration}',
@@ -718,7 +725,7 @@ class SnapshotService {
       commitDatabase: (journalRuntime) async {
         preparedMs = watch.elapsedMilliseconds;
         await db.importAll(validated.backup,
-          runtimeSettingOverrides: {...runtime, ...journalRuntime},
+          runtimeSettingOverrides: {...runtime, ...journalRuntime,...await _localCollectionSettings(validated.backup)},
         );
         databaseMs = watch.elapsedMilliseconds - preparedMs;
       },
@@ -793,6 +800,37 @@ class SnapshotService {
       commitDatabase: (runtime) async { await db.setSettingsAtomically(runtime); },
     );
     if (outcome.recoveryPending) throw const SnapshotRecoveryRequired();
+  }
+
+  Future<CollectionImportResult> extractLegacyCollection(String file) async {
+    final snapshot=await _readValidatedBundle(file,allowLegacy:true);
+    try {
+      final raw=_settingFromBackup(snapshot.backup,StickerPackStorage.captionOverridesSetting);
+      return await CollectedStickerArchive(db).importLegacy(
+        Directory(p.join(snapshot.workDirectory.path,'portable','stickers',CollectedStickerStorage.packId)),
+        raw.isEmpty ? {} : jsonDecode(raw) as Map);
+    } finally {await snapshot.dispose();}
+  }
+
+  static Map<String,String> _collectionSettings(Map backup, Map<String,String> local, bool enabled) {
+    final settings=(backup['tables'] as Map)['settings'] as List;
+    String get(String key,String fallback) {
+      final row=settings.whereType<Map>().where((r)=>r['key']==key).firstOrNull;
+      return row?['value'] as String? ?? fallback;
+    }
+    const id=CollectedStickerStorage.packId;
+    final edits=Map<String,String>.from(jsonDecode(get(StickerPackStorage.captionOverridesSetting,'{}')) as Map)
+      ..removeWhere((k,v)=>k.startsWith('$id:'))
+      ..addAll(Map.fromEntries(local.entries.where((e)=>e.key.startsWith('$id:'))));
+    final packs=Set<String>.from(jsonDecode(get(StickerPackStorage.enabledPacksSetting,'[]')) as List)..remove(id);
+    if(enabled)packs.add(id);
+    return {StickerPackStorage.captionOverridesSetting:jsonEncode(edits),StickerPackStorage.enabledPacksSetting:jsonEncode(packs.toList())};
+  }
+
+  Future<Map<String,String>> _localCollectionSettings(Map backup) async {
+    final packs=StickerPackStorage(db:db);
+    return _collectionSettings(backup,await packs.captionOverrides(),
+      (await packs.enabledPackIds()).contains(CollectedStickerStorage.packId));
   }
 
   Future<_ValidatedSnapshot> _readValidatedBundle(

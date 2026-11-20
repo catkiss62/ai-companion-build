@@ -181,6 +181,13 @@ class QqIllustrationService {
     )) {
       throw const IllustrationFailure('already_started');
     }
+    return generateReserved(batch:batch, choice:choice, connection:connection, secure:secure,
+      planner:planner, context:context,current:current,preferMature:preferMature,previousIllustration:previousIllustration);
+  }
+
+  Future<QqIllustration> generateReserved({required QqBatch batch,required QqIllustrationChoice choice,
+    required IllustrationConnection connection,required SecureConfig secure,required DeepSeekClient planner,
+    required String context,required Future<bool> Function() current,bool preferMature=false,String previousIllustration=''}) async {
     final planned = await IllustrationPlanner.request(
       db: store.db,
       secure: secure,

@@ -53,3 +53,5 @@
 
 ## +448 相册表情入口
 只查询saved、非NSFW、原图stored且有效标签含sticker的相册项；手动标签同等生效。过滤先于40条分页，使用saved_at/id游标，避免最近200条截断。入口直接读取CompanionAlbumStorage缩略图，cacheWidth168，不生成副本；按收集库原图hash标记已收藏。QQ直接收藏与联网先相册后独立选择的流程保留。验证：album_sticker_picker_v042204_test.dart（旧图可达、手动增删标签、无原图/删除排除、同时间/新增记录分页）。
+
+收集的表情使用独立 ZIP 合并导入，内外入口均识别；主存档保留本机收藏与手改语义。

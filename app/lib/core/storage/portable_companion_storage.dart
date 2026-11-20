@@ -241,39 +241,14 @@ class PortableCompanionStorage {
     final config = secure == null
         ? {for (final key in SecureConfig.portableKeys) key: null}
         : await secure!.exportPortableSettings();
-    final hashes=<String,String>{};
-    var bytes=0;
-    final collected=Directory(p.join((await stickerRoot).path,CollectedStickerStorage.packId));
-    if(await File(p.join(collected.path,'manifest.json')).exists()) {
-      // Validate through the normal reader, then materialize only this personal
-      // pack. External imported packs remain excluded from ordinary backups.
-      final all=await stickers.scanPacks();
-      final found=all.where((pack)=>pack.id==CollectedStickerStorage.packId).toList();
-      if(found.length!=1)throw const FormatException('收集表情库损坏，未导出不完整存档');
-      final pack=found.single;
-      final records=await stickers.readRecords(pack,applyEdits:false);
-      final files=<String,File>{
-        'manifest.json':File(p.join(pack.rootPath,'manifest.json')),
-        'index.db':File(p.join(pack.rootPath,'index.db')),
-        for(final record in records)record.path:await stickers.fileFor(pack,record),
-      };
-      for(final entry in files.entries) {
-        final relative='${CollectedStickerStorage.packId}/${entry.key}';
-        final target=File(p.join(directory.path,'stickers',relative));
-        await target.parent.create(recursive:true);await entry.value.copy(target.path);
-        paths['stickers']!.add(relative);
-        hashes['stickers/$relative']=(await sha256.bind(target.openRead()).first).toString();
-        bytes+=await target.length();
-      }
-    }
     return PortableExport(
       {
-        'version': 3,
-        'resource_files': 'external_with_collection',
+        'version': 2,
+        'resource_files': 'external',
         'secure_config': config,
         'native_preferences': snapshot.preferences,
         'file_paths': paths,
-      },hashes,bytes,
+      },const <String,String>{},0,
     );
   }
 
@@ -393,27 +368,31 @@ class PortableCompanionStorage {
             token: token,
           );
         }
+        // Preserve the device collection even for legacy whole-directory restores.
+        final rootPacks = await stickerRoot;
+        final id = CollectedStickerStorage.packId;
+        final incomingCollection = Directory(p.join(incomingStickers.path, id));
+        if (await incomingCollection.exists()) await incomingCollection.delete(recursive: true);
+        final paths = List<String>.from(state['file_paths']['stickers'])
+          ..removeWhere((path) => path.startsWith('$id/'));
+        final local = Directory(p.join(rootPacks.path,id));
+        if (await local.exists()) {
+          await for (final file in local.list(recursive: true, followLinks: false)) {
+            if (file is! File) continue;
+            final relative = p.relative(file.path, from: rootPacks.path);
+            final target = File(p.join(incomingStickers.path, relative));
+            await target.parent.create(recursive:true);
+            await file.copy(target.path);
+            paths.add(relative);
+          }
+        }
         packs = await PreparedDirectorySwap.prepare(
           sourceDirectory: incomingStickers,
-          targetDirectory: await stickerRoot,
-          expectedPaths: List<String>.from(state['file_paths']['stickers']),
+          targetDirectory: rootPacks,
+          expectedPaths: paths,
           validatePath: safePath,
           token: token,
         );
-      }
-      if(state['version']==3) {
-        final incoming=Directory(p.join(root.path,'stickers'));
-        await stickers.validateSnapshotDirectory(incoming);
-        final prefix='${CollectedStickerStorage.packId}/';
-        final paths=List<String>.from(state['file_paths']['stickers']);
-        final target=Directory(p.join((await stickerRoot).path,CollectedStickerStorage.packId));
-        if(paths.isNotEmpty || await target.exists()) {
-          packs=await PreparedDirectorySwap.prepare(
-            sourceDirectory:Directory(p.join(incoming.path,CollectedStickerStorage.packId)),
-            targetDirectory:target,
-            expectedPaths:paths.map((path)=>path.substring(prefix.length)),
-            validatePath:safePath,token:token);
-        }
       }
       return PreparedPortableState(
         native,

@@ -380,6 +380,7 @@ class StickerPackStorage {
       throw const FormatException('导入包不能包含本机共享引用');
     }
     final meta = await _validateExtractedPack(extractedRoot);
+    if(meta.id=='companion-collected-v1')throw const FormatException('请从收集的表情页面导入收藏包');
     final target = Directory(p.join((await rootDirectory).path, meta.id));
     if (await target.exists() && meta.id.startsWith('user-')) {
       final old = await _readPack(target);

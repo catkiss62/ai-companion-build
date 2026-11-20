@@ -38,7 +38,7 @@ class CollectedStickerStorage {
   }
 
   Future<bool> collect(Uint8List bytes,{required String caption,required String source,
-      required String sourceId,bool automatic=false,Future<bool> Function()? current}) =>
+      required String sourceId,int? collectedAt,bool automatic=false,Future<bool> Function()? current}) =>
     SharedMediaLock.run(() async {
       if(automatic && !await enabled()) throw StateError('自动收集已关闭');
       if(!const {'qq','album','web','user'}.contains(source)) throw const FormatException('收藏来源无效');
@@ -94,7 +94,7 @@ class CollectedStickerStorage {
           await index.insert('memes',{'path':relative,'file_name':p.basename(relative),
             'tag':'收集','caption':description,'keywords':'','tone_scope':'general','intensity':1,'enabled':1,
             'source':source,'source_id':String.fromCharCodes(sourceId.runes.take(220)),
-            'collected_at':DateTime.now().millisecondsSinceEpoch});
+            'collected_at':collectedAt ?? DateTime.now().millisecondsSinceEpoch});
           published=true;
         } finally {if(await scratch.exists())await scratch.delete(recursive:true);}
         if(fresh) await File(p.join(work.path,'manifest.json')).writeAsString(jsonEncode({
