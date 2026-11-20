@@ -393,7 +393,7 @@ class QqRuntime {
             final origins=QqMessageMaterial.fromRow(row).imageOrigins;
             QqCollectCandidate? observedCollection;
             final result=await vision.observe(urls[ordinal],firstModel:model,fallback:false,current:current,firstChannel:true,
-              question: directed ? question : '',
+              retryTransient: b.group, question: directed ? question : '',
               cached:(fp)=>store.cachedImage(cid,fp),
               originalObserver:(collectEnabled || (b.group && o.echoEnabled)) && ordinal<origins.length && origins[ordinal]=='outer'?
                 (bytes,mime,hash) async {

@@ -29,16 +29,26 @@ class QqVision {
   bool _closed=false;
   Future<({String text,String fingerprint})> observe(String url,{required DeepSeekModelProfile firstModel,
     required bool fallback,required Future<bool> Function() current,bool firstChannel=false,
-    String question='',
+    bool retryTransient = false, String question='',
     Future<String?> Function(String)? cached,
     Future<void> Function(Uint8List bytes,String mime,String contentHash)? originalObserver}) async {
     Future<bool> valid() async=>!_closed && await current();
     if(!await valid()) throw StateError('context_invalidated');
     final root=Directory('${(await getTemporaryDirectory()).path}/qq_vision_v2');await root.create(recursive:true);
     DownloadedPublicImage? downloaded;var stage='download';
+    var retryAvailable = retryTransient;
+    Future<T> withRetry<T>(Future<T> Function() operation) async {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!retryAvailable || !_transient(error, stage) || !await valid()) rethrow;
+        retryAvailable = false;
+        return await operation();
+      }
+    }
     try {
-      downloaded=await SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
-        filePrefix:'qq',temporaryDirectory:root,totalTimeout:const Duration(seconds:20));
+      downloaded=await withRetry(() => SafePublicImageDownloader.download(client:downloader,rawUrl:url,maxBytes:maxDownloadBytes,
+        filePrefix:'qq',temporaryDirectory:root,totalTimeout:const Duration(seconds:20)));
       final original=await downloaded.file.readAsBytes();
       final contentHash=sha256.convert(original).toString();
       if(originalObserver!=null && await valid())await originalObserver(original,downloaded.mimeType,contentHash);
@@ -75,7 +85,7 @@ class QqVision {
       }
       QwenVisionObservation result;
       stage='primary';
-      try {result=await attempt(firstChannel);} catch(_) {
+      try {result=await withRetry(() => attempt(firstChannel));} catch(_) {
         if(_routed || firstChannel || !fallback || !await valid()) rethrow;
         stage='fallback';
         result=await attempt(true);
@@ -87,6 +97,15 @@ class QqVision {
       throw QqFailure.visionFailure(error,stage);
     } finally {if(downloaded!=null && await downloaded.file.exists()) {try {await downloaded.file.delete();}catch(_) {}}}
   }
+  static bool _transient(Object error, String stage) {
+    if (error is TimeoutException || error is SocketException || error is http.ClientException) return true;
+    if (stage == 'primary' && error is FormatException) return true;
+    final status = error is QwenVisionException ? error.statusCode
+        : error is HttpException && error.message.startsWith('image_download_')
+            ? int.tryParse(error.message.substring('image_download_'.length)) : null;
+    return status == 408 || status != null && status >= 500 && status < 600;
+  }
+
   Future<void> cleanStale() async {
     final root=Directory('${(await getTemporaryDirectory()).path}/qq_vision_v2');
     if(!await root.exists()) return;

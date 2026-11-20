@@ -123,6 +123,42 @@ void main() {
       } finally {vision.close();}
     });
   }
+  for (final scenario in ['format', 'download', 'both', 'permanent', 'cancel', 'healthy']) {
+    test('group image retry shares one budget across stages: $scenario', () async {
+      var downloads=0, observations=0, originalCallbacks=0;
+      var active=true;
+      final vision=QqVision(_Secure(),
+        downloader:MockClient((r) async {
+          downloads++;
+          if ((scenario=='download' || scenario=='both') && downloads==1) return http.Response('',503);
+          return http.Response.bytes(still,200);
+        }),
+        fallbackFactory:()=>QwenVisionClient(client:MockClient((r) async {
+          observations++;
+          if (scenario=='permanent') return http.Response('',403);
+          if (scenario=='cancel') active=false;
+          if (observations==1 && ['format','both','cancel'].contains(scenario)) {
+            return http.Response('invalid JSON',200);
+          }
+          return observed();
+        })));
+      try {
+        final result=vision.observe('https://fixture.invalid/picture.png',
+          firstModel:DeepSeekModelProfile.flash, firstChannel:true, fallback:false,
+          retryTransient:true, current:() async=>active,
+          originalObserver:(bytes,mime,hash) async {originalCallbacks++;});
+        if (['both','permanent','cancel'].contains(scenario)) {
+          await expectLater(result,throwsA(anything));
+        } else {
+          expect((await result).text,contains('合成图片可见'));
+        }
+        expect(downloads,['download','both'].contains(scenario)?2:1);
+        expect(observations,scenario=='format'?2:1);
+        expect(originalCallbacks,1);
+      } finally {vision.close();}
+    });
+  }
+
   test('group first-channel failure does not invoke App Qwen even when private fallback is enabled',() async {
     var qwen=0,first=0;
     final vision=QqVision(_Secure(),downloader:MockClient((r)async=>http.Response.bytes(still,200)),

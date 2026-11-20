@@ -104,7 +104,7 @@ class _Vision extends QqVision {
   final questions = <String>[];
   @override Future<void> cleanStale()async{}
   @override Future<({String text,String fingerprint})> observe(String url,{required firstModel,
-    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false,String question='',
+    required bool fallback,required Future<bool> Function() current,Future<String?> Function(String)? cached,bool firstChannel=false,bool retryTransient=false,String question='',
     Future<void> Function(Uint8List bytes,String mime,String contentHash)? originalObserver})async {
     lastFirstChannel=firstChannel;
     await originalObserver?.call(Uint8List.fromList([1,2,3]),'image/png','same-original-content');
