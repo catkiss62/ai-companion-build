@@ -45,7 +45,7 @@
 
 入口：CollectedStickerStorage、CollectedStickersPage、QqCollectCandidate。统一固定pack ID companion-collected-v1，caption复用现有语义字段，来源qq/web/album/user用于筛选；不新增自动小类。单张上传和手动相册添加由用户填写语义，QQ在原回复调用中返回收藏候选和语义，联网在原识图评估中返回collect_sticker/sticker_caption；不新增逐图付费调用。自动开关在“收集的表情”。
 
-收藏先提交共享原图所有权，再插入SQLite索引，崩溃只会留下保守持有的额外引用，不能出现已提交索引指向不存在原图；收藏包扫描时会核对索引并清理这种额外映射，再执行原有迁移与校验；其他图库仍保持精确清单检查。单图6MB，PNG/JPEG/GIF/WebP，解码校验与尺寸限制，完整动画原件保留；内容hash去重，不因跨来源再复制图片。普通备份portable_state v3仅包含这一本收集库（manifest/index/实际原图），恢复只替换这一个子目录，继续沿用原有恢复日志/回滚；其他外部图库和模型保持本地。
+收藏先提交共享原图所有权，再插入SQLite索引，崩溃只会留下保守持有的额外引用，不能出现已提交索引指向不存在原图；收藏包扫描时会核对索引并清理这种额外映射，再执行原有迁移与校验；其他图库仍保持精确清单检查。单图6MB，PNG/JPEG/GIF/WebP，解码校验与尺寸限制，完整动画原件保留；内容hash去重，不因跨来源再复制图片。+467 主存档使用仅配置格式，收藏原图与编辑语义由独立 ZIP 保存。旧 v3 存档支持从收藏页面单独提取，常规恢复保留本机收藏。
 
 回归：collected_stickers_v042203_test.dart、portable_snapshot_v04256_test.dart、原shared_stickers与sticker_workbench测试。必须验证收藏→重启→选用→删除来源→备份恢复，语义编辑与开关。自动收藏失败不宣称成功、不回退原图保存；QQ收藏不依赖多人复读门槛。
 
