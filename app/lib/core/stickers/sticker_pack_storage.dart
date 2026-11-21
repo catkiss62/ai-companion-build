@@ -468,7 +468,7 @@ class StickerPackStorage {
     if (pack.id != id) throw const FormatException('表情包归属不一致');
     final shared = await _sharedFiles();
     final mapping = await shared.readMap(directory);
-    final records = await readRecords(pack, originals: mapping);
+    final records = await _readRecords(pack, applyEdits: true, originals: mapping);
     final resolved = await _sharePack(pack, records: records, originals: mapping);
     return [
       for (final record in records)
@@ -480,6 +480,11 @@ class StickerPackStorage {
   Future<List<StickerRecord>> readRecords(
     StickerPackMeta pack, {
     bool applyEdits = true,
+  }) => _readRecords(pack, applyEdits: applyEdits);
+
+  Future<List<StickerRecord>> _readRecords(
+    StickerPackMeta pack, {
+    required bool applyEdits,
     Map<String, String>? originals,
   }) async {
     final overrides = applyEdits
@@ -641,7 +646,7 @@ class StickerPackStorage {
     final shared = await _sharedFiles();
     final root = Directory(pack.rootPath);
     final mapping = originals ?? await shared.readMap(root);
-    records ??= await readRecords(pack, applyEdits: false, originals: mapping);
+    records ??= await readRecords(pack, applyEdits: false);
     if (mapping.isNotEmpty) {
       final expected = records.map((r) => r.path).toSet();
       // A killed collector can leave extra ownership before its SQLite commit.
