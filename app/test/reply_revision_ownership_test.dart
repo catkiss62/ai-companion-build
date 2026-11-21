@@ -189,6 +189,25 @@ void main() {
     expect((await db.messageById('user'))?.content, '测试');
   });
 
+  testWidgets('each settings card retains only its own current operation', (tester) async {
+    var expirations = 0;
+    final cards = SectionFeedback(() => expirations++);
+    final slow = cards.begin('third');
+    final vision = cards.begin('vision')..brief = '已保存';
+    slow.persistent = '短请求通过';
+    expect(cards.text('third'), '短请求通过');
+    expect(cards.text('vision'), '已保存');
+    cards.begin('third').persistent = '更新后的配置';
+    slow.brief = '迟到的测试结果';
+    await tester.pump(const Duration(seconds: 4));
+    expect(cards.text('third'), '更新后的配置');
+    expect(cards.text('vision'), isNull);
+    vision.brief = '再次保存';
+    cards.dispose();
+    await tester.pump(const Duration(seconds: 4));
+    expect(expirations, 1);
+  });
+
   testWidgets('repeated hints renew the full interval and pending timers respect replacement and disposal',
       (tester) async {
     var expired = 0;

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/stickers/collected_sticker_storage.dart';
+import 'package:ai_companion_localfirst/core/stickers/collected_sticker_archive.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
 import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
 import 'package:ai_companion_localfirst/integrations/qq_private/qq_sticker_collection.dart';
@@ -44,6 +45,32 @@ void main(){
     final restarted=StickerPackStorage(db:db);
     expect((await restarted.loadPickerCatalog()).items.single.record.caption,'困得想摸鱼');
     expect((await storage.sources()).length,1);
+  });
+  test('collection ZIP preserves local edits on duplicates and uses archive captions after deletion',() async {
+    await storage.collect(png,caption:'包里的文字',source:'user',sourceId:'a');
+    await storage.collect(gif,caption:'动图',source:'user',sourceId:'b');
+    final archive=CollectedStickerArchive(db);
+    final zip=await archive.exportZip();
+    final rows=await packs.loadPackEntries(CollectedStickerStorage.packId);
+    final photo=rows.singleWhere((e)=>e.record.path.endsWith('.png')).record;
+    final animation=rows.singleWhere((e)=>e.record.path.endsWith('.gif')).record;
+    final edits={photo.usageKey:'本地修改',animation.usageKey:'动图修改'};
+    await packs.saveCaptionEdits(edits);
+    await archive.importZip(zip.path);
+    expect(await packs.captionOverrides(),edits);
+    await storage.remove(photo.path);
+    expect(await packs.captionOverrides(),{animation.usageKey:'动图修改'});
+    await storage.remove(animation.path);
+    expect(await packs.captionOverrides(),isEmpty);
+    // Recover orphan edits left by older builds. Other packs keep their keys.
+    await packs.saveCaptionEdits({photo.usageKey:'旧版本残留','other:memes/a.png':'其他图库'});
+    await archive.importZip(zip.path);
+    final restored=await packs.loadPackEntries(CollectedStickerStorage.packId);
+    expect(restored.map((e)=>e.record.caption),unorderedEquals(['包里的文字','动图']));
+    expect(await restored.singleWhere((e)=>e.record.path==animation.path).file.readAsBytes(),gif);
+    await packs.saveCaptionEdits(edits);
+    await packs.deletePack(CollectedStickerStorage.packId);
+    expect(await packs.captionOverrides(),{'other:memes/a.png':'其他图库'});
   });
   test('interrupted index update reconciles extra ownership without losing a valid image',()async{
     await storage.collect(png,caption:'开心',source:'user',sourceId:'a');

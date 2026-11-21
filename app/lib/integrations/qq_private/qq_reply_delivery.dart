@@ -109,8 +109,14 @@ class QqReplyDelivery {
       } on QqApiException catch (error) {
         if (error.code!='stopped' && await current()) {
           // A status message has its own sequence. Never replay uncertain media.
-          await planned?.call(1);
-          await part(error.uncertain?'图画好了，没确认发成功。':'图画好了，这次没发出去。','');
+          try {
+            await planned?.call(1);
+            await part(error.uncertain?'图画好了，没确认发成功。':'图画好了，这次没发出去。','');
+          } catch (_) {
+            // A failed status notice cannot make an uncertain picture safe to replay.
+            if (error.uncertain && delivered==0) throw error;
+            rethrow;
+          }
         }
         rethrow;
       }

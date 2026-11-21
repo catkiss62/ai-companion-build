@@ -452,21 +452,41 @@ class StickerPackStorage {
     if (!_validPackId(id)) throw const FormatException('表情包 ID 无效');
     final target = Directory(p.join((await rootDirectory).path, id));
     if (await target.exists()) await target.delete(recursive: true);
+    if (id == 'companion-collected-v1') await clearCollectedCaptionEdits();
     await setPackEnabled(id, false);
     final blobs = MediaBlobStorage(db: db, stickerFiles: await _sharedFiles());
     final referenced = (await db.allMediaBlobs()).expand((b) => [b.originalPath, b.thumbnailPath]);
     await blobs.pruneUnreferencedFiles(referenced);
   }, db: db);
 
+  /// Read a single installed pack, including disabled entries for its editor/export.
+  Future<List<StickerPickerEntry>> loadPackEntries(String id) => SharedMediaLock.run(() async {
+    if (!_validPackId(id)) throw const FormatException('表情包 ID 无效');
+    final directory = Directory(p.join((await rootDirectory).path, id));
+    if (!await directory.exists()) return <StickerPickerEntry>[];
+    final pack = await _readPack(directory);
+    if (pack.id != id) throw const FormatException('表情包归属不一致');
+    final shared = await _sharedFiles();
+    final mapping = await shared.readMap(directory);
+    final records = await readRecords(pack, originals: mapping);
+    final resolved = await _sharePack(pack, records: records, originals: mapping);
+    return [
+      for (final record in records)
+        StickerPickerEntry(pack: pack, record: record,
+            file: await shared.resolveFromMap(directory, record.path, resolved)),
+    ];
+  }, db: db);
+
   Future<List<StickerRecord>> readRecords(
     StickerPackMeta pack, {
     bool applyEdits = true,
+    Map<String, String>? originals,
   }) async {
     final overrides = applyEdits
         ? await captionOverrides()
         : <String, String>{};
     final shared = await _sharedFiles();
-    final mapping = await shared.readMap(Directory(pack.rootPath));
+    final mapping = originals ?? await shared.readMap(Directory(pack.rootPath));
     final indexPath = p.join(pack.rootPath, 'index.db');
     final database = await openDatabase(
       indexPath,
@@ -561,6 +581,24 @@ class StickerPackStorage {
   Future<Map<String, String>> captionOverrides() async =>
       _decodeOverrides(await db.getSetting(captionOverridesSetting));
 
+  Future<void> clearCollectedCaptionEdits({String? path}) async {
+    const prefix = 'companion-collected-v1:';
+    final database = await db.database;
+    await database.transaction((txn) async {
+      final current = _decodeOverrides(await SqliteSettingsReader.read(txn, captionOverridesSetting));
+      final before = current.length;
+      if (path == null) {
+        current.removeWhere((key, _) => key.startsWith(prefix));
+      } else {
+        current.remove('$prefix$path');
+      }
+      if (current.length != before) {
+        await txn.update('settings', {'value': jsonEncode(current)},
+            where: 'key=?', whereArgs: [captionOverridesSetting]);
+      }
+    });
+  }
+
   /// A single SQLite transaction is the only durable editor commit point.
   /// No draft is ever written here before the user presses the top Save button.
   Future<void> saveCaptionEdits(Map<String, String> edits) => SharedMediaLock.run(() async {
@@ -599,11 +637,11 @@ class StickerPackStorage {
       packRootOverride: await rootDirectory,
       mediaRootOverride: Directory(p.join((await rootDirectory).parent.path, 'media_blobs')));
 
-  Future<void> _sharePack(StickerPackMeta pack, {List<StickerRecord>? records}) async {
+  Future<Map<String, String>> _sharePack(StickerPackMeta pack, {List<StickerRecord>? records, Map<String, String>? originals}) async {
     final shared = await _sharedFiles();
     final root = Directory(pack.rootPath);
-    final mapping = await shared.readMap(root);
-    records ??= await readRecords(pack, applyEdits: false);
+    final mapping = originals ?? await shared.readMap(root);
+    records ??= await readRecords(pack, applyEdits: false, originals: mapping);
     if (mapping.isNotEmpty) {
       final expected = records.map((r) => r.path).toSet();
       // A killed collector can leave extra ownership before its SQLite commit.
@@ -623,11 +661,12 @@ class StickerPackStorage {
       for (final path in expected) {
         if (await File(p.join(root.path, path)).exists()) { unfinished = true; break; }
       }
-      if (!unfinished) return;
+      if (!unfinished) return mapping;
     }
     await shared.migrate(root, records.map((r) => r.path), canonicalPaths: {
       for (final blob in await db.allMediaBlobs()) blob.id: blob.originalPath,
     });
+    return shared.readMap(root);
   }
 
   /// Never routes an installed sticker through the external-picture draft.

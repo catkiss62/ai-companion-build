@@ -884,7 +884,7 @@ class QqRuntime {
         received:(sequence,receipt)=>store.received(b,sequence,platformId:receipt.id,platformIndex:receipt.index),
         confirmed:() async {sentAny=true;await store.mark(b,'sent_archive_pending');},
         retryImage:illustration!=null?retryIllustration:null,
-        requireMedia:illustration!=null,
+        requireMedia:illustration!=null || (b.group && drawing!=null),
         mediaCurrent:illustration!=null?illustrationCurrent:echoChoice==null?null:
           () async=>now().millisecondsSinceEpoch<echo!.expiresAt && await echoes.current(echo!),
         voiceText:voiceChoice?.text??'',voiceLanguage:voiceChoice?.language??'',

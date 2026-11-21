@@ -122,7 +122,7 @@ class _QqGroupsPageState extends State<QqGroupsPage> with InlineFeedbackState<Qq
           subtitle:const Text('仅本群新消息中的同图接龙；临时复用，到期失效，不收入永久图库。'),
           value:_options.echoEnabled,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(echoEnabled:v),namespace:_config.namespace);})),
         const ListTile(contentPadding:EdgeInsets.zero,title:Text('QQ 图片识别'),
-          subtitle:Text('私聊和群聊均使用第一通道；开启第三通道后优先第三通道，失败再回第一通道。')),
+          subtitle:Text('QQ 私聊和群聊的图片都由第一通道识别，回复正文按配置选择通道。')),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许向本人分享群聊见闻'),subtitle:const Text('仅向你分享，仍受睡眠、节奏和防重复控制。'),
           value:_options.ownerShare,onChanged:_busy?null:(v)=>_run(() async {await QqOptions.update((fresh)=>fresh.copy(ownerShare:v),namespace:_config.namespace);})),
         SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('允许偶尔主动发小涂鸦'),subtitle:const Text('低频群聊机会；明确请求画画仍可回应。跟随第一通道当前模型和思考力度，不使用作品流程。'),value:_autoSketch,onChanged:_busy?null:(v)=>_run(()=>AppDatabase.instance.setSetting(QqSketchService.autoKey,v?'1':'0'))),

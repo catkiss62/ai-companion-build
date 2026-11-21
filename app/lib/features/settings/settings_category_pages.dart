@@ -44,7 +44,7 @@ class ModelNetworkSettingsPage extends StatefulWidget {
 }
 
 class _ModelNetworkSettingsPageState
-    extends State<ModelNetworkSettingsPage> with InlineFeedbackState<ModelNetworkSettingsPage> {
+    extends State<ModelNetworkSettingsPage> {
   final _db = AppDatabase.instance;
   final _secure = SecureConfig.instance;
   final _android = AndroidBridge.instance;
@@ -104,9 +104,7 @@ class _ModelNetworkSettingsPageState
   bool _weatherEnabled = false;
   bool _testingWeb = false;
   bool _testingWeather = false;
-  String? get _status => inlineFeedback.text;
-  set _status(String? value) => inlineFeedback.replace(value);
-  String? _statusSection;
+  late final _feedback = SectionFeedback(() => setState(() {}));
 
   Future<void> _transferConfig(String action) async {
     final exporting = action == 'export';
@@ -129,11 +127,9 @@ class _ModelNetworkSettingsPageState
         ],
       ),
     );
-    if (accepted != true) return;
-    setState(() {
-      _statusSection = 'transfer';
-      _status = null;
-    });
+    if (accepted != true || !mounted) return;
+    final feedback = _feedback.begin('transfer');
+    setState(() {});
     final transfer = ModelNetworkConfigTransfer(_db, _secure);
     try {
       if (exporting) {
@@ -144,15 +140,15 @@ class _ModelNetworkSettingsPageState
         );
         if (mounted) setState(() {
           if (saved) {
-            _status = '模型与联网配置已导出；文件包含 API Key。';
+            feedback.persistent = '模型与联网配置已导出；文件包含 API Key。';
           } else {
-            briefFeedback = '已取消导出。';
+            feedback.brief = '已取消导出。';
           }
         });
       } else {
         final text = await _android.openPromptPack();
         if (text == null) {
-          if (mounted) setState(() => briefFeedback = '已取消导入。');
+          if (mounted) setState(() => feedback.brief = '已取消导入。');
           return;
         }
         await transfer.importSaved(text);
@@ -164,35 +160,32 @@ class _ModelNetworkSettingsPageState
         if (!mounted) return;
         setState(() => _loading = true);
         await _load();
-        if (mounted) setState(() => briefFeedback = '模型与联网配置导入完成，页面已刷新。');
+        if (mounted) setState(() => feedback.brief = '模型与联网配置导入完成，页面已刷新。');
       }
     } catch (error) {
-      if (mounted) setState(() => _status = '配置${exporting ? '导出' : '导入'}失败：$error');
+      if (mounted) setState(() => feedback.persistent = '配置${exporting ? '导出' : '导入'}失败：$error');
     }
   }
 
-  Future<void> _sectionAction(String section, Future<void> Function() action) async {
-    setState(() {
-      _statusSection = section;
-      _status = null;
-    });
+  Future<void> _sectionAction(String section, Future<void> Function(InlineFeedback) action) async {
+    final feedback = _feedback.begin(section);
+    setState(() {});
     try {
-      await action();
+      await action(feedback);
     } catch (error) {
       if (mounted) setState(() {
-        _statusSection = section;
-        _status = error is FormatException ? error.message.toString() : '保存或测试未完成，请检查配置后重试';
+        feedback.persistent = error is FormatException ? error.message.toString() : '保存或测试未完成，请检查配置后重试';
       });
     }
   }
 
-  Widget _sectionFeedback(String section) =>
-      _statusSection == section && _status != null
-          ? Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(_status!, textAlign: TextAlign.left),
-            )
-          : const SizedBox.shrink();
+  Widget _sectionFeedback(String section) {
+    final message = _feedback.text(section);
+    return message == null ? const SizedBox.shrink() : Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(message, textAlign: TextAlign.left),
+    );
+  }
 
   @override
   void initState() {
@@ -277,33 +270,33 @@ class _ModelNetworkSettingsPageState
     return DeepSeekModelProfile.fromApiName(custom);
   }
 
-  Future<void> _saveChatProvider() async {
+  Future<void> _saveChatProvider(InlineFeedback feedback) async {
     if (!_validHttpEndpoint(_deepSeekEndpoint.text)) {
-      setState(() => _status = 'DeepSeek 地址不是有效的 http(s) URL。');
+      setState(() => feedback.persistent = 'DeepSeek 地址不是有效的 http(s) URL。');
       return;
     }
     if (_deepSeekKey.text.trim().isEmpty) {
-      setState(() => _status = 'DeepSeek API Key 是内部工作通道的必填项。');
+      setState(() => feedback.persistent = 'DeepSeek API Key 是内部工作通道的必填项。');
       return;
     }
     final effectiveModel = _effectiveDeepSeekModel();
     if (effectiveModel == null) {
-      setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
+      setState(() => feedback.persistent = '请输入自定义 DeepSeek 模型 ID。');
       return;
     }
     if (_chatProvider.isGeminiRelay &&
         _aiWangYouApiKey.text.trim().isEmpty) {
-      setState(() => _status = '选择双模型最终回复时，请填写第二通道 API Key。');
+      setState(() => feedback.persistent = '选择双模型最终回复时，请填写第二通道 API Key。');
       return;
     }
     if (_chatProvider.isGeminiRelay &&
         !_validHttpEndpoint(_aiWangYouEndpoint.text)) {
-      setState(() => _status = '第二通道地址不是有效的 http(s) URL。');
+      setState(() => feedback.persistent = '第二通道地址不是有效的 http(s) URL。');
       return;
     }
     if (_chatProvider.isGeminiRelay &&
         _aiWangYouModel.text.trim().isEmpty) {
-      setState(() => _status = '请输入第二通道的最终回复模型 ID。');
+      setState(() => feedback.persistent = '请输入第二通道的最终回复模型 ID。');
       return;
     }
     try {
@@ -331,29 +324,29 @@ class _ModelNetworkSettingsPageState
       if (mounted) {
         setState(() {
           _effort = normalizedEffort;
-          briefFeedback = _chatProvider.isGeminiRelay
+          feedback.brief = _chatProvider.isGeminiRelay
               ? '双模型配置已保存：DeepSeek 负责内部工作，第二通道负责最终回复。'
               : 'DeepSeek 单通道配置已保存。';
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _status = '聊天提供商保存失败：$error');
+      if (mounted) setState(() => feedback.persistent = '聊天提供商保存失败：$error');
     }
   }
 
-  Future<void> _saveThird() async {
+  Future<void> _saveThird(InlineFeedback feedback) async {
     try {
       await _secure.writeThirdChannel(ThirdChannelConfig(enabled: _thirdEnabled,
         baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort));
       await _db.wakeRetryableGenerationJobs();
-      if (mounted) setState(() => briefFeedback = '第三通道配置已保存。');
-    } catch (error) { if (mounted) setState(() => _status = '第三通道保存失败：$error'); }
+      if (mounted) setState(() => feedback.brief = '第三通道配置已保存。');
+    } catch (error) { if (mounted) setState(() => feedback.persistent = '第三通道保存失败：$error'); }
   }
 
-  Future<void> _testThird() async {
+  Future<void> _testThird(InlineFeedback feedback) async {
     final tested = ThirdChannelConfig(enabled: _thirdEnabled, baseUrl: _thirdBase.text,
       apiKey: _thirdKey.text, effort: _thirdEffort);
-    setState(() { _testingThird = true; _status = '正在测试输入框配置的短请求…'; });
+    setState(() { _testingThird = true; feedback.persistent = '正在测试输入框配置的短请求…'; });
     final client = ThirdChannelClient();
     final diagnostics = await ThirdChannelDiagnostics.capture(_db, lane: 'connection_test');
     ThirdChannelEvent? event;
@@ -364,16 +357,16 @@ class _ModelNetworkSettingsPageState
         messages: [{'role': 'user', 'content': '这是接口连接测试，请只回复“连接成功”。'}], maxTokens: 256,
         onDiagnostic: (value) { event = value; diagnostics?.record(value); });
       if (result.incomplete) throw const ThirdChannelFailure('incomplete');
-      if (mounted) setState(() => _status = '第三通道短请求通过；不保证长正文同样及时。$scope'
+      if (mounted) setState(() => feedback.persistent = '第三通道短请求通过；不保证长正文同样及时。$scope'
         '${ThirdChannelTestStatus.timing(event)}测试使用了少量额度。');
-    } catch (_) { if (mounted) setState(() => _status = '${ThirdChannelTestStatus.failure(event)}$scope'
+    } catch (_) { if (mounted) setState(() => feedback.persistent = '${ThirdChannelTestStatus.failure(event)}$scope'
       '${ThirdChannelTestStatus.timing(event)}'); }
     finally { client.close(); if (mounted) setState(() => _testingThird = false); }
   }
 
-  Future<void> _saveVision() async {
+  Future<void> _saveVision(InlineFeedback feedback) async {
     if (!_validHttpEndpoint(_visionEndpoint.text)) {
-      setState(() => _status = '千问视觉地址不是有效的 http(s) URL。');
+      setState(() => feedback.persistent = '千问视觉地址不是有效的 http(s) URL。');
       return;
     }
     try {
@@ -381,30 +374,31 @@ class _ModelNetworkSettingsPageState
       await _secure.writeVisionModel(_visionModel.text);
       await _secure.writeVisionApiKey(_visionKey.text);
       await _db.setSetting(RoutedVisionClient.qwenEnabledKey, _qwenEnabled ? '1' : '0');
-      if (mounted) setState(() => briefFeedback = '千问视觉配置已保存。');
+      if (mounted) setState(() => feedback.brief = '千问视觉配置已保存。');
     } catch (error) {
-      if (mounted) setState(() => _status = '千问视觉保存失败：$error');
+      if (mounted) setState(() => feedback.persistent = '千问视觉保存失败：$error');
     }
   }
 
-  Future<void> _saveJev() async {
+  Future<void> _saveJev(InlineFeedback feedback) async {
     try {
       await _secure.writeOpenRouterApiKey(_openRouterKey.text);
       await _secure.writeJevEnabled(_jevEnabled);
       if (mounted) {
-        setState(() => briefFeedback = _jevEnabled
+        setState(() => feedback.brief = _jevEnabled
             ? 'Jev 短判断已启用；未填 Key 或调用失败时使用原 DeepSeek 判断。'
             : 'Jev 短判断已关闭，使用原 DeepSeek 判断。');
       }
     } catch (error) {
-      if (mounted) setState(() => _status = '保存 Jev 配置失败：$error');
+      if (mounted) setState(() => feedback.persistent = '保存 Jev 配置失败：$error');
     }
   }
 
-  Future<void> _testJev() async {
-    await _saveJev();
+  Future<void> _testJev(InlineFeedback feedback) async {
+    await _saveJev(feedback);
+    if (!mounted) return;
     if (!_jevEnabled || _openRouterKey.text.trim().isEmpty) {
-      if (mounted) setState(() => _status = '先启用 Jev 并填写 OpenRouter API Key。');
+      if (mounted) setState(() => feedback.persistent = '先启用 Jev 并填写 OpenRouter API Key。');
       return;
     }
     if (mounted) setState(() => _testingJev = true);
@@ -420,27 +414,27 @@ class _ModelNetworkSettingsPageState
         },
         usageLane: 'jev_connection_test',
       );
-      if (mounted) setState(() => _status = answer == 'greeting'
+      if (mounted) setState(() => feedback.persistent = answer == 'greeting'
           ? 'OpenRouter Jev 连接通过；测试使用少量额度。'
           : 'Jev 未返回有效测试判断：请检查 Key、余额及网络；正常对话会使用 DeepSeek 回退。');
     } catch (error) {
-      if (mounted) setState(() => _status = 'Jev 测试失败：$error');
+      if (mounted) setState(() => feedback.persistent = 'Jev 测试失败：$error');
     } finally {
       if (mounted) setState(() => _testingJev = false);
     }
   }
 
-  Future<void> _testVision() async {
+  Future<void> _testVision(InlineFeedback feedback) async {
     final apiKey = _visionKey.text.trim();
     final endpoint = _visionEndpoint.text.trim();
     final model = _visionModel.text.trim();
     if (apiKey.isEmpty || !_validHttpEndpoint(endpoint) || model.isEmpty) {
-      setState(() => _status = '请先填写有效的千问视觉 Key、地址和模型。');
+      setState(() => feedback.persistent = '请先填写有效的千问视觉 Key、地址和模型。');
       return;
     }
     setState(() {
       _testingVision = true;
-      _status = '正在用内置测试像素检查千问视觉；不会读取聊天图片…';
+      feedback.persistent = '正在用内置测试像素检查千问视觉；不会读取聊天图片…';
     });
     final started = DateTime.now();
     final client = QwenVisionClient();
@@ -464,7 +458,7 @@ class _ModelNetworkSettingsPageState
       ));
       if (mounted) {
         setState(
-          () => _status =
+          () => feedback.persistent =
               '千问视觉连接、鉴权、模型与 JSON 结果均通过；测试使用了少量 API 额度。',
         );
       }
@@ -481,7 +475,7 @@ class _ModelNetworkSettingsPageState
         ),
       ));
       if (mounted) {
-        setState(() => _status = VisionFailurePresentation.message(error));
+        setState(() => feedback.persistent = VisionFailurePresentation.message(error));
       }
     } finally {
       client.close();
@@ -489,7 +483,7 @@ class _ModelNetworkSettingsPageState
     }
   }
 
-  Future<void> _savePublicWeb() async {
+  Future<void> _savePublicWeb(InlineFeedback feedback) async {
     try {
       await _secure.writeTavilyApiKey(_tavilyKey.text);
       await _secure.writeBaiduSearchApiKey(_baiduSearchKey.text);
@@ -497,16 +491,16 @@ class _ModelNetworkSettingsPageState
         'public_web_extra_sources',
         _extraSources.text.trim(),
       );
-      if (mounted) setState(() => briefFeedback = '公开网页来源配置已保存。');
+      if (mounted) setState(() => feedback.brief = '公开网页来源配置已保存。');
     } catch (error) {
-      if (mounted) setState(() => _status = '网页来源保存失败：$error');
+      if (mounted) setState(() => feedback.persistent = '网页来源保存失败：$error');
     }
   }
 
-  Future<void> _testPublicWeb() async {
+  Future<void> _testPublicWeb(InlineFeedback feedback) async {
     setState(() {
       _testingWeb = true;
-      _status = '正在测试公开网页搜索…';
+      feedback.persistent = '正在测试公开网页搜索…';
     });
     final client = http.Client();
     try {
@@ -530,31 +524,31 @@ class _ModelNetworkSettingsPageState
       ).timeout(const Duration(seconds: 16));
       final result = jsonDecode(response.body);
       final results = result is Map ? result['results'] : null;
-      if (mounted) setState(() => _status = response.statusCode == 200 && results is List
+      if (mounted) setState(() => feedback.persistent = response.statusCode == 200 && results is List
           ? '联网测试通过，返回 ${results.length} 条公开结果；本次消耗一次搜索请求。'
           : '联网测试失败：HTTP ${response.statusCode}。');
     } catch (_) {
-      if (mounted) setState(() => _status = '联网测试失败：请检查网络或 Tavily Key。');
+      if (mounted) setState(() => feedback.persistent = '联网测试失败：请检查网络或 Tavily Key。');
     } finally {
       client.close();
       if (mounted) setState(() => _testingWeb = false);
     }
   }
 
-  Future<void> _testBaiduSearch() async {
+  Future<void> _testBaiduSearch(InlineFeedback feedback) async {
     final key = _baiduSearchKey.text.trim();
     if (key.isEmpty) {
-      setState(() => _status = '请填写百度千帆搜索 API Key。');
+      setState(() => feedback.persistent = '请填写百度千帆搜索 API Key。');
       return;
     }
-    setState(() { _testingWeb = true; _status = '正在测试百度搜索…'; });
+    setState(() { _testingWeb = true; feedback.persistent = '正在测试百度搜索…'; });
     const query = '百度智能云 千帆 官方文档';
     final provider = LayeredPublicWebProvider(baiduApiKey: key,
       topic: const PublicWebTopic(query, baidu: true), pageReadingEnabled: false);
     try {
       final result = await provider.discover(query: query, driveKey: 'curiosity',
         intentAction: 'settings_search_test', interestKey: 'settings', now: DateTime.now());
-      if (mounted) setState(() => _status = result.succeeded && result.candidates.isNotEmpty
+      if (mounted) setState(() => feedback.persistent = result.succeeded && result.candidates.isNotEmpty
           ? '百度搜索测试通过，消耗一次搜索请求。正式查证会继续读取结果原文。'
           : '百度搜索测试未取得结果，请检查 Key 和接口额度。');
     } finally {
@@ -563,26 +557,26 @@ class _ModelNetworkSettingsPageState
     }
   }
 
-  Future<bool> _saveWeather() async {
+  Future<bool> _saveWeather(InlineFeedback feedback) async {
     final rawHost = _weatherHost.text.trim();
     final host = WeatherContext.parseApiHost(rawHost);
     final city = _weatherCity.text.trim();
     final key = _weatherKey.text.trim();
     if (_weatherEnabled) {
       if (rawHost.isEmpty) {
-        setState(() => _status = '请填写和风天气 API Host（控制台分配的域名）。');
+        setState(() => feedback.persistent = '请填写和风天气 API Host（控制台分配的域名）。');
         return false;
       }
       if (host == null) {
-        setState(() => _status = 'API Host 只填 HTTPS 域名，例如 abcxyz.qweatherapi.com；不要填接口路径。');
+        setState(() => feedback.persistent = 'API Host 只填 HTTPS 域名，例如 abcxyz.qweatherapi.com；不要填接口路径。');
         return false;
       }
       if (key.isEmpty) {
-        setState(() => _status = '请填写和风天气 API Key。');
+        setState(() => feedback.persistent = '请填写和风天气 API Key。');
         return false;
       }
       if (city.isEmpty) {
-        setState(() => _status = '请填写天气城市，例如上海。');
+        setState(() => feedback.persistent = '请填写天气城市，例如上海。');
         return false;
       }
     }
@@ -594,47 +588,47 @@ class _ModelNetworkSettingsPageState
       await _db.setSetting('weather_enabled', _weatherEnabled ? '1' : '0');
       if (mounted) setState(() {
         _weatherHost.text = savedHost;
-        briefFeedback = '天气设置已保存；实况每 10 分钟按需刷新。';
+        feedback.brief = '天气设置已保存；实况每 10 分钟按需刷新。';
       });
       return true;
     } catch (_) {
-      if (mounted) setState(() => _status = '天气设置保存失败。');
+      if (mounted) setState(() => feedback.persistent = '天气设置保存失败。');
       return false;
     }
   }
 
-  Future<void> _testWeather() async {
-    if (!await _saveWeather() || !_weatherEnabled) return;
+  Future<void> _testWeather(InlineFeedback feedback) async {
+    if (!await _saveWeather(feedback) || !mounted || !_weatherEnabled) return;
     setState(() {
       _testingWeather = true;
-      _status = '正在获取天气实况…';
+      feedback.persistent = '正在获取天气实况…';
     });
     try {
       final result = await WeatherContext.refresh(_db, force: true);
-      if (mounted) setState(() => _status = result == null ? '请先启用天气。' : '天气同步成功：$result');
+      if (mounted) setState(() => feedback.persistent = result == null ? '请先启用天气。' : '天气同步成功：$result');
     } catch (error) {
-      if (mounted) setState(() => _status = '天气同步失败：$error');
+      if (mounted) setState(() => feedback.persistent = '天气同步失败：$error');
     } finally {
       if (mounted) setState(() => _testingWeather = false);
     }
   }
 
-  Future<void> _saveAgnes() async {
+  Future<void> _saveAgnes(InlineFeedback feedback) async {
     if (!_validHttpEndpoint(_agnesEndpoint.text)) {
-      setState(() => _status = 'Agnes 地址不是有效的 http(s) URL。');
+      setState(() => feedback.persistent = 'Agnes 地址不是有效的 http(s) URL。');
       return;
     }
     try {
       await _secure.writeAgnesEndpoint(_agnesEndpoint.text);
       await _secure.writeAgnesModel(_agnesModel.text);
       await _secure.writeAgnesApiKey(_agnesKey.text);
-      if (mounted) setState(() => briefFeedback = 'Agnes 配置已保存。');
+      if (mounted) setState(() => feedback.brief = 'Agnes 配置已保存。');
     } catch (error) {
-      if (mounted) setState(() => _status = 'Agnes 保存失败：$error');
+      if (mounted) setState(() => feedback.persistent = 'Agnes 保存失败：$error');
     }
   }
 
-  Future<void> _testChatProvider() async {
+  Future<void> _testChatProvider(InlineFeedback feedback) async {
     final isGeminiRelay = _chatProvider.isGeminiRelay;
     final apiKey =
         (isGeminiRelay ? _aiWangYouApiKey : _deepSeekKey).text.trim();
@@ -642,23 +636,23 @@ class _ModelNetworkSettingsPageState
         ? _aiWangYouEndpoint.text.trim()
         : _deepSeekEndpoint.text.trim();
     if (apiKey.isEmpty || !_validHttpEndpoint(endpoint)) {
-      setState(() => _status = '请先填写当前提供商的有效 API Key 与地址。');
+      setState(() => feedback.persistent = '请先填写当前提供商的有效 API Key 与地址。');
       return;
     }
     if (isGeminiRelay && _aiWangYouModel.text.trim().isEmpty) {
-      setState(() => _status = '请输入第二通道的最终回复模型 ID。');
+      setState(() => feedback.persistent = '请输入第二通道的最终回复模型 ID。');
       return;
     }
     final effectiveModel = isGeminiRelay
         ? DeepSeekModelProfile.fromApiName(_aiWangYouModel.text)
         : _effectiveDeepSeekModel();
     if (effectiveModel == null) {
-      setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
+      setState(() => feedback.persistent = '请输入自定义 DeepSeek 模型 ID。');
       return;
     }
     setState(() {
       _testingChat = true;
-      _status = isGeminiRelay
+      feedback.persistent = isGeminiRelay
           ? '正在测试第二通道的最终回复；不会写入聊天或记忆…'
           : '正在测试 DeepSeek；不会写入聊天或记忆…';
     });
@@ -692,36 +686,36 @@ class _ModelNetworkSettingsPageState
       if (mounted) {
         setState(() {
           if (!sawContent) {
-            _status = 'API 已连接，但没有收到有效正文。';
+            feedback.persistent = 'API 已连接，但没有收到有效正文。';
           } else if (isGeminiRelay && !sawReasoning) {
-            _status = '第二通道正文连接通过，但本次没有返回可显示的思考摘要；该模型或渠道可能不透传 thoughts。';
+            feedback.persistent = '第二通道正文连接通过，但本次没有返回可显示的思考摘要；该模型或渠道可能不透传 thoughts。';
           } else {
             // Historical validator token: Gemini 正文与思考摘要均连接通过
-            _status = isGeminiRelay
+            feedback.persistent = isGeminiRelay
                 ? '第二通道正文与思考摘要均连接通过；测试使用了少量 API 额度。'
                 : 'DeepSeek 连接通过；测试使用了少量 API 额度。';
           }
         });
       }
     } on TimeoutException {
-      if (mounted) setState(() => _status = '聊天模型测试超时（30 秒）。');
+      if (mounted) setState(() => feedback.persistent = '聊天模型测试超时（30 秒）。');
     } catch (error) {
-      if (mounted) setState(() => _status = '聊天模型测试失败：$error');
+      if (mounted) setState(() => feedback.persistent = '聊天模型测试失败：$error');
     } finally {
       client.close();
       if (mounted) setState(() => _testingChat = false);
     }
   }
 
-  Future<void> _testAgnes() async {
+  Future<void> _testAgnes(InlineFeedback feedback) async {
     if (_agnesKey.text.trim().isEmpty ||
         !_validHttpEndpoint(_agnesEndpoint.text)) {
-      setState(() => _status = '请先填写有效的 Agnes Key 与地址。');
+      setState(() => feedback.persistent = '请先填写有效的 Agnes Key 与地址。');
       return;
     }
     setState(() {
       _testingAgnes = true;
-      _status = '正在用固定公开样本文字测试 Agnes…';
+      feedback.persistent = '正在用固定公开样本文字测试 Agnes…';
     });
     try {
       final result = await AgnesWebCompactor(
@@ -731,21 +725,21 @@ class _ModelNetworkSettingsPageState
       ).testConnection();
       if (mounted) {
         setState(() {
-          _status = result == null
+          feedback.persistent = result == null
               ? 'Agnes 未返回有效回复。'
               : 'Agnes 连接通过；测试使用了少量 API 额度。';
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _status = 'Agnes 测试失败：$error');
+      if (mounted) setState(() => feedback.persistent = 'Agnes 测试失败：$error');
     } finally {
       if (mounted) setState(() => _testingAgnes = false);
     }
   }
 
-  Future<void> _testWorkProfile() async {
+  Future<void> _testWorkProfile(InlineFeedback feedback) async {
     if (_testingWork) return;
-    setState(() { _testingWork = true; _status = '正在测试已保存的工作接口…'; });
+    setState(() { _testingWork = true; feedback.persistent = '正在测试已保存的工作接口…'; });
     final client = DeepSeekClient();
     try {
       final connection = await _secure.workConnection();
@@ -755,9 +749,9 @@ class _ModelNetworkSettingsPageState
         effort: ReasoningEffort.fromApiName(await _db.getSetting('creative_work_effort') ?? 'max'),
         thinking: true, maxTokens: 512, requestTimeout: const Duration(seconds: 45),
         messages: const [{'role':'user','content':'连接测试，只返回JSON：{"ok":true}'}]);
-      if (mounted) setState(() => _status = result['ok'] == true ? '工作接口连接通过；使用了少量 API 额度。' : '已连接，但未收到有效测试结果。');
+      if (mounted) setState(() => feedback.persistent = result['ok'] == true ? '工作接口连接通过；使用了少量 API 额度。' : '已连接，但未收到有效测试结果。');
     } catch (error) {
-      if (mounted) setState(() => _status = '工作接口测试失败：$error');
+      if (mounted) setState(() => feedback.persistent = '工作接口测试失败：$error');
     } finally {
       client.close();
       if (mounted) setState(() => _testingWork = false);
@@ -766,6 +760,7 @@ class _ModelNetworkSettingsPageState
 
   @override
   void dispose() {
+    _feedback.dispose();
     _deepSeekKey.dispose();
     _deepSeekEndpoint.dispose();
     _customDeepSeekModel.dispose();
@@ -837,7 +832,7 @@ class _ModelNetworkSettingsPageState
                           setState(() {
                             _chatProvider = value;
                             _effort = value.normalizeEffort(_effort);
-                            _status = null;
+                            _feedback.begin('chat');
                           });
                         },
                       ),
@@ -1014,9 +1009,9 @@ class _ModelNetworkSettingsPageState
                         items: ReasoningEffort.values.map((e) => DropdownMenuItem(value: e, child: Text(e.label))).toList(),
                         onChanged: (value) { if (value != null) setState(() => _workEffort = value); },
                       ),
-                      TextButton(onPressed: () => _sectionAction('work', () async {
+                      TextButton(onPressed: () => _sectionAction('work', (feedback) async {
                         final model = _workModel.text.trim();
-                        if (model.isEmpty || model.length > 120) { setState(() => _status = '请输入有效的模型名称'); return; }
+                        if (model.isEmpty || model.length > 120) { setState(() => feedback.persistent = '请输入有效的模型名称'); return; }
                         await _secure.writeWorkConfiguration(independent: _independentWorkApi,
                           apiKey: _workKey.text, endpoint: _workEndpoint.text);
                         final saved = await _secure.readWorkConfiguration();
@@ -1024,7 +1019,7 @@ class _ModelNetworkSettingsPageState
                           throw const FormatException('工作接口未能保存，请重试');
                         }
                         await _db.setSettingsAtomically({'creative_work_model': model, 'creative_work_effort': _workEffort.apiName});
-                        if (mounted) setState(() => briefFeedback = '工作模型已保存，对下一次委托生效');
+                        if (mounted) setState(() => feedback.brief = '工作模型已保存，对下一次委托生效');
                       }), child: const Text('保存工作模型')),
                       TextButton(onPressed: _testingWork ? null : () => _sectionAction('work', _testWorkProfile),
                         child: Text(_testingWork ? '正在测试…' : '测试已保存的工作接口')),
@@ -1046,9 +1041,9 @@ class _ModelNetworkSettingsPageState
                             CreativeIllustration.enabledKey: value ? '1' : '0',
                           }) && mounted) setState(() => _creativeIllustration = value);
                         }),
-                      TextButton(onPressed: !_creativeAutonomy ? null : () => _sectionAction('work', () async {
+                      TextButton(onPressed: !_creativeAutonomy ? null : () => _sectionAction('work', (feedback) async {
                         await CreativeStore(_db).resumeAutonomous();
-                        if (mounted) setState(() => briefFeedback = '已允许暂停的自主创作在空闲时继续');
+                        if (mounted) setState(() => feedback.brief = '已允许暂停的自主创作在空闲时继续');
                       }), child: const Text('继续暂停的自主创作')),
 
                     ],
@@ -1271,7 +1266,7 @@ class _ModelNetworkSettingsPageState
                       ),
                       const SizedBox(height: 12),
                       _SaveTestButtons(
-                        onSave: () => _sectionAction('weather', () async { await _saveWeather(); }),
+                        onSave: () => _sectionAction('weather', (feedback) async { await _saveWeather(feedback); }),
                         onTest: _testingWeather ? null : () => _sectionAction('weather', _testWeather),
                         testing: _testingWeather,
                         testLabel: '立即同步天气',

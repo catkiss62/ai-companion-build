@@ -34,12 +34,7 @@ class _CollectedStickersPageState extends State<CollectedStickersPage> with Inli
   @override void initState(){super.initState();_run(_load);}
   Future<void> _load() async {
     automatic=await storage.enabled();
-    final all=await packs.scanPacks();entries=[];
-    for(final pack in all.where((p)=>p.id==CollectedStickerStorage.packId)) {
-      for(final record in await packs.readRecords(pack)) {
-        entries.add(StickerPickerEntry(pack:pack,record:record,file:await packs.fileFor(pack,record)));
-      }
-    }
+    entries=await packs.loadPackEntries(CollectedStickerStorage.packId);
     sources=await storage.sources();
     entries.sort((a,b)=>((sources[b.record.path]?['collected_at'] as num?)??0)
       .compareTo((sources[a.record.path]?['collected_at'] as num?)??0));

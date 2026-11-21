@@ -26,9 +26,7 @@ class CollectedStickerArchive {
 
   Future<File> exportZip() => SharedMediaLock.run(() async {
     final packs = StickerPackStorage(db:db);
-    final pack = (await packs.scanPacks()).where((p)=>p.id==CollectedStickerStorage.packId).firstOrNull;
-    if(pack==null) throw const FormatException('还没有收集的表情');
-    final rows = await packs.readRecords(pack);
+    final rows = await packs.loadPackEntries(CollectedStickerStorage.packId);
     if(rows.isEmpty) throw const FormatException('还没有收集的表情');
     final sources = await CollectedStickerStorage(db:db).sources();
     final directory = await (await getTemporaryDirectory()).createTemp('collected_');
@@ -38,8 +36,9 @@ class CollectedStickerArchive {
       encoder.create(file.path);
       try {
         final entries = <Map<String,Object?>>[];
-        for(final row in rows) {
-          final image = await packs.fileFor(pack,row);
+        for(final entry in rows) {
+          final row = entry.record;
+          final image = entry.file;
           if(!imagePath.hasMatch(row.path) || (await sha256.bind(image.openRead()).first).toString()!=p.basenameWithoutExtension(row.path)) {
             throw const FormatException('收藏原图缺失或内容不符');
           }

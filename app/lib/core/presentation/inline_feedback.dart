@@ -12,6 +12,9 @@ class InlineFeedback {
   Timer? _timer;
   bool _disposed = false;
 
+  set persistent(String? value) => replace(value);
+  set brief(String value) => replace(value, temporary: true);
+
   void replace(String? value, {bool temporary = false}) {
     if (_disposed) return;
     _timer?.cancel();
@@ -27,6 +30,26 @@ class InlineFeedback {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+  }
+}
+
+/// Each operation writes only to its own card. A newer action retires the
+/// old handle, including its timer and any late asynchronous completion.
+class SectionFeedback {
+  SectionFeedback(this.onChanged);
+  final VoidCallback onChanged;
+  final _sections = <String, InlineFeedback>{};
+
+  String? text(String section) => _sections[section]?.text;
+
+  InlineFeedback begin(String section) {
+    _sections[section]?.dispose();
+    return _sections[section] = InlineFeedback(onChanged);
+  }
+
+  void dispose() {
+    for (final feedback in _sections.values) { feedback.dispose(); }
+    _sections.clear();
   }
 }
 

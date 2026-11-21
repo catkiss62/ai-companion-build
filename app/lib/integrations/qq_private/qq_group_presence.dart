@@ -45,7 +45,7 @@ extension _GroupPresence on QqRuntime {
     if(!await authorized())return;
     // Check silence and capture the draft's sequence fence in the same claim.
     // A busy group can still qualify later inside today's original window.
-    final latest=await store.write(fence,(txn) async {
+    final claim=await store.write(fence,(txn) async {
       if(await BrainWorkFence.value(txn,key)==window.day)return null;
       final cutoff=at.subtract(const Duration(minutes:10)).millisecondsSinceEpoch;
       final activity=await txn.rawQuery(
@@ -55,19 +55,21 @@ extension _GroupPresence on QqRuntime {
       final state=await txn.query('qq_conversations',columns:['last_reply_at'],
         where:'id=?',whereArgs:[cid],limit:1);
       if(state.isEmpty || at.millisecondsSinceEpoch-(state.single['last_reply_at'] as int)<30*60000)return null;
-      final context=await txn.query('qq_archive',columns:['seq','role','content'],
-        where:'conversation_id=?',whereArgs:[cid],orderBy:'seq DESC',limit:4);
+      final newest=await txn.query('qq_archive',columns:['seq'],
+        where:'conversation_id=?',whereArgs:[cid],orderBy:'seq DESC',limit:1);
+      final reset=int.tryParse(fence.identity['conversation_context_reset_at']??'')??0;
+      final context=await txn.query('qq_archive',columns:['role','content'],
+        where:'conversation_id=? AND observed_at>=?',whereArgs:[cid,reset],orderBy:'seq DESC',limit:4);
       await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[key,window.day]);
-      return context;
+      return (through:newest.firstOrNull?['seq'] as int? ?? 0, context:context);
     });
-    if(latest==null)return;
-    final through=latest.firstOrNull?['seq'] as int? ?? 0;
+    if(claim==null)return;
     Future<bool> current() async {
       if(_enqueued.contains(cid) || _timers.containsKey(cid) || !await _enabled() || await resting() || !await store.current(fence) || !await authorized())return false;
       final fresh=await configReader();
       if(!_sameDevice(fresh) || QqRuntime.policy(fresh,await optionsReader())!=QqRuntime.policy(c,opts) ||
         now().difference(at)>const Duration(minutes:10))return false;
-      return (await sql.rawQuery('SELECT 1 FROM qq_archive WHERE conversation_id=? AND seq>? AND role!=? LIMIT 1',[cid,through,'assistant'])).isEmpty;
+      return (await sql.rawQuery('SELECT 1 FROM qq_archive WHERE conversation_id=? AND seq>? AND role!=? LIMIT 1',[cid,claim.through,'assistant'])).isEmpty;
     }
     final client=clientFactory(() async=>!await current());_clients.add(client);
     try {
@@ -84,7 +86,7 @@ extension _GroupPresence on QqRuntime {
         messages:[{'role':'system','content':'${QqGroupPersonaProjection.compose(card:opts.core,publicDraft:opts.publicPersona)}\n'
           '此刻你只是想在群里露个脸，随口一句就可以，发完可以继续潜水。没有人正在问你。不必找话题、找人回应或问候。只用群内公开身份。'
           '最近几句仅供判断场合，若不合适输出 WAIT。\n${imageAllowed?QqIllustrationChoice.prompt:"只发文字。"}'},
-          {'role':'user','content':jsonEncode([for(final r in latest.reversed) {'role':r['role'],'text':String.fromCharCodes((r['content'] as String).runes.take(180))}])}]);
+          {'role':'user','content':jsonEncode([for(final r in claim.context.reversed) {'role':r['role'],'text':String.fromCharCodes((r['content'] as String).runes.take(180))}])}]);
       var words=QqIllustrationChoice.visible(raw).trim();
       if(words=='WAIT' || words.runes.length>180 || words.contains(RegExp(r'[<>]')) || !await current())return;
       final choice=imageAllowed?QqIllustrationChoice.parse(raw):null;

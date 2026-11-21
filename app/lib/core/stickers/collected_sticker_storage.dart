@@ -90,6 +90,8 @@ class CollectedStickerStorage {
           mapping.addAll(await shared.readMap(scratch));
           if(current!=null && !await current()) throw StateError('收藏来源已变化');
           if(automatic && !await enabled()) throw StateError('自动收集已关闭');
+          // The duplicate check above preserves edits on an existing row.
+          await packs.clearCollectedCaptionEdits(path:relative);
           await writeMap(work,mapping);
           await index.insert('memes',{'path':relative,'file_name':p.basename(relative),
             'tag':'收集','caption':description,'keywords':'','tone_scope':'general','intensity':1,'enabled':1,
@@ -144,6 +146,7 @@ class CollectedStickerStorage {
     if(remaining==0) {await packs.deletePack(packId);return;}
     final shared=StickerSharedFiles(packRootOverride:root,
       mediaRootOverride:Directory(p.join(root.parent.path,'media_blobs')));
+    await packs.clearCollectedCaptionEdits(path:path);
     final mapping=await shared.readMap(pack);mapping.remove(path);await writeMap(pack,mapping);
     // Orphan reclamation remains with the existing shared-media optimizer.
   },db:db);

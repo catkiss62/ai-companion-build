@@ -212,6 +212,35 @@ void main(){
     expect(requests,hasLength(count));
   });
 
+  for(final interrupt in [false,true]) {
+    test('presence reset preserves silence fence and excludes old words, interrupt=$interrupt',() async {
+      final scope=QqRuntime.scope(config);
+      options=options.copy(presenceGroups:{'group-a'});
+      var day=DateTime(2026,1,1);
+      while(!QqPresenceWindow(scope,day).offered) {day=day.add(const Duration(days:1));}
+      clock=day.add(Duration(minutes:540+QqPresenceWindow(scope,day).roll(6,840)));
+      final time=clock.millisecondsSinceEpoch;
+      Future<int?> append(String id,int at) async =>store.append(fence:await store.capture(),scope:scope,
+        kind:'group',target:'group-a',platformId:id,sender:'peer',text:id,observedAt:at,receivedAt:at);
+      final seq=await append('before-reset-fixture',time-3600000);
+      await (await db.database).update('qq_conversations',{'checked_seq':seq},where:'id=?',whereArgs:[cid()]);
+      await db.setSetting('conversation_context_reset_at','${time-1800000}');
+      var drafted=false;
+      handler=(r,b) async {
+        if(b['stream']==true) {
+          drafted=true;
+          expect(r.body,isNot(contains('before-reset-fixture')));
+          if(interrupt)await append('new-arrival',time);
+          return _sse('我来透个气');
+        }
+        return _json({'safe':true});
+      };
+      await runtime.checkGroupPresence();
+      expect(drafted,true);
+      expect(api.sent,hasLength(interrupt?0:1));
+    });
+  }
+
   test('QQ autonomous illustration cooldown is per group and separate from SVG', () async {
     final sql = await db.database;
     final fence = await store.capture();
@@ -330,10 +359,10 @@ void main(){
       }
     });
   }
-  for (final scenario in ['automatic', 'automatic_svg', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'retry_image_only', 'uncertain_image', 'plain_refusal', 'clarify_image', 'bare_wait', 'mecha_voice', 'mecha_text', 'mecha_design', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
+  for (final scenario in ['automatic', 'automatic_svg', 'automatic_svg_split', 'automatic_svg_uncertain', 'disabled', 'disabled_during_generation', 'generation_failure', 'retry_delivery', 'retry_image_only', 'uncertain_image', 'plain_refusal', 'clarify_image', 'bare_wait', 'mecha_voice', 'mecha_text', 'mecha_design', 'upload_failure', 'styled_followup', 'styled_declined', 'styled_unaddressed', 'styled_cancelled', 'chibi_format', 'chibi_mention_retry', 'selfie_draw', 'selfie_request']) {
     test('QQ drawing choice and delivery: $scenario', () async {
       final automatic = scenario.startsWith('automatic');
-      final useSvg = scenario == 'automatic_svg';
+      final useSvg = scenario.startsWith('automatic_svg');
       final styled = scenario.startsWith('styled');
       final drawsStyled = scenario == 'styled_followup';
       final chibi = scenario.startsWith('chibi_');
@@ -398,7 +427,8 @@ void main(){
                   : '行吧，等着，给你整一个腮帮子塞满布丁的');
             }
             return _sse(useSvg
-                ? '<qq_sketch mode="only">画个蓝色圆圈</qq_sketch>'
+                ? (scenario=='automatic_svg' ? '<qq_sketch mode="only">画个蓝色圆圈</qq_sketch>'
+                    : '给你画好了<qq_next_message/>蓝色圆圈<qq_sketch mode="with_text">画个蓝色圆圈</qq_sketch>')
                 : scenario=='retry_delivery'
                   ? '<qq_illustration mode="only">雨夜插画</qq_illustration>'
                   : '雨夜的颜色很好看<qq_illustration mode="with_text">雨夜插画</qq_illustration>');
@@ -423,6 +453,8 @@ void main(){
           return _json(b['max_tokens']==60?{'safe':true}:{'participation':automatic||scenario=='styled_unaddressed'?'join':'direct'});
         };
         if(scenario=='retry_delivery')api.nextKnownUnsent=QqApiException('network');
+        if(scenario=='automatic_svg_split')api.nextImageFailure=QqApiException('api_22006');
+        if(scenario=='automatic_svg_uncertain')api.nextImageFailure=QqApiException('network',uncertain:true);
         if(retryWithCaption) {
           api.nextImageFailure = QqApiException('network', uncertain: scenario == 'uncertain_image');
         }
@@ -456,6 +488,14 @@ void main(){
         if(useSvg){
           expect(svgPlans,1);
           expect(api.imageFiles,['sketch.png']);
+          if(scenario=='automatic_svg_split') {
+            expect(api.sent.map((m)=>m['text']),['','给你画好了','蓝色圆圈']);
+            expect(api.sent.first['fileInfo'],'fixture-image-token');
+          }
+          if(scenario=='automatic_svg_uncertain') {
+            expect(api.imageSendSequences,[1]);
+            expect(api.sent.single['text'],'图画好了，没确认发成功。');
+          }
         }else if(scenario=='upload_failure'){
           expect(api.imageFiles,['illustration.png','illustration.png']);
         }else if(scenario=='automatic' || scenario=='retry_delivery' || retryWithCaption || drawsStyled || chibi || selfie){
