@@ -450,7 +450,7 @@
 # Historical +457: Build AI Companion v0.42.213+457 APK (Context Recall) | AI-Companion-v0.42.213-457-Context-Recall-APK | v0.42.213-context-recall-test
 # name: Build AI Companion v0.42.214+458 APK (Playback Diary)
 # name: Build AI Companion v0.42.215+459 APK (Memory Benchmark)
-name: Build AI Companion v0.42.229+473 APK (Incremental Fixes)
+name: Build AI Companion v0.42.229+473 APK (Little Whale AR and Shared Wishes)
 
 # BUILD INPUTS: The 96-clip source ZIP is private Draft Release asset 591363139
 # (release 397377805), fetched and SHA-256 checked below. The persistent
@@ -1306,6 +1306,20 @@ jobs:
       - name: Creative page bridge failure recovery
         run: node app/tools/test_creative_bridge.mjs
 
+      - name: Restore embedded AR runtime
+        id: whale_ar_cache
+        uses: actions/cache@v4
+        with:
+          path: app/android/app/generated/whale-ar
+          key: whale-ar-arm64-fa4ce7f-${{ hashFiles('app/tools/whale_ar/prepare.sh','app/tools/whale_ar/host-theme.patch') }}
+      - name: Prepare pinned AR runtime and camera sources
+        if: steps.whale_ar_cache.outputs.cache-hit != 'true'
+        run: bash app/tools/whale_ar/prepare.sh
+      - name: Restore licensed AR runtime and reference motions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash app/tools/whale_ar/restore-private.sh
+
       - name: Kotlin desktop-pet and overlay text tests
         working-directory: app/android
         run: |
@@ -1345,15 +1359,6 @@ jobs:
       - name: Prepare pinned offline memory embedding model
         run: python app/tools/prepare_memory_embedding.py
 
-      - name: Restore embedded AR runtime
-        id: whale_ar_cache
-        uses: actions/cache@v4
-        with:
-          path: app/android/app/generated/whale-ar
-          key: whale-ar-arm64-fa4ce7f-${{ hashFiles('app/tools/whale_ar/prepare.sh','app/tools/whale_ar/host-theme.patch') }}
-      - name: Prepare pinned AR runtime and camera sources
-        if: steps.whale_ar_cache.outputs.cache-hit != 'true'
-        run: bash app/tools/whale_ar/prepare.sh
       - name: Build release APK
         working-directory: app
         env:
@@ -1365,6 +1370,9 @@ jobs:
         # for its default 32-bit ABI would make CMake link a nonexistent
         # armeabi-v7a/libopenjtalk_native.so.
         run: flutter build apk --release --target-platform android-arm64
+
+      - name: Verify embedded AR runtime and imported-model placeholder
+        run: python3 app/tools/whale_ar/verify.py app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Verify offline memory model inside APK
         run: python app/tools/prepare_memory_embedding.py --verify-apk app/build/app/outputs/flutter-apk/app-release.apk

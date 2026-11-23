@@ -41,6 +41,9 @@ android {
         res.srcDir(ar.resolve("res"))
         assets.srcDir(ar.resolve("assets"))
         jniLibs.srcDir(ar.resolve("jniLibs"))
+        val privateAr = project.file("generated/whale-private")
+        assets.srcDir(privateAr.resolve("assets"))
+        jniLibs.srcDir(privateAr.resolve("jniLibs"))
     }
     androidResources { noCompress += "task" }
 
@@ -121,6 +124,7 @@ flutter {
 }
 
 dependencies {
+    implementation(files("generated/whale-private/runtime.jar"))
     implementation("androidx.camera:camera-camera2:1.4.2")
     implementation("androidx.camera:camera-lifecycle:1.4.2")
     implementation("com.google.ar:core:1.53.0")
@@ -137,4 +141,14 @@ dependencies {
 
 chaquopy {
     defaultConfig { version = "3.11" }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(file("generated/whale-ar/assets/hand_landmarker.task").isFile &&
+              file("generated/whale-private/runtime.jar").isFile &&
+              file("generated/whale-private/assets/easyar-license.txt").isFile) {
+            "Prepare embedded AR with app/tools/whale_ar/prepare.sh and restore-private.sh"
+        }
+    }
 }
