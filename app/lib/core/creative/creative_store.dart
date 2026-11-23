@@ -526,7 +526,10 @@ class CreativeStore {
   }
 
   Future<Map<String, Object?>> diagnostics() async {
-    final works = await list();
+    final allWorks = await list(includePrivate: true);
+    final works = allWorks.where(CreativeAutonomyPolicy.visible);
+    final privateCount = allWorks.where((w) => CreativeAutonomyPolicy.autonomous(w) &&
+        w['visibility'] == 'private' && w['preempt'] != 'self_retired').length;
     final delivery = <Object?>[];
     final play = <Object?>[];
     for (final work in works.take(20)) {
@@ -544,6 +547,8 @@ class CreativeStore {
     }
     return {'feature': 'creative_work', 'worker': 'tool_agent_v1',
       'completion_delivery': delivery, 'interaction_events': play,
+      'private_slots_used': privateCount, 'private_slots_limit': CreativeAutonomyPolicy.maxPrivateWorks,
+      'autonomy_enabled': await db.getSetting(CreativeAutonomyPolicy.enabledKey) == '1',
       'ui': CreativeContract.decode(await db.getSetting('creative_ui_trace_v1')),
       'continuation_owner': 'creative_worker_lease_until', 'usage_lane': 'creative_build',
       'works': works.take(20).map((work) => {

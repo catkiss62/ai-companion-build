@@ -108,6 +108,15 @@ class QqStore {
   Future<void> discover(BrainWorkFence fence,String scope,String kind,String target) =>write(fence,(txn) async {
     await txn.insert('qq_conversations',{'id':conversationId(scope,kind,target),'scope':scope,'kind':kind,'target':target},conflictAlgorithm:ConflictAlgorithm.ignore);
   });
+  static Future<void> initializeGroupLearning(DatabaseExecutor txn, String cid) async {
+    final key = 'qq_style_enabled_v1:$cid';
+    if ((await BrainWorkFence.value(txn,key)).isNotEmpty) return;
+    final through = Sqflite.firstIntValue(await txn.rawQuery(
+      'SELECT MAX(seq) FROM qq_archive WHERE conversation_id=?',[cid])) ?? 0;
+    await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',['qq_style_cursor_v1:$cid','$through']);
+    await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[key,'1']);
+  }
+
   Future<int?> append({required BrainWorkFence fence,required String scope,required String kind,
     required String target,required String platformId,required String sender,required String text,
     required int observedAt,required int receivedAt,bool owner=false,bool mentioned=false,String replyTo='',int images=0,
@@ -136,6 +145,7 @@ class QqStore {
       if((Sqflite.firstIntValue(await txn.rawQuery('SELECT COUNT(*) FROM qq_archive'))??0)>=250000) throw StateError('archive_full');
       await txn.insert('qq_conversations',{'id':cid,'scope':scope,'kind':kind,'target':target},conflictAlgorithm:ConflictAlgorithm.ignore);
       await txn.rawInsert('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)',['qq_style_cursor_v1:$cid','0']);
+      if(kind=='group') await initializeGroupLearning(txn,cid);
       final seq=await txn.insert('qq_archive',{'id':id,'conversation_id':cid,'platform_id':platformId,'sender':sender,
         'owner':owner?1:0,'role':role,'content':QqArchiveReader.bound(text,16000),'context_meta':contextMeta,'observed_at':observedAt,'received_at':receivedAt,
         'mentioned':mentioned?1:0,'reply_to':replyTo,'accepted_identity':ingressIdentity(fence),'accepted_policy':policy});

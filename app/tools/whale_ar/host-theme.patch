@@ -1,0 +1,130 @@
+--- a/app/src/main/java/dev/littlewhale/ar/TableActivity.java
++++ b/app/src/main/java/dev/littlewhale/ar/TableActivity.java
+@@ -82,7 +82,6 @@
+ 
+         LinearLayout page = new LinearLayout(this);
+         page.setOrientation(LinearLayout.VERTICAL);
+-        page.setBackgroundColor(0xff16131b);
+         page.setOnApplyWindowInsetsListener((v, insets) -> {
+             v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                 insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+@@ -124,11 +123,9 @@
+         status = new TextView(this);
+         status.setTextColor(Color.WHITE);
+         status.setTextSize(14);
+-        status.setTextColor(0xffd4cedc);status.setPadding(0,0,pad,0);
++        status.setPadding(0,0,pad,0);
+         bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1));
+         action = new Button(this);
+-        action.setBackgroundTintList(new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{0xff36313c,0xffb082ff}));
+-        action.setTextColor(0xff21162d);
+         action.setOnClickListener(v -> act());
+         bar.addView(action);
+         page.addView(bar);
+@@ -137,7 +134,7 @@
+         LinearLayout modesBar=new LinearLayout(this);modesBar.setPadding(pad,0,pad,pad/2);
+         modesBar.addView(characterMode,new LinearLayout.LayoutParams(0,-2,1));
+         labs=new Button(this);labs.setText("定位对照");
+-        labs.setOnClickListener(v -> {if(palmMode){setPalmMode(false);return;}new AlertDialog.Builder(this).setTitle("定位对照")
++        labs.setOnClickListener(v -> {if(palmMode){setPalmMode(false);return;}new CompanionArStyle(this).dialog().setTitle("定位对照")
+             .setItems(new String[]{"原生引擎","参考图","EasyAR","ARCore"}, (dialog, index) -> {
+                 if (index == 0) { selectNative(); return; }
+                 if (!hasCamera()) { permission.launch(Manifest.permission.CAMERA); return; }
+@@ -148,6 +145,7 @@
+                 else startActivity(new Intent(this, index == 1 ? ImageLabActivity.class : CoreLabActivity.class));
+             }).show();});
+         modesBar.addView(labs,new LinearLayout.LayoutParams(0,-2,1));page.addView(modesBar);
++        new CompanionArStyle(this).panel(page, action);
+         setContentView(page);
+         if (!hasCamera() && state == null) permission.launch(Manifest.permission.CAMERA);
+     }
+@@ -174,14 +172,14 @@
+     }
+     private void chooseMode() {
+         boolean installed=CharacterFile.file(this).isFile();
+-        AlertDialog.Builder dialog=new AlertDialog.Builder(this).setTitle("角色与模式");
++        AlertDialog.Builder dialog=new CompanionArStyle(this).dialog().setTitle("角色与模式");
+         if(installed){
+             String[] modes={"导入模型","删除模型","模型大小 · "+whale.sizePercent+"%",palmMode?"重新选择掌上站位":"绘制活动范围","掌上模式","掌上站位微调 · "+whale.palmLift+"%"};
+             if(!palmMode)modes=java.util.Arrays.copyOf(modes,5);
+             dialog.setItems(modes,(d,index)->{
+                 if(index==0){pickLocalModel();return;}
+                 if(index==1){
+-                    new AlertDialog.Builder(this).setTitle("删除模型？").setMessage("删除应用内的小鲸鱼和纹理缓存。你保存在手机里的原始 VRM 可以再次导入。")
++                    new CompanionArStyle(this).dialog().setTitle("删除模型？").setMessage("删除应用内的小鲸鱼和纹理缓存。你保存在手机里的原始 VRM 可以再次导入。")
+                         .setNegativeButton("取消",null).setPositiveButton("删除",(confirm,w)->{
+                             if(CharacterFile.remove(this)){setPalmMode(false);recreate();}
+                             else motionToast("模型正在使用或无法删除，请稍后再试");
+@@ -189,7 +187,7 @@
+                     return;
+                 }
+                 if(index==5){
+-                    new AlertDialog.Builder(this).setTitle("掌上站位微调")
++                    new CompanionArStyle(this).dialog().setTitle("掌上站位微调")
+                         .setSingleChoiceItems(new String[]{"默认 · 向上移半身","鞋底对准选点"},whale.palmLift==50?0:1,(choice,which)->{
+                             whale.setPalmLift(which==0?50:0);
+                             getPreferences(MODE_PRIVATE).edit().putInt("palmLift",whale.palmLift).apply();
+@@ -207,7 +205,7 @@
+                         labels[i]=sizes[i]+"%";
+                         if(sizes[i]==whale.sizePercent)selected=i;
+                     }
+-                    new AlertDialog.Builder(this).setTitle("模型大小").setSingleChoiceItems(labels,selected,(choice,which)->{
++                    new CompanionArStyle(this).dialog().setTitle("模型大小").setSingleChoiceItems(labels,selected,(choice,which)->{
+                         whale.setSize(sizes[which]);
+                         getPreferences(MODE_PRIVATE).edit().putInt("sizePercent",whale.sizePercent).apply();
+                         choice.dismiss();
+@@ -220,7 +218,7 @@
+         }
+         if(!palmMode)dialog.setNeutralButton("定位信息",(d,which)->{
+             String timing="首次定位  "+(firstFix<0?"等待中":firstFix+" ms")+"\n首次可放置  "+(firstPlane<0?"等待中":firstPlane+" ms");
+-            new AlertDialog.Builder(this).setTitle("定位信息").setMessage("定位  "+fps+" FPS\n角色  "+whale.renderFps+" FPS\n"+timing).setPositiveButton("关闭",null).show();
++            new CompanionArStyle(this).dialog().setTitle("定位信息").setMessage("定位  "+fps+" FPS\n角色  "+whale.renderFps+" FPS\n"+timing).setPositiveButton("关闭",null).show();
+         });
+         dialog.show();
+     }
+--- a/app/src/main/java/dev/littlewhale/ar/CoreLabActivity.java
++++ b/app/src/main/java/dev/littlewhale/ar/CoreLabActivity.java
+@@ -69,6 +69,7 @@
+         mode.setOnClickListener(v->surface.queueEvent(()->renderer.changeMode()));
+         page.addView(mode);
+         Button back=new Button(this);back.setText("返回原生模式");back.setOnClickListener(v->finish());page.addView(back);
++        new CompanionArStyle(this).panel(page, mode);
+         setContentView(page);
+     }
+     void message(String text){runOnUiThread(()->{if(!isDestroyed())status.setText(text);});}
+--- a/app/src/main/java/dev/littlewhale/ar/ImageLabActivity.java
++++ b/app/src/main/java/dev/littlewhale/ar/ImageLabActivity.java
+@@ -54,7 +54,8 @@
+         page.addView(stage,new LinearLayout.LayoutParams(-1,0,1));
+         status=new TextView(this);status.setText("将有纹理的平面正对镜头，填满白框");page.addView(status);
+         record=new Button(this);record.setText("记录白框内的参考图");record.setEnabled(false);record.setOnClickListener(v->capture.set(true));page.addView(record);
+-        Button back=new Button(this);back.setText("返回原生模式");back.setOnClickListener(v->finish());page.addView(back);setContentView(page);
++        Button back=new Button(this);back.setText("返回原生模式");back.setOnClickListener(v->finish());page.addView(back);new CompanionArStyle(this).panel(page, record);
++        setContentView(page);
+         try{System.loadLibrary("MenthaAR_Engine");}catch(UnsatisfiedLinkError e){status.setText("当前设备无法加载参考图识别库");return;}
+         worker.execute(()->{Bitmap old=BitmapFactory.decodeFile(saved().toString());if(old!=null){paperAspect=(float)old.getHeight()/old.getWidth();target=registerImage(old);old.recycle();}});
+         com.google.common.util.concurrent.ListenableFuture<ProcessCameraProvider> future=ProcessCameraProvider.getInstance(this);
+--- a/app/src/easyar/java/dev/littlewhale/ar/EasyLabActivity.java
++++ b/app/src/easyar/java/dev/littlewhale/ar/EasyLabActivity.java
+@@ -67,11 +67,11 @@
+         root.addView(whale, new FrameLayout.LayoutParams(-1, -1));
+         status = new TextView(this);
+         status.setTextColor(Color.WHITE);
+-        status.setBackgroundColor(0xee211d27);
++
+         status.setPadding(22, 16, 22, 16);
+         android.widget.LinearLayout bar = new android.widget.LinearLayout(this);
+         bar.setGravity(Gravity.CENTER_VERTICAL);
+-        bar.setBackgroundColor(0xee211d27);
++
+         bar.addView(status, new android.widget.LinearLayout.LayoutParams(0, -2, 1));
+         if (whale != null) {
+             android.widget.Button area = new android.widget.Button(this);
+@@ -79,6 +79,7 @@
+             area.setOnClickListener(v -> whale.editArea());
+             bar.addView(area);
+         }
++        new CompanionArStyle(this).panel(bar, null);
+         root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+         try (BufferedReader in = new BufferedReader(new InputStreamReader(getAssets().open("easyar-license.txt"), "UTF-8"))) {
+             initialized = Engine.initialize(this, in.readLine().trim());

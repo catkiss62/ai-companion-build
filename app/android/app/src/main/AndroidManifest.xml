@@ -20,6 +20,9 @@
 
     <uses-permission android:maxSdkVersion="32" android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -28,6 +31,12 @@
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="false">
 
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+        <service android:name="com.orb.slam2s.ipc.SlamService" android:exported="false" android:process=":slam_process" />
+        <activity android:name="dev.littlewhale.ar.TableActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="dev.littlewhale.ar.CoreLabActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="dev.littlewhale.ar.ImageLabActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity android:name="dev.littlewhale.ar.EasyLabActivity" android:exported="false" android:screenOrientation="portrait" android:theme="@android:style/Theme.Material.NoActionBar" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -165,6 +174,7 @@
     </application>
 
     <queries>
+        <package android:name="com.google.ar.core" />
         <intent>
             <action android:name="android.settings.action.MANAGE_OVERLAY_PERMISSION" />
         </intent>

@@ -34,6 +34,16 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    sourceSets.getByName("main") {
+        val ar = project.file("generated/whale-ar")
+        java.srcDir(ar.resolve("java"))
+        aidl.srcDir(ar.resolve("aidl"))
+        res.srcDir(ar.resolve("res"))
+        assets.srcDir(ar.resolve("assets"))
+        jniLibs.srcDir(ar.resolve("jniLibs"))
+    }
+    androidResources { noCompress += "task" }
+
     buildFeatures {
         aidl = true
     }
@@ -111,6 +121,10 @@ flutter {
 }
 
 dependencies {
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("com.google.ar:core:1.53.0")
+    implementation("com.google.mediapipe:tasks-vision:0.10.32")
     implementation("androidx.core:core:1.15.0")
     implementation(files("libs/Live2DCubismCore.aar"))
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")

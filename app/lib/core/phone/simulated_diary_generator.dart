@@ -33,6 +33,7 @@ class SimulatedDiaryMaterial {
         'shared_moments': sharedMoments,
         'cares': cares,
         'carried_threads': carriedThreads,
+        'thread_dates_verified': true,
         'awareness': awareness,
         'message_count': messageCount,
         'relationship_event_count': relationshipEventCount,
@@ -45,7 +46,7 @@ class SimulatedDiaryMaterial {
     return SimulatedDiaryMaterial(
       localDay: value['local_day'] as String,
       sharedMoments: list('shared_moments'), cares: list('cares'),
-      carriedThreads: list('carried_threads'), awareness: list('awareness'),
+      carriedThreads: value['thread_dates_verified'] == true ? list('carried_threads') : const [], awareness: list('awareness'),
       messageCount: (value['message_count'] as num?)?.toInt() ?? 0,
       relationshipEventCount: (value['relationship_event_count'] as num?)?.toInt() ?? 0,
       quietDay: value['quiet_day'] == true,
@@ -178,7 +179,7 @@ class DeepSeekSimulatedDiaryGenerator implements SimulatedDiaryGenerator {
           {
             'role': 'user',
             'content': '今日资料=${jsonEncode(material.toPromptJson())}\n'
-                '近期日记=${jsonEncode(recentBodies.take(7).toList())}',
+                '近期日记仅作避重，不是当日经历。不得从中取材。',
           },
         ],
       ).timeout(const Duration(seconds: 24));
@@ -232,7 +233,7 @@ class SimulatedDiaryAttempt {
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
         final draft = await generator.generate(material: material, recentBodies: recentBodies);
-        if (draft != null && SimulatedDiaryQuality.acceptable(draft.body, recentBodies: recentBodies)) {
+        if (draft != null && (draft.focusKind != 'thread' || material.carriedThreads.isNotEmpty) && SimulatedDiaryQuality.acceptable(draft.body, recentBodies: recentBodies)) {
           return SimulatedDiaryAttempt(draft, attempt, '');
         }
         failure = draft == null ? 'unavailable' : 'quality_rejected';

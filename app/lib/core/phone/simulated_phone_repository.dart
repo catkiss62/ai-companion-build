@@ -532,7 +532,7 @@ class SimulatedPhoneRepository {
           .where((item) => item.isNotEmpty)
           .take(2)
           .toList(growable: false),
-      carriedThreads: record.carriedThreads
+      carriedThreads: record.carriedThreads.where((t) => t.updatedOnDay)
           .map(
             (item) => [
               clean(item.title),
@@ -549,7 +549,7 @@ class SimulatedPhoneRepository {
           .toList(growable: false),
       messageCount: record.messageCount,
       relationshipEventCount: record.relationshipEventCount,
-      quietDay: record.quietDay,
+      quietDay: record.sharedMoments.isEmpty && record.cares.isEmpty && !record.carriedThreads.any((t) => t.updatedOnDay),
     );
     final recentBodies = entries.where((entry) => entry.localDay != day)
         .map((entry) => entry.body.trim()).where((body) => body.isNotEmpty)

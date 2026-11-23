@@ -251,8 +251,8 @@ abstract final class QqArchiveSchema {
   }
   static Future<void> restored(DatabaseExecutor sql) async {
     await sql.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',['qq_master_enabled_v2','0']);
-    // A restored profile is portable data, not permission to start learning.
-    await sql.rawUpdate("UPDATE settings SET value='0' WHERE key LIKE 'qq_style_enabled_v1:%'");
+    // Restore per-group choices; ingress stays paused until the QQ master is enabled.
+    await sql.execute("INSERT OR REPLACE INTO settings(key,value) SELECT 'qq_style_cursor_v1:' || c.id, CAST(COALESCE(MAX(a.seq),0) AS TEXT) FROM qq_conversations c LEFT JOIN qq_archive a ON a.conversation_id=c.id WHERE c.kind='group' GROUP BY c.id");
     await sql.delete('settings',where:'key=?',whereArgs:['qq_master_owner_v2']);
     await sql.execute("UPDATE qq_deliveries SET state = 'restored_history' WHERE state NOT IN ('sent','send_uncertain','sent_archive_pending','sent_archive_failed','partially_sent')");
     await sql.execute("UPDATE qq_shares SET state = 'restored_history' WHERE state != 'sent'");

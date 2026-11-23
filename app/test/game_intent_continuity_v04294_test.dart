@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
-import 'package:ai_companion_localfirst/core/desire/daily_wake_store.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_solo_episode_policy.dart';
@@ -140,8 +139,7 @@ void main() {
     expect(await store.pendingDirectShares(),isEmpty);
   });
 
-  for (final choice in ['bar', 'rest']) {
-    test('solo checkpoint may $choice while preserving the previous game', () async {
+  test('solo checkpoint ignores archived and pending old solo wishes', () async {
       final store=CedarToyActivityStore(db);
       final now=DateTime.now();
       await db.setSetting('cedar_toy_enabled','1');
@@ -158,9 +156,8 @@ void main() {
       await db.setSetting(WishStore.stateKey,jsonEncode({'items':[wish.toJson()]}));
       var decisions=0;
       final ai=DeepSeekClient(jsonClientFactory:()=>MockClient((request) async {
-        decisions++;
-        expect(request.body,contains('不要求完成愿望'));
-        return http.Response(jsonEncode({'choices':[{'message':{'content':jsonEncode({'choice':choice})}}]}),200);
+        if (request.body.contains('consider_wish') || request.body.contains('不要求完成愿望')) decisions++;
+        return http.Response('{}',503);
       }));
       addTearDown(ai.close);
       final toolNames=<String>[];
@@ -176,26 +173,11 @@ void main() {
         tokenReader:() async=>'ctai_v1_test',apiKeyReader:() async=>'test',
         endpointReader:() async=>DeepSeekClient.defaultEndpoint,
         clientFactory:(token)=>CedarToyClient(token:token,transport:McpHttpClient(endpoint:Uri.parse('https://example.invalid/mcp'),client:transport)));
-      final progress=await engine.resumeCheckpoint(now:now,selfReset:false);
-      if((await DailyWakeStore.read(await db.database,DateTime.now())).beforeWake(DateTime.now())) {
-        expect(progress.state,'night_sleep'); expect(decisions,0); expect(toolNames,isEmpty); return;
-      }
-      expect(decisions,1);
+      await engine.resumeCheckpoint(now:now,selfReset:false);
+      expect(decisions,0);
       final state=await store.loadState();
-      expect(state.sessions['garden']!.lastOutcome,contains('种子已经种下'));
+      expect(state.activeSession!.gameId,'garden');
+      expect(state.sessions.containsKey('bar'),isFalse);
       expect((await WishStore(db).load()).single.actionAttemptAt,isNull);
-      if(choice=='bar') {
-        expect(progress.state,'wish_checkpoint_switched');
-        expect(state.activeSession!.gameId,'bar');
-        expect(state.activeSession!.phase,CedarActivityPhase.guideReady);
-        expect(toolNames,hasLength(1)); // Guide only: no start/reset or wish completion.
-        expect((await WishStore(db).load()).single.state,'active');
-      } else {
-        expect(progress.state,'wish_checkpoint_rest');
-        expect(state.activeSession!.gameId,'garden');
-        expect(state.activeSession!.nextActionAt!.isAfter(now),isTrue);
-        expect(toolNames,isEmpty);
-      }
     });
-  }
 }

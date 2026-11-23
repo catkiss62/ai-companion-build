@@ -7,6 +7,7 @@ import '../../core/tts/genie_fixed_text_segmenter.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../core/tts/tts_playback_tuning.dart';
 import 'qq_failure.dart';
+import 'qq_reply_parts.dart';
 
 class QqVoiceChoice {
   const QqVoiceChoice(this.language,this.text,{this.voice='daily'});
@@ -18,7 +19,7 @@ class QqVoiceChoice {
     try {
       final data=jsonDecode(matches.single.group(1)!);
       if(data is! Map || !const {'zh','ja','en'}.contains(data['language']) || data['text'] is! String)return null;
-      final rawText=(data['text'] as String).trim();
+      final rawText=QqReplyParts.cleanFaces(data['text'] as String);
       if(rawText.isEmpty || rawText.runes.length>600 || rawText.contains('<qq_'))return null;
       final text=transcript(rawText,data['language'] as String);
       if(text.isEmpty)return null;

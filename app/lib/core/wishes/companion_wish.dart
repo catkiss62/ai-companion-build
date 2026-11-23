@@ -55,7 +55,7 @@ class CompanionWish {
   final bool manualHold, legacy;
   bool get active => state == 'active';
   bool get terminal =>
-      const {'completed', 'satisfied', 'abandoned', 'expired'}.contains(state);
+      const {'completed', 'satisfied', 'abandoned', 'expired', 'archived_solo'}.contains(state);
 
   /// Older wishes did not separate intention from processing time. Their
   /// creation/evidence dates are a conservative lower bound, not a recovered

@@ -17,7 +17,7 @@ class QqGroupLearning {
   static String enabledKey(String cid)=>'qq_style_enabled_v1:$cid';
   static String epochKey(String cid)=>'qq_style_epoch_v1:$cid';
   static String cursorKey(String cid)=>'qq_style_cursor_v1:$cid';
-  Future<bool> enabled(String cid) async=>await store.db.getSetting(enabledKey(cid))=='1';
+  Future<bool> enabled(String cid) async=>await store.db.getSetting(enabledKey(cid))!='0';
   Future<List<Map<String,Object?>>> profiles(String cid,{int offset=0,int limit=100}) async=>(await store.db.database).query('qq_styles',where:'conversation_id=?',whereArgs:[cid],orderBy:'edited_at DESC,created_at DESC,id',limit:limit,offset:offset);
   Future<void> setEnabled(String cid,bool value) async {
     final fence=await store.capture(conversationId:cid);
@@ -77,7 +77,9 @@ class QqGroupLearning {
     final fence=await store.capture(conversationId:cid);
     final claim=await store.write(fence,(txn) async {
       final c=(await txn.query('qq_conversations',where:"id=? AND kind='group'",whereArgs:[cid],limit:1)).firstOrNull;
-      if(c==null || await BrainWorkFence.value(txn,enabledKey(cid))!='1')return null;
+      if(c==null)return null;
+      await QqStore.initializeGroupLearning(txn,cid);
+      if(await BrainWorkFence.value(txn,enabledKey(cid))!='1')return null;
       final epoch=await BrainWorkFence.value(txn,epochKey(cid));
       var job=await QqWorkQueue.due(txn,cid,'style',now);
       List<Map<String,Object?>> rows;
@@ -110,7 +112,7 @@ class QqGroupLearning {
     });
     if(claim==null)return;
     Future<bool> current() async=>await allowed() && await enabled(cid) && await store.current(fence) &&
-      await store.db.getSetting(epochKey(cid))==claim.epoch && await QqWorkQueue.current(await store.db.database,claim.id,claim.token) &&
+      (await store.db.getSetting(epochKey(cid)) ?? '')==claim.epoch && await QqWorkQueue.current(await store.db.database,claim.id,claim.token) &&
       await QqArchiveReader(await store.db.database).matches(claim.stamp);
     final client=clientFactory(() async=>!await current());
     try {

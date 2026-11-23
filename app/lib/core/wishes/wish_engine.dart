@@ -60,7 +60,7 @@ class WishEngine {
               {'role': 'user', 'content': PromptCacheLayout.material(material, ['catalog', 'known_game_guides'])},
             ],
           )
-          .timeout(const Duration(seconds: 24));
+          .timeout(const Duration(seconds: 60));
     } finally {
       client.close();
     }
@@ -88,7 +88,9 @@ updates 只评估给定愿望的资料；旧创建的愿望也须评估。按来
 自主处置：可以根据她对已有具体愿望的认真表达，提出 self_decision=true 的 active/paused/abandoned/satisfied 更新。必须引用 assistant_text，reason（4~240字）解释意愿变化，speech_act=considered_decision；玩笑、撒娇、假设、引用、角色扮演或随口宣称完成不算处置决定。没有明确意愿变化则不更新，也不为了展示自主性频繁改变。用户手动暂停/放下不可自行恢复。
 paused=自己暂时不想追求，abandoned=不再追求原目标，active=明确重新想追求自己暂放的目标；satisfied=主观向往已得到满足，仅适用于 aspiration。游戏结果等客观目标，如果她认真表示已经不想继续证明/追求原目标，使用abandoned表示自主放下（并不等于失败），不能当作客观达成或satisfied。单说心情变好、随口“完成了”而没有意愿变化则不算。不要因为没有游戏回执而漏掉明确的自主放下。允许引用旧对话中的决定，不要求她在本轮再说一遍；结合相邻对话与at判断指代和先后，不能把旧决定覆盖更新的意愿。不得把“霸占靠垫、催吃饭”等玩笑新增为真实目标；原有新愿望生成规则保持。原 criterion 不变。
 expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿望；提过就不反复提，不把说过当完成。
-格式 {"new_wish":null或{"goal":"","reason":"","route":"","game_id":"","next_step":"","criterion":"","completion_kind":"","source_ids":[],"interest":0.6,"deadline":""},"updates":[]}。''';
+当前愿望单只收互动愿望。上述 game/aspiration 规则仅用于理解和复查旧存档。新愿望只允许 route=user，用户的自愿参与是目标本身的一部分；共玩、合看、互换、请用户展示或分享都可能成立。独自完成后回来报喜、索要批准或假设用户在场，不构成互动。无合适想法就留空，不补位、不凑数。共玩也用 user，完成须有真实共同参与的证据。
+复查时同时整理旧 game/aspiration 活跃或暂停项。仅在原目标及条件能明确判定为单人时，在 solo_archive 数组返回 {"id":"原ID","quote":"原goal的完整逐字引用","solo":true}。明确共同或含糊的一律保留。已完成、手动处置及已有历史均保留。归档不表示她亲口放弃。
+格式 {"solo_archive":[],"new_wish":null或{"goal":"","reason":"","route":"","game_id":"","next_step":"","criterion":"","completion_kind":"","source_ids":[],"interest":0.6,"deadline":""},"updates":[]}。''';
 
   Future<bool> maybeRefresh({DateTime? now}) async {
     final instant = now ?? DateTime.now();
@@ -141,7 +143,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
               generationGap.inMilliseconds;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":7,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+            utf8.encode(jsonEncode({"contract":8,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       // An updates-only review cannot consume the next opportunity to propose
@@ -208,7 +210,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         decisions: decisions,
         proposalDiagnostic: proposalDiagnostic,
       );
-      return store.save(
+      final committed = await store.save(
         updated,
         expected: raw,
         fence: fence,
@@ -221,7 +223,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 6, 'source_count': evidence.length,
+            'contract': 8, 'source_count': evidence.length,
             'source_kinds': {for (final kind in evidence.map((e) => e.kind).toSet())
               kind: evidence.where((e) => e.kind == kind).length},
             'active_routes': {for (final route in ['game', 'user', 'aspiration'])
@@ -236,6 +238,12 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           }),
         },
       );
+      if (!committed) {
+        await db.setSettingsAtomically({
+          diagnosticKey: jsonEncode({'status': 'source_or_context_changed', 'at': instant.millisecondsSinceEpoch}),
+        }, workFence: fence, expectedSettings: {attemptKey: '${instant.millisecondsSinceEpoch}'});
+      }
+      return committed;
     } catch (_) {
       // Existing wishes remain intact. Failure has the same durable cooldown.
       return false;
@@ -284,7 +292,12 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
     final games = await CedarToyActivityStore.readStateInTransaction(txn);
     Object gameStamp(String game, CedarGameEvent e) => [game, e.id, e.kind,
       e.action, e.inputJson, e.summary, e.createdAt.millisecondsSinceEpoch];
+    final wishGames = wishes.where((w) => w.active && w.route == 'game')
+        .map((w) => w.gameId).toSet();
     for (final session in games.sessions.values) {
+      // Finish reviewing existing legacy game criteria. New interaction wishes
+      // use conversation/photo evidence, so unrelated solo logs are unnecessary.
+      if (!wishGames.contains(session.gameId) && !session.mode.supportsSharedParticipation) continue;
       for (final e in session.events.reversed.take(8)) {
         if (e.createdAt.isAfter(now) || now.difference(e.createdAt) > const Duration(days: 14)) continue;
         final stamp = gameStamp(session.gameId, e);
@@ -360,8 +373,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       };
     }
     final guides = <Map<String, Object?>>[];
-    final wishGames = wishes.where((w) => w.active && w.route == 'game').map((w) => w.gameId).toSet();
-    final guideSessions = games.sessions.values.where((s) => s.guideComplete &&
+    final guideSessions = games.sessions.values.where((s) => wishGames.contains(s.gameId) && s.guideComplete &&
         s.guide.isNotEmpty && s.guide.length <= 12000).toList()
       ..sort((a, b) => (wishGames.contains(b.gameId) ? 1 : 0).compareTo(wishGames.contains(a.gameId) ? 1 : 0));
     for (final session in guideSessions.take(2)) {
@@ -464,8 +476,19 @@ class WishPolicy {
         m[k] is String && (m[k] as String).length <= max
         ? (m[k] as String).trim()
         : '';
+    final solo = {
+      for (final row in (payload['solo_archive'] is List ? payload['solo_archive'] as List : const []).whereType<Map>())
+        if (row['solo'] == true && row['id'] is String) row['id']: row['quote'],
+    };
     var activeCount = wishes.where((w) => w.active).length;
     final result = wishes.map((w) {
+      if (!w.legacy && !w.manualHold && (w.active || w.state == 'paused') &&
+          (w.route == 'game' || w.route == 'aspiration') &&
+          w.goal.isNotEmpty && solo[w.id] == w.goal) {
+        if (w.active) activeCount--;
+        decisions?.add({'result': 'archived', 'reason': 'solo_goal'});
+        return w.copyWith(state: 'archived_solo', updatedAt: now);
+      }
       final u = changes[w.id];
       final requested = u?['state']?.toString() ?? '';
       void note(String reason, {String? applied}) {
@@ -570,6 +593,7 @@ class WishPolicy {
       if (w.state == 'paused' && !userDecision)
         return reject('self_resume_required');
       if (w.evidenceIds.contains(e.id)) return reject('duplicate_evidence');
+      if (w.active && state != 'active') activeCount--;
       note('evidence_applied', applied: state);
       return w.copyWith(
         state: state,
@@ -614,14 +638,8 @@ class WishPolicy {
               .toList();
       final deadlineText = text(draft, 'deadline', 48);
       final deadline = DateTime.tryParse(deadlineText);
-      final compatible =
-          route == 'aspiration' ||
-          (criterion.length >= 6 &&
-              ((route == 'game' &&
-                      catalogIds.contains(game) &&
-                      kind == 'game_result') ||
-                  (route == 'user' &&
-                      const {'user_photo', 'user_text'}.contains(kind))));
+      final compatible = route == 'user' && criterion.length >= 6 &&
+          const {'user_photo', 'user_text'}.contains(kind);
       final rejection = goal.length < 6 || reason.length < 4 ? 'invalid_fields'
           : !const {'game', 'user', 'aspiration'}.contains(route) ? 'invalid_route'
           : sources.isEmpty ? 'missing_source'

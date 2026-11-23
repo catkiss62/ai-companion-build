@@ -2298,7 +2298,7 @@ class WishList extends StatelessWidget {
         final criterion = entry.metadata['criterion']?.toString() ?? '';
         final status = switch(entry.state) {
           'completed' => '已实现', 'satisfied' => '心愿已满足', 'paused' => '暂时搁置',
-          'abandoned' => '已放下', 'expired' => '已过期', _ => '还在心里',
+          'archived_solo' => '旧单人愿望 · 已归档', 'abandoned' => '已放下', 'expired' => '已过期', _ => '还在心里',
         };
         return Container(margin: const EdgeInsets.only(bottom:9), padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(color: purple.withValues(alpha: .07),

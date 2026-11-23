@@ -747,6 +747,7 @@ class QqRuntime {
         parts = parts.map((part) => QqIllustrationChoice.unfulfilledPromise(part)
             ? '这次没能画出来。' : part).toList();
       }
+      parts=parts.map(QqReplyParts.cleanFaces).where((part)=>part.isNotEmpty).toList();
       if(voiceChoice!=null) {
         final spoken=voiceChoice;
         parts=parts.where((p)=>QqVoiceChoice.transcript(p,spoken.language)!=spoken.text).toList();

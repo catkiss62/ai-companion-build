@@ -13,6 +13,7 @@ import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel, PlatformException;
 import '../../widgets/thinking_icon.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
@@ -2337,6 +2338,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   _QuickPanelTile(
                     icon: Icons.auto_awesome_outlined, title: '作品集', subtitle: '打开小作品，继续一起玩。',
                     onTap: () async { Navigator.pop(dialogContext); await Navigator.of(pageContext).push(MaterialPageRoute(builder: (_) => CreativePortfolioPage(chat: controller))); },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.view_in_ar_rounded, title: '小鲸鱼 AR', subtitle: '把小鲸鱼放在身边，或托在手心。',
+                    onTap: () async {
+                      final theme = Theme.of(pageContext);
+                      final colors = theme.colorScheme;
+                      Navigator.pop(dialogContext);
+                      try {
+                        await const MethodChannel('ai_companion/whale_ar').invokeMethod<void>('open', {
+                          'surface': theme.scaffoldBackgroundColor.toARGB32(),
+                          'text': colors.onSurface.toARGB32(),
+                          'secondaryText': theme.textTheme.bodyMedium!.color!.toARGB32(),
+                          'primary': colors.primary.toARGB32(), 'onPrimary': colors.onPrimary.toARGB32(),
+                          'tonal': colors.secondaryContainer.toARGB32(), 'onTonal': colors.onSecondaryContainer.toARGB32(),
+                        });
+                      } on PlatformException catch (e) {
+                        if (pageContext.mounted) ScaffoldMessenger.of(pageContext).showSnackBar(
+                          SnackBar(content: Text(e.message ?? '暂时无法打开小鲸鱼 AR')),
+                        );
+                      }
+                    },
                   ),
                   const Divider(height: 26),
                   _QuickPanelTile(

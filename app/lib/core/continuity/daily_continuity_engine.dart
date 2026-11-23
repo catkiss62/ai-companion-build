@@ -185,6 +185,7 @@ class DailyContinuityEngine {
           title: thread.title,
           detail: _compact(thread.detail, 220),
           topicKey: thread.topicKey,
+          updatedOnDay: updatedToday,
         ),
       );
       break;

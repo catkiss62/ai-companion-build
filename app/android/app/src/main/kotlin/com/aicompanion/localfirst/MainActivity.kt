@@ -44,6 +44,22 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ai_companion/whale_ar")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "open") {
+                    result.notImplemented()
+                } else if (android.os.Build.VERSION.SDK_INT < 29) {
+                    result.error("unsupported", "小鲸鱼 AR 需要 Android 10 或更高版本", null)
+                } else {
+                    val palette = getSharedPreferences("companion_ar_theme", MODE_PRIVATE).edit()
+                    for (name in listOf("surface", "text", "secondaryText", "primary", "onPrimary", "tonal", "onTonal")) {
+                        call.argument<Number>(name)?.let { palette.putInt(name, it.toInt()) }
+                    }
+                    palette.apply()
+                    startActivity(Intent().setClassName(this, "dev.littlewhale.ar.TableActivity"))
+                    result.success(null)
+                }
+            }
         ChatMemoryExam.bind(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ai_companion/task_navigation")
             .setMethodCallHandler { call, result ->

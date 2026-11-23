@@ -38,18 +38,21 @@ class DailyContinuityThread {
     required this.title,
     required this.detail,
     this.topicKey = '',
+    this.updatedOnDay = false,
   });
 
   final String id;
   final String title;
   final String detail;
   final String topicKey;
+  final bool updatedOnDay;
 
   Map<String, Object?> toJson() => {
         'id': id,
         'title': title,
         'detail': detail,
         'topic_key': topicKey,
+        'updated_on_day': updatedOnDay,
       };
 
   factory DailyContinuityThread.fromJson(Map<String, Object?> json) {
@@ -58,6 +61,7 @@ class DailyContinuityThread {
       title: json['title'] as String? ?? '',
       detail: json['detail'] as String? ?? '',
       topicKey: json['topic_key'] as String? ?? '',
+      updatedOnDay: json['updated_on_day'] == true,
     );
   }
 }

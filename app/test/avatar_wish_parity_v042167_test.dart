@@ -115,7 +115,11 @@ void main() {
         'source_ids': ['chat'],
       }}, evidence: [WishEvidence(id: 'chat', kind: 'user_text', text: '今天看见云很漂亮', at: now)],
         catalogIds: {}, now: now, canGenerate: true);
-      expect(result.single.route, route);
+      if (route == 'user') {
+        expect(result.single.route, route);
+      } else {
+        expect(result, isEmpty);
+      }
     }
   });
 }

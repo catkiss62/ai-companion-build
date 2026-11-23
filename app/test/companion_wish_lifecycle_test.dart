@@ -189,7 +189,7 @@ void main() {
     },
   );
   test(
-    'one novel supported candidate, semantic duplicate and invented game rejected',
+    'solo game proposals stay out of the interaction wishlist',
     () {
       Map<String, dynamic> draft(String goal, String game) => {
         'new_wish': {
@@ -212,7 +212,7 @@ void main() {
       );
       expect(run(wish().goal, 'fishing').length, 1);
       expect(run('想种出第一朵蓝色花', 'invented').length, 1);
-      expect(run('想发现池塘最深处有什么', 'fishing').length, 2);
+      expect(run('想发现池塘最深处有什么', 'fishing').length, 1);
     },
   );
 

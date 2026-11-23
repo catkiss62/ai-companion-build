@@ -149,7 +149,7 @@ void main() {
   });
   test('group style has revision controls, survives backup, and withdraws with sources',() async {
     final seq=(await add('human'))!;final sql=await db.database;final learning=QqGroupLearning(store);
-    expect(await learning.enabled(cid),false);await learning.setEnabled(cid,true);
+    expect(await learning.enabled(cid),true);
     final row=(await sql.query('qq_archive')).single;final stamp=<Map<String,Object?>>[];await QqArchiveReader(sql).render(row,stamp:stamp);
     await sql.insert('qq_styles',{'id':'style-fixture','conversation_id':cid,'content':'回复短一些\n用反问补刀','sources':jsonEncode([seq]),'source_stamp':jsonEncode(stamp),'created_at':at});
     expect((await learning.projection(cid)).text,contains('回复短一些'));
@@ -161,7 +161,7 @@ void main() {
     expect((await learning.projection(cid)).text,isNot(contains('先简短')));
     edited=(await learning.profiles(cid)).single;await learning.edit(edited,enabled:true);
     final saved=jsonDecode(jsonEncode(await db.exportAll())) as Map<String,dynamic>;await db.importAll(saved);
-    expect((await learning.profiles(cid)).single['content'],'先简短反应，再偶尔补一句');expect(await learning.enabled(cid),false);
+    expect((await learning.profiles(cid)).single['content'],'先简短反应，再偶尔补一句');expect(await learning.enabled(cid),true);
     await remove(seq);expect(await learning.profiles(cid),isEmpty);
   });
   test('only actually delivered sketch source is archived and can preview without model',() async {
@@ -178,7 +178,8 @@ void main() {
     await store.forget(await store.capture(),cid);expect(await (await db.database).query('qq_sketches'),isEmpty);
   });
   test('real learner only consumes new human group messages once and honors midflight disable',() async {
-    await add('before',text:'旧发言不应自动学');final learning=QqGroupLearning(store);await learning.setEnabled(cid,true);
+    final learning=QqGroupLearning(store); await learning.setEnabled(cid,false);
+    await add('before',text:'旧发言不应自动学');await learning.setEnabled(cid,true);
     for(var i=0;i<12;i++) {
       final incoming=QqIncoming.parse({'content':'接梗节奏$i','message_type':103,
         'msg_elements':[{'content':'其他群独特台词，不应该学习',
