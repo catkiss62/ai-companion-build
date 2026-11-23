@@ -49,6 +49,7 @@ done
 sed -i 's/import com.orb.slam2s.R;/import com.aicompanion.localfirst.R;/' "$out/java/com/orb/slam2s/graphics/"*.java
 cp "$up/app/src/main/res/raw/"*shader* "$out/res/raw/"
 unzip -q "$base" 'assets/viewer/*' 'assets/voices/*' 'assets/hand_landmarker.task' -d "$out"
+cp "$ar/app/src/main/assets/viewer/index.html" "$out/assets/viewer/index.html"
 for lib in libMenthaAR_Engine.so libglb_renderer.so; do
   unzip -p "$base" "lib/arm64-v8a/$lib" > "$out/jniLibs/arm64-v8a/$lib"
 done
