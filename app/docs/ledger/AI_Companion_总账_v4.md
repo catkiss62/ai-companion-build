@@ -108,7 +108,7 @@
 
 <!-- CURRENT_SOURCE_IDENTITY -->
 ```json
-{"app_version": "0.42.228+472", "schema": 67}
+{"app_version": "0.42.229+473", "schema": 67}
 ```
 <!-- END_CURRENT_SOURCE_IDENTITY -->
 

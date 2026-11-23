@@ -115,6 +115,7 @@ android {
         // supported Android version.
         jniLibs {
             useLegacyPackaging = true
+            keepDebugSymbols += "**/libEasyAR.so"
         }
     }
 }
