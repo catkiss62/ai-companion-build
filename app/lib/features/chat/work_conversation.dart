@@ -134,6 +134,7 @@ class WorkConversation extends ChangeNotifier {
     } catch (e) {
       status = token.isCancelled ? '已停止' : '工作未完成 · $e';
     } finally {
+      _details.finish();
       _token = null;
       phase = WorkPhase.idle;
       _update();

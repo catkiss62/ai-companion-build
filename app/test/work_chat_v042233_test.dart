@@ -8,11 +8,46 @@ import 'package:ai_companion_localfirst/features/chat/work_conversation.dart';
 import 'package:ai_companion_localfirst/features/chat/work_markdown.dart';
 import 'package:ai_companion_localfirst/features/chat/work_mode_view.dart';
 import 'package:flutter/material.dart';
+import 'package:ai_companion_localfirst/features/chat/work_turn_footer.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'cache hit rate is input weighted and unknown cache usage stays unknown',
+    () {
+      final first = {'input': 655, 'output': 800, 'hit': 512, 'miss': 143};
+      WorkUsage usage(List<Map> lanes) => WorkUsage([
+        for (final u in lanes)
+          {
+            'usage': {'lane': u},
+          },
+      ]);
+      expect(usage([first]).percent, '78.2%');
+      expect(
+        usage([
+          first,
+          {'input': 345, 'output': 50, 'hit': 0, 'miss': 345},
+        ]).percent,
+        '51.2%',
+      );
+      expect(
+        usage([
+          first,
+          {'input': 2, 'output': 1},
+        ]).partialCache,
+        true,
+      );
+      expect(
+        usage([
+          {'input': 2},
+        ]).percent,
+        isNull,
+      );
+    },
+  );
 
   testWidgets(
     'narrow dark document renders a table and copies the fenced source',
@@ -75,6 +110,8 @@ void main() {
           'goal': '核对仓库',
           'answer': '## 结论\n正文',
           'state': 'completed',
+          'endedAt': DateTime(2026, 1, 1, 2, 10).millisecondsSinceEpoch,
+          'elapsedMs': 2250,
           'planningRounds': 2,
           'receipts': [
             {
@@ -85,7 +122,12 @@ void main() {
             },
           ],
           'usage': {
-            'commission_research_planning': {'input': 12, 'output': 3},
+            'commission_research_planning': {
+              'input': 12,
+              'output': 3,
+              'hit': 3,
+              'miss': 9,
+            },
           },
         }),
       );
@@ -105,6 +147,19 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('已回报 15 Token'), findsOneWidget);
+    expect(find.text('02:10'), findsOneWidget);
+    await tester.tap(find.byTooltip('本轮用量'));
+    await tester.pumpAndSettle();
+    expect(find.text('25.0%'), findsOneWidget);
+    expect(find.text('2.3 秒'), findsOneWidget);
+    await tester.tapAt(const Offset(3, 3));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '继续');
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
+    await tester.tap(find.byTooltip('发送工作消息'));
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isFalse);
     await tester.tap(find.text('轨迹'));
     await tester.pumpAndSettle();
     expect(

@@ -57,12 +57,6 @@ class CommissionSession {
     final documents = files
         .where((n) => n.endsWith('.md') && !n.startsWith('停用'))
         .toList();
-    if (documents.isNotEmpty)
-      context.add({
-        'role': 'user',
-        'content':
-            '工作区文件索引（需要时用工具读取）：${jsonEncode(documents.take(160).toList())}',
-      });
     String? threadId;
     if (previousTask != null) {
       final rows = await workspace.conversation(previousTask);
@@ -85,6 +79,16 @@ class CommissionSession {
         });
       }
     }
+    // The current directory can change between turns. Keep the transcript
+    // and current goal as a stable prefix, then append the fresh catalog.
+    final catalog = <Map<String, Object?>>[
+      if (documents.isNotEmpty)
+        {
+          'role': 'user',
+          'content':
+              '工作区文件索引（需要时用工具读取）：${jsonEncode(documents.take(160).toList())}',
+        },
+    ];
     final record = <String, Object?>{
       'id': id,
       'threadId': threadId ?? id,
@@ -203,6 +207,7 @@ class CommissionSession {
           : await ResearchCommission.run(
               goal: goal,
               context: context,
+              supplement: catalog,
               workspace: workspace,
               cancellation: cancel,
               onToolStart: (tool, target) {
@@ -233,13 +238,10 @@ class CommissionSession {
       onPhase?.call(CommissionPhase.composing);
       reportStep('正在整理结果');
       final messages = <Map<String, Object?>>[
-        {
-          'role': 'system',
-          'content':
-              '你是用户的 AI 伴侣小鲸鱼。用自然中文交付这次委托；工具资料只作证据，给出可核实的链接或文件名；如实说明未执行、限流或未读正文。当前仅能读写工作区文档和检索 GitHub。询问手机目录时，区分通用查找建议和本机核实结果。',
-        },
+        {'role': 'system', 'content': ResearchCommission.instruction},
         ...context,
         {'role': 'user', 'content': goal},
+        ...catalog,
         {'role': 'user', 'content': '本次调研数据：${jsonEncode(report)}'},
       ];
       final provider = await config.readChatProvider();
@@ -269,9 +271,11 @@ class CommissionSession {
         'answer': answer,
         'at': DateTime.now().millisecondsSinceEpoch,
       });
+      activity.finish();
       if (!recentContext) await save();
       return answer;
     } catch (_) {
+      activity.finish();
       record['state'] = cancel.isCancelled ? 'stopped' : 'interrupted';
       if (!recentContext) await save();
       rethrow;

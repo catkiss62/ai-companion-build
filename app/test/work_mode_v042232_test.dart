@@ -64,6 +64,7 @@ void main() {
       addTearDown(client.close);
       var latest = file;
       for (final goal in ['再查一个', '继续看看']) {
+        await ws.write('报告-$goal.md', goal);
         await CommissionSession.run(
           workspace: ws,
           goal: goal,
@@ -80,6 +81,19 @@ void main() {
       expect(rows.map((r) => r['goal']), ['原问题', '再查一个', '继续看看']);
       expect(rows.last['steps'], contains('正在整理结果'));
       expect(CommissionThread.history(rows).length, 6);
+      // Real serialized requests preserve the previous transcript when the
+      // workspace catalog changes. The final composition shares the front.
+      List messages(int n) => jsonDecode(requests[n])['messages'] as List;
+      final first = messages(0), finalReply = messages(1), follow = messages(2);
+      expect(requests.length, 4);
+      expect(finalReply.take(first.length).toList(), first);
+      final catalog = first.indexWhere((m) => m['content'].contains('工作区文件索引'));
+      expect(catalog, greaterThan(1));
+      expect(follow.take(catalog).toList(), first.take(catalog).toList());
+      expect(first[catalog - 1]['content'], '再查一个');
+      expect(follow[follow.length - 1]['content'], contains('报告-继续看看.md'));
+      expect(rows.last['endedAt'], isA<int>());
+      expect(rows.last['elapsedMs'], greaterThanOrEqualTo(0));
       expect(requests.last, contains('原回答'));
       expect(requests.last, isNot(contains('无关问题')));
       expect((await ws.conversations()).length, 2);

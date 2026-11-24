@@ -276,9 +276,13 @@ class DeepSeekClient {
     final capabilityKey=sha256.convert(utf8.encode('$endpoint\u0000$effectiveModel\u0000${apiKey.trim()}')).toString();
     final canonicalTools = optionalEntry && OptionalToolCompatibility.plainChat(capabilityKey)
         ? const <Map<String,Object?>>[] : offeredTools;
+    // Keep prior assistant turns identical during first-channel work planning
+    // and delivery. Relay and third-channel transports retain their own shapes.
+    final workDelivery = usageLane == 'commission_final_reply' &&
+        provider == ChatApiProvider.deepSeek;
     final requestMessages = ThinkingToolHistory.prepare(
       provider.isGeminiRelay ? FinalReplyRoute.prepareMessages(messages) : messages,
-      thinking: thinking, toolsOffered: canonicalTools.isNotEmpty);
+      thinking: thinking, toolsOffered: canonicalTools.isNotEmpty || workDelivery);
     final promptShape = _promptShape(requestMessages, canonicalTools);
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({

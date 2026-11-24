@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'work_markdown.dart';
+import 'work_turn_footer.dart';
 import 'work_conversation.dart';
 
 class WhaleTail extends StatelessWidget {
@@ -226,7 +227,7 @@ class _WorkPanelState extends State<WorkPanel>
             scroll.jumpTo(scroll.position.maxScrollExtent);
         });
     }
-    final total = _reportedTokens(rows);
+    final usage = WorkUsage(rows);
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 13, sigmaY: 13),
@@ -262,11 +263,12 @@ class _WorkPanelState extends State<WorkPanel>
                       },
                       child: ListView.builder(
                         controller: scroll,
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                        padding: const EdgeInsets.fromLTRB(32, 16, 32, 12),
                         itemCount: rows.length,
                         itemBuilder: (_, i) {
                           final row = rows[i];
                           final answer = row['answer']?.toString() ?? '';
+                          final live = i == rows.length - 1 && work.busy;
                           final saved = _receipts(
                             row,
                           ).map((e) => e['saved']).whereType<String>().toSet();
@@ -283,8 +285,8 @@ class _WorkPanelState extends State<WorkPanel>
                                       bottom: 12,
                                     ),
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 13,
-                                      vertical: 8,
+                                      horizontal: 16,
+                                      vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
                                       color: workRaised,
@@ -294,8 +296,9 @@ class _WorkPanelState extends State<WorkPanel>
                                       row['goal']?.toString() ?? '',
                                       style: const TextStyle(
                                         color: workInk,
-                                        fontSize: 15,
-                                        height: 1.45,
+                                        fontSize: 14,
+                                        letterSpacing: 0,
+                                        height: 22 / 14,
                                       ),
                                     ),
                                   ),
@@ -305,13 +308,11 @@ class _WorkPanelState extends State<WorkPanel>
                                 else
                                   Align(
                                     alignment: Alignment.centerLeft,
-                                    child: TextButton.icon(
+                                    child: TextButton(
                                       onPressed: () => tabs.animateTo(1),
-                                      icon: const Icon(
-                                        Icons.timeline,
-                                        size: 16,
-                                      ),
-                                      label: Text(_status(row)),
+                                      child: live
+                                          ? WorkActivity(_status(row))
+                                          : Text(_status(row)),
                                     ),
                                   ),
                                 for (final file in saved)
@@ -326,6 +327,7 @@ class _WorkPanelState extends State<WorkPanel>
                                       label: Text(file),
                                     ),
                                   ),
+                                WorkTurnFooter(row, live: live),
                               ],
                             ),
                           );
@@ -333,7 +335,7 @@ class _WorkPanelState extends State<WorkPanel>
                       ),
                     ),
                     ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                      padding: const EdgeInsets.fromLTRB(32, 12, 32, 12),
                       itemCount: rows.length,
                       itemBuilder: (_, i) => _TurnTrace(
                         row: rows[rows.length - i - 1],
@@ -345,7 +347,7 @@ class _WorkPanelState extends State<WorkPanel>
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 3, 12, 7),
+                padding: const EdgeInsets.fromLTRB(16, 3, 16, 7),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: workRaised,
@@ -364,8 +366,9 @@ class _WorkPanelState extends State<WorkPanel>
                           cursorColor: workAccent,
                           style: const TextStyle(
                             color: workInk,
-                            fontSize: 15,
-                            height: 1.4,
+                            fontSize: 14,
+                            letterSpacing: 0,
+                            height: 22 / 14,
                           ),
                           decoration: const InputDecoration(
                             hintText: '交给小鲸鱼做什么？',
@@ -391,6 +394,7 @@ class _WorkPanelState extends State<WorkPanel>
                               : () {
                                   following = true;
                                   tabs.animateTo(0);
+                                  widget.focus.unfocus();
                                   widget.onSend();
                                 },
                           icon: Icon(
@@ -409,11 +413,11 @@ class _WorkPanelState extends State<WorkPanel>
                 SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 6),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '${rows.length} 轮对话  ·  ${total == null ? "Token 未回报" : "已回报 $total Token"}',
+                        '${rows.length} 轮对话  ·  ${usage.reported ? "已回报 ${usage.total} Token" : "Token 未回报"}${usage.percent == null ? "" : "  ·  ${usage.cacheLabel}"}',
                         style: const TextStyle(color: workMuted, fontSize: 12),
                       ),
                     ),
@@ -439,20 +443,6 @@ List<Map> _receipts(Map row) =>
     (row['receipts'] as List? ?? row['evidence'] as List? ?? const [])
         .whereType<Map>()
         .toList();
-
-int? _reportedTokens(List<Map> rows) {
-  int? total;
-  for (final row in rows) {
-    for (final lane in (row['usage'] as Map? ?? {}).values.whereType<Map>()) {
-      total =
-          (total ?? 0) +
-          (lane['input'] as int? ?? 0) +
-          (lane['output'] as int? ?? 0) +
-          (lane['reasoning'] as int? ?? 0);
-    }
-  }
-  return total;
-}
 
 class _TurnTrace extends StatelessWidget {
   const _TurnTrace({
@@ -486,15 +476,16 @@ class _TurnTrace extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             [
-              _status(row),
+              if (!live) _status(row),
               if (rounds is int) '规划 $rounds 轮',
               if (receipts.isNotEmpty || rounds != null)
                 '工具 ${receipts.length} 次',
             ].join('  ·  '),
             style: const TextStyle(color: workMuted, fontSize: 12),
           ),
+          if (live) WorkActivity(_status(row)),
           if (receipts.isEmpty)
-            for (final step in steps)
+            for (final step in steps.where((s) => !live || s != _status(row)))
               Padding(
                 padding: const EdgeInsets.only(top: 5),
                 child: Text(
@@ -508,7 +499,11 @@ class _TurnTrace extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 7),
                 child: Text(
-                  '${lane.key == "commission_final_reply" ? "正文" : "规划"} · 输入 ${u["input"]} / 输出 ${u["output"]}${u["reasoning"] != null ? " / 推理 ${u['reasoning']}" : ""}${u["hit"] != null ? " / 缓存命中 ${u['hit']}" : ""} Token',
+                  '${lane.key == "commission_final_reply" ? "正文" : "规划"} · 输入 ${u["input"]} / 输出 ${u["output"]}${u["reasoning"] != null ? " / 推理 ${u['reasoning']}" : ""}${u["hit"] != null ? " / 缓存命中 ${u['hit']}（${WorkUsage([
+                              {
+                                'usage': {lane.key: u},
+                              },
+                            ]).percent ?? "—"}）" : ""} Token',
                   style: const TextStyle(color: workMuted, fontSize: 12),
                 ),
               ),

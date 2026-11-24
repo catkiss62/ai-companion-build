@@ -2,6 +2,13 @@ import '../ai/deepseek_client.dart';
 
 /// Presentation data for one execution. Never includes document bodies or prompts.
 class WorkTurnDetails {
+  final _clock = Stopwatch()..start();
+  int? endedAt;
+  void finish() {
+    _clock.stop();
+    endedAt ??= DateTime.now().millisecondsSinceEpoch;
+  }
+
   String executionId = '';
   int rounds = 0;
   final receipts = <Map<String, Object?>>[];
@@ -39,6 +46,8 @@ class WorkTurnDetails {
   }
 
   Map<String, Object?> snapshot() => {
+    if (endedAt != null) 'endedAt': endedAt,
+    if (endedAt != null) 'elapsedMs': _clock.elapsedMilliseconds,
     'planningRounds': rounds,
     'receipts': receipts,
     'usage': usage,
