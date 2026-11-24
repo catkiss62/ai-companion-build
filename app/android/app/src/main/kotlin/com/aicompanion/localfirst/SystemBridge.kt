@@ -40,6 +40,7 @@ class SystemBridge(
     flutterEngine: FlutterEngine,
 ) {
     private val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
+    private val commissionDocuments = CommissionDocuments(activity)
     private val reminderListener: () -> Unit = { methodChannel.invokeMethod("calendarReminderChanged", null) }
     private var permissionResult: MethodChannel.Result? = null
     private var permissionRequestCode: Int? = null
@@ -62,6 +63,8 @@ class SystemBridge(
         SnapshotCacheCleaner.clean(activity)
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "workTreeCurrent", "workTreeDefault", "workTreeChoose", "workTreeList",
+                "workTreeRead", "workTreeWrite", "workTreeDelete" -> commissionDocuments.handle(call, result)
                 "recoverPortablePreferences" -> {
                     try {
                         PortableCompanionState.recover(activity,
@@ -535,6 +538,7 @@ class SystemBridge(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (commissionDocuments.result(requestCode, resultCode, data)) return
         if (requestCode == REQUEST_TTS_ROBERTA_OPEN) {
             endDirectPickerOverlayGuard("tts_roberta_picker_returned")
             val result = ttsModelDocumentResult ?: return

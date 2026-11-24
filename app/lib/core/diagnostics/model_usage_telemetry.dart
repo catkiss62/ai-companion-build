@@ -86,6 +86,45 @@ class ModelUsageTelemetry {
     };
   }
 
+  /// Per-job planning costs from the bounded telemetry window. Cold starts
+  /// and follow-up requests stay separate; absent provider usage stays absent.
+  static List<Map<String, Object?>> planningTasks(String raw) {
+    final tasks = <String, List<Map>>{};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      for (final event in decoded.whereType<Map>()) {
+        final lane = event['lane'];
+        if (event['provider'] != 'deepseek' ||
+            (lane != 'agent_tool_planning' && lane != 'commission_research_planning')) continue;
+        final id = event['execution_id'];
+        if (id is! String || id.isEmpty) continue;
+        tasks.putIfAbsent('$id|$lane', () => []).add(event);
+      }
+    } on FormatException { return []; }
+    return tasks.values.toList().reversed.take(12).map((events) {
+      Map<String, Object?> totals(List<Map> calls) {
+        var input = 0, output = 0, reasoning = 0, hits = 0, metered = 0, covered = 0;
+        for (final event in calls) {
+          int n(String key) => (event[key] as num?)?.toInt() ?? 0;
+          input += n('input_tokens'); output += n('output_tokens'); reasoning += n('reasoning_tokens');
+          if (event['cache_usage_available'] == true && n('input_tokens') > 0 &&
+              n('cache_hit_tokens') >= 0 && n('cache_miss_tokens') >= 0 &&
+              n('cache_hit_tokens') + n('cache_miss_tokens') == n('input_tokens')) {
+            metered++; hits += n('cache_hit_tokens'); covered += n('input_tokens');
+          }
+        }
+        return {'callsWithUsage':calls.length, 'inputTokens':input,'outputTokens':output,
+          'reasoningTokens':reasoning, 'callsWithCacheUsage':metered,
+          'hitTokens':metered == 0 ? null : hits,'missTokens':metered == 0 ? null : covered-hits,
+          'hitRatio':covered == 0 ? null : hits/covered};
+      }
+      return <String,Object?>{'executionId':events.first['execution_id'],'lane':events.first['lane'],
+        'firstObserved':totals(events.take(1).toList()), 'laterObserved':totals(events.skip(1).toList()),
+        'totalObserved':totals(events)};
+    }).toList();
+  }
+
   static Future<void> record(
     AppDatabase db,
     DeepSeekUsageEvent event,

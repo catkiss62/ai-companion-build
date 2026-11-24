@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../memory/memory_page.dart';
+import 'commission_workspace_page.dart';
 import '../illustration/illustration_settings_page.dart';
 import '../reference/reference_library_page.dart';
 import '../relationship/relationship_page.dart';
@@ -101,6 +102,7 @@ class CapabilitiesDomainPage extends StatelessWidget {
           ),
           _DomainEntry(icon:Icons.forum_outlined,title:'QQ 接入',subtitle:'独立连接、回复模型、群聊与档案；可在此关闭整个QQ接入',
             onTap:()=>_push(context,const QqPrivateSettingsPage())),
+          _DomainEntry(icon:Icons.folder_open_outlined,title:'工作区',subtitle:'委托记录、报告和私人技能',onTap:()=>_push(context,const CommissionWorkspacePage())),
         ],
       );
 }

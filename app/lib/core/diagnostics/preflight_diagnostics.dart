@@ -2083,6 +2083,7 @@ class PreflightDiagnosticsService {
     return <String, Object?>{
       'eventCount': eventCount,
       'deepseekCacheAudit': ModelUsageTelemetry.cacheAudit(raw),
+      'planningTasks': ModelUsageTelemetry.planningTasks(raw),
       'thirdChannelUsage': ModelUsageTelemetry.thirdChannelAudit(raw),
       'byLane': byLane,
       'recentPromptShapes': recentPromptShapes.length <= 24
