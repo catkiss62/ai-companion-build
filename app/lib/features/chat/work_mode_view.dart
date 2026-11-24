@@ -477,6 +477,8 @@ class _TurnTrace extends StatelessWidget {
           Text(
             [
               if (!live) _status(row),
+              if (row['researchEnd'] == 'budget') '已到调研上限',
+              if (row['researchEnd'] == 'evidence_incomplete') '部分依据待核实',
               if (rounds is int) '规划 $rounds 轮',
               if (receipts.isNotEmpty || rounds != null)
                 '工具 ${receipts.length} 次',
@@ -525,6 +527,7 @@ class _Receipt extends StatelessWidget {
       'workspace_save' => '保存文档',
       'workspace_read' => '读取文档',
       'github_search_repositories' => '搜索 GitHub',
+      'work_history_search' => '查工作会话原文',
       'github_read_readme' => '读取 README',
       _ => item['tool']?.toString() ?? '工具回执',
     };
@@ -533,7 +536,9 @@ class _Receipt extends StatelessWidget {
         item['error'] ??
         item['saved'] ??
         item['file'] ??
-        (item['matches'] != null || item['repositories'] is List
+        (item['excerpts'] != null
+            ? '找到 ${item['excerpts']} 段原文'
+            : item['matches'] != null || item['repositories'] is List
             ? '找到 ${item['matches'] ?? (item['repositories'] as List).length} 个仓库'
             : item['state'] == 'pending'
             ? (live ? '进行中' : '未收到回执')

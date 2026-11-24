@@ -101,6 +101,90 @@ void main() {
   );
 
   test(
+    'work history tool feeds a prior source to the planner and final route only inside its thread',
+    () async {
+      final dir = await Directory.systemTemp.createTemp();
+      addTearDown(() => dir.delete(recursive: true));
+      final ws = CommissionWorkspace(directory: dir);
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      addTearDown(db.closeForTesting);
+      FlutterSecureStorage.setMockInitialValues({
+        'deepseek_api_key': 'fixture',
+      });
+      final config = SecureConfig.forTesting(const FlutterSecureStorage());
+      String id(int n) =>
+          '00000000-0000-0000-0000-${n.toString().padLeft(12, '0')}';
+      for (int n = 1; n <= 13; n++) {
+        await ws.write(
+          '任务-${id(n)}.json',
+          jsonEncode({
+            'id': id(n),
+            'threadId': n == 13 ? id(13) : id(1),
+            'state': 'completed',
+            'goal': '问题 $n',
+            'answer': n == 1
+                ? '离线口令 ALPHA'
+                : n == 13
+                ? '离线口令 PRIVATE'
+                : '普通交付',
+          }),
+        );
+      }
+      final requests = <String>[];
+      final client = DeepSeekClient(
+        streamClientFactory: () => MockClient((r) async {
+          requests.add(r.body);
+          final first = requests.length == 1;
+          final delta = first
+              ? {
+                  'tool_calls': [
+                    {
+                      'index': 0,
+                      'id': 'lookup',
+                      'type': 'function',
+                      'function': {
+                        'name': 'work_history_search',
+                        'arguments': '{"query":"离线口令"}',
+                      },
+                    },
+                  ],
+                }
+              : {'content': '已找到'};
+          final event = {
+            'choices': [
+              {'delta': delta, 'finish_reason': first ? 'tool_calls' : 'stop'},
+            ],
+          };
+          return http.Response(
+            'data: ${jsonEncode(event)}\n\ndata: [DONE]\n\n',
+            200,
+            headers: {'content-type': 'text/event-stream; charset=utf-8'},
+          );
+        }),
+      );
+      addTearDown(client.close);
+      await CommissionSession.run(
+        workspace: ws,
+        goal: '早先的离线口令是什么',
+        client: client,
+        db: db,
+        config: config,
+        cancel: GenerationCancellationToken(),
+        progress: (_) {},
+        previousTask: '任务-${id(12)}.json',
+      );
+      expect(requests.length, 3);
+      expect(requests.first, isNot(contains('ALPHA')));
+      expect(requests[1], contains('ALPHA'));
+      expect(requests.last, contains('ALPHA'));
+      expect(requests.join(), isNot(contains('PRIVATE')));
+      final newest = (await ws.conversation('任务-${id(1)}.json')).last;
+      expect(newest['evidence'], isEmpty);
+      expect((newest['receipts'] as List).single['excerpts'], 1);
+    },
+  );
+
+  test(
     'a rate-limited work request yields to chat and stopping it preserves the chat reply',
     () async {
       final dir = await Directory.systemTemp.createTemp();

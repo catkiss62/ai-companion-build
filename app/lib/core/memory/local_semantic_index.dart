@@ -182,6 +182,10 @@ class LocalSemanticIndex {
     return (vectors: decoded, inferenceMs: raw?['inferenceMs'] as int?);
   }
 
+  /// Encodes a bounded batch for a caller that owns its own index and lifetime.
+  Future<List<Float32List>> encodeBatch(List<String> texts, Duration budget) async =>
+      (await _embed(texts, budget: budget)).vectors;
+
   /// Old archives are indexed asynchronously. A partially built index is never
   /// used to bias retrieval toward whichever rows happened to finish first.
   Future<Map<String, double>> search(

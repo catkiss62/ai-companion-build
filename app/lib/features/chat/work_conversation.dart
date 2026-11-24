@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/agent/commission_session.dart';
+import '../../core/agent/commission_history_search.dart';
 import '../../core/agent/work_turn_details.dart';
 import '../../core/agent/commission_workspace.dart';
 import '../../core/ai/deepseek_client.dart';
@@ -23,6 +24,7 @@ class WorkConversation extends ChangeNotifier {
       await ModelUsageTelemetry.record(db, event);
     },
   );
+  final _historySearch = CommissionHistorySearch();
   GenerationCancellationToken? _token;
   bool _disposed = false;
   CommissionWorkspace? _workspace;
@@ -54,6 +56,7 @@ class WorkConversation extends ChangeNotifier {
 
   void clear() {
     if (busy) return;
+    _historySearch.clear();
     _workspace = null;
     _file = null;
     turns = [];
@@ -112,6 +115,7 @@ class WorkConversation extends ChangeNotifier {
         details: _details,
         onDetails: _update,
         previousTask: _file,
+        historySearch: _historySearch,
         recentContext: lookup,
         cancel: token,
         chatBusy: chatBusy,
@@ -146,6 +150,7 @@ class WorkConversation extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _historySearch.clear();
     stop();
     _client.close();
     super.dispose();

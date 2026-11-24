@@ -11,6 +11,7 @@ class WorkTurnDetails {
 
   String executionId = '';
   int rounds = 0;
+  String? researchEnd;
   final receipts = <Map<String, Object?>>[];
   final usage = <String, Map<String, int>>{};
 
@@ -24,6 +25,8 @@ class WorkTurnDetails {
     for (final key in ['error', 'saved', 'file', 'repository']) {
       if (result[key] is String) receipt[key] = result[key];
     }
+    if (result['matches'] case final List excerpts)
+      receipt['excerpts'] = excerpts.length;
     if (result['repositories'] case final List rows) {
       receipt['matches'] = rows.length;
     }
@@ -49,6 +52,7 @@ class WorkTurnDetails {
     if (endedAt != null) 'endedAt': endedAt,
     if (endedAt != null) 'elapsedMs': _clock.elapsedMilliseconds,
     'planningRounds': rounds,
+    if (researchEnd != null) 'researchEnd': researchEnd,
     'receipts': receipts,
     'usage': usage,
   };

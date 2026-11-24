@@ -1,4 +1,5 @@
 import 'commission_thread.dart';
+import 'commission_history_search.dart';
 import 'work_turn_details.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
@@ -37,6 +38,7 @@ class CommissionSession {
     WorkTurnDetails? details,
     void Function()? onDetails,
     String? previousTask,
+    CommissionHistorySearch? historySearch,
     bool recentContext = false,
     bool Function()? chatBusy,
     void Function(CommissionPhase)? onPhase,
@@ -58,11 +60,24 @@ class CommissionSession {
         .where((n) => n.endsWith('.md') && !n.startsWith('停用'))
         .toList();
     String? threadId;
+    final priorRepositories = <String>{};
     if (previousTask != null) {
       final rows = await workspace.conversation(previousTask);
       if (rows.isEmpty) throw StateError('委托记录已删除');
       threadId = CommissionThread.key(rows.last);
       context.addAll(CommissionThread.history(rows));
+      for (final row in rows) {
+        for (final item in (row['evidence'] as List? ?? []).whereType<Map>()) {
+          final repos = [
+            item,
+            ...(item['repositories'] as List? ?? []).whereType<Map>(),
+          ];
+          for (final e in repos) {
+            if (e['repository'] case final String repo)
+              priorRepositories.add(repo.toLowerCase());
+          }
+        }
+      }
       if (rows.last['state'] != 'completed' && rows.last['evidence'] != null) {
         context.add({
           'role': 'user',
@@ -209,6 +224,19 @@ class CommissionSession {
               context: context,
               supplement: catalog,
               workspace: workspace,
+              priorRepositories: priorRepositories,
+              searchHistory: previousTask == null
+                  ? null
+                  : (query, turn) async {
+                      final rows = await workspace.conversation(previousTask);
+                      return (historySearch ?? CommissionHistorySearch())
+                          .search(
+                            query,
+                            rows.where((r) => r['id'] != id).toList(),
+                            cancel,
+                            turn: turn,
+                          );
+                    },
               cancellation: cancel,
               onToolStart: (tool, target) {
                 activity.beginTool(tool, target);
@@ -235,6 +263,9 @@ class CommissionSession {
               },
             );
       cancel.throwIfCancelled();
+      activity.researchEnd = report['end'] as String?;
+      if (report['end'] == 'budget') reportStep('已到调研上限，整理已有依据与缺口');
+      if (report['end'] == 'evidence_incomplete') reportStep('部分依据未核实，整理已有资料');
       onPhase?.call(CommissionPhase.composing);
       reportStep('正在整理结果');
       final messages = <Map<String, Object?>>[
