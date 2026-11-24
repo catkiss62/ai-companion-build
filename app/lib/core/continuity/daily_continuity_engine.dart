@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 import '../models/daily_continuity.dart';
+import '../models/unfinished_thread.dart';
 import '../relationship/relationship_presentation.dart';
 
 class DailyContinuityRunResult {
@@ -113,6 +114,18 @@ class DailyContinuityEngine {
     }
   }
 
+  Future<List<UnfinishedThread>> _diaryThreads(
+    DateTime start, DateTime end,
+  ) async {
+    final sql = await db.database;
+    final rows = await sql.query('unfinished_threads',
+      where: 'status = ? AND created_at < ? AND updated_at >= ? AND updated_at < ?',
+      whereArgs: ['active', end.millisecondsSinceEpoch, start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+      orderBy: 'importance DESC, updated_at DESC, id ASC', limit: 1,
+    );
+    return rows.map(UnfinishedThread.fromDb).toList();
+  }
+
   Future<_DayRefreshResult> _refreshDay(
     DateTime dayStart, {
     required bool finalized,
@@ -192,7 +205,7 @@ class DailyContinuityEngine {
     }
 
     // Freeze a dated diary source even when the continuity card carries an older topic.
-    final datedThreads = await db.activeThreadsUpdatedBetween(dayStart, dayEnd);
+    final datedThreads = await _diaryThreads(dayStart, dayEnd);
     final storedThreads = [
       for (final thread in carriedThreads) thread.toJson(),
       for (final thread in datedThreads)
