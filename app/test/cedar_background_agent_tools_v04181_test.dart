@@ -201,15 +201,19 @@ void main() {
       apiKey: 'test',
       endpoint: DeepSeekClient.defaultEndpoint,
       gameId: 'duel',
-      instruction: '状态已经读取，轮到 companion',
+      instruction: '规划规则',
+      contextSections: const ['完整指南', '状态已经读取，轮到 companion'],
       acceptsAction: (action) => action == 'move',
     );
 
     expect(calls, 2);
     expect(result.action, 'move');
     expect(retries.single, isA<CedarAgentActionPlanningException>());
-    expect((requestBodies.first['messages'] as List), hasLength(1));
-    expect((requestBodies.last['messages'] as List), hasLength(2));
+    final first = requestBodies.first['messages'] as List;
+    final retry = requestBodies.last['messages'] as List;
+    expect(first.map((m) => m['content']), ['规划规则', '完整指南', '状态已经读取，轮到 companion']);
+    expect(retry.take(3), first);
+    expect(retry, hasLength(4));
     expect(requestBodies.first['thinking'], {'type': 'enabled'});
     expect(requestBodies.last['thinking'], {'type': 'disabled'});
     expect(requestBodies.first.containsKey('max_tokens'), isFalse);

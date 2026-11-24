@@ -2045,6 +2045,7 @@ class PreflightDiagnosticsService {
   Map<String, Object?> _modelUsageSummary(String raw) {
     final byLane = <String, Map<String, int>>{};
     final recentPromptShapes = <Map<String, Object?>>[];
+    final cedarRequests = <String, List<Map<String, Object?>>>{};
     var eventCount = 0;
     try {
       final decoded = jsonDecode(raw);
@@ -2076,6 +2077,14 @@ class PreflightDiagnosticsService {
               'at': (item['at'] as num?)?.toInt() ?? 0,
               'shape': _normalizeMap(shape),
             });
+            if (key == 'cedar_background_plan' || key == 'cedar_outcome') {
+              final samples = cedarRequests.putIfAbsent(key, () => []);
+              samples.add({...recentPromptShapes.last,
+                for (final field in ['input_tokens', 'output_tokens', 'cache_hit_tokens', 'cache_miss_tokens', 'cache_usage_available'])
+                  if (item.containsKey(field)) field: item[field],
+              });
+              if (samples.length > 8) samples.removeAt(0);
+            }
           }
         }
       }
@@ -2083,6 +2092,7 @@ class PreflightDiagnosticsService {
     return <String, Object?>{
       'eventCount': eventCount,
       'deepseekCacheAudit': ModelUsageTelemetry.cacheAudit(raw),
+      'recentCedarRequests': cedarRequests,
       'planningTasks': ModelUsageTelemetry.planningTasks(raw),
       'thirdChannelUsage': ModelUsageTelemetry.thirdChannelAudit(raw),
       'byLane': byLane,

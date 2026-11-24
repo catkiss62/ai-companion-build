@@ -224,6 +224,7 @@ class CedarAgentActionPlanner {
     required String endpoint,
     required String gameId,
     required String instruction,
+    List<String> contextSections = const [],
     required bool Function(String action) acceptsAction,
     bool Function(CedarAgentActionDecision decision)? acceptsDecision,
     String Function(CedarAgentActionDecision decision)? decisionProblem,
@@ -239,6 +240,7 @@ class CedarAgentActionPlanner {
           endpoint: endpoint,
           gameId: gameId,
           instruction: instruction,
+          contextSections: contextSections,
           correction: attempt == 1
               ? ''
               : '上一方案未形成可执行调用（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
@@ -281,6 +283,7 @@ class CedarAgentActionPlanner {
     required String endpoint,
     required String gameId,
     required String instruction,
+    required List<String> contextSections,
     required String correction,
     required bool thinking,
     GenerationCancellationToken? cancellationToken,
@@ -341,6 +344,7 @@ class CedarAgentActionPlanner {
       usageLane: 'cedar_background_plan',
       messages: <Map<String, Object?>>[
         <String, Object?>{'role': 'system', 'content': instruction},
+        for (final section in contextSections) {'role': 'system', 'content': section},
         if (correction.isNotEmpty)
           <String, Object?>{'role': 'user', 'content': correction},
       ],
@@ -2063,19 +2067,22 @@ $selectionCatalog''',
       },
       decisionProblem:(candidate)=>CedarExecutionRepair.issue(session,candidate.action,candidate.params),
       instruction: '''${CedarToyArcadeSkill.prompt}
-${readOnlyRecovery ? '当前定时任务仍有效，但远端等待未给next_call或唤醒时间。只从真实指南选择一次只读状态/规则查询，查清究竟应由谁行动及如何继续；不下注、不重开、不重放之前操作。' : ''}
 
 你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
-平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。
-
-${store.promptContext(session, state: state, playProtocol: playProtocol, includeRuleCorrections: true)}
+平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。''',
+      contextSections: [
+        store.guidePrompt(session, playProtocol),
+        '''
+${readOnlyRecovery ? '当前定时任务仍有效，但远端等待未给next_call或唤醒时间。只从真实指南选择一次只读状态/规则查询，查清究竟应由谁行动及如何继续；不下注、不重开、不重放之前操作。' : ''}
+${store.sessionPrompt(session, state: state, includeRuleCorrections: true)}
 
 $shareContext
 ${CedarExecutionRepair.prompt(session)}
 $dreamContext
 $conversationContext
-${arrangements.prompt}''',
+${arrangements.prompt}'''.trim(),
+      ],
     );
     scope.throwIfPreempted();
     await arrangementStore.completeReviewed(arrangements, decision.arrangementReviews);

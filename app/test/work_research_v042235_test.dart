@@ -159,4 +159,47 @@ void main() {
       expect(result['end'], 'evidence_incomplete');
     },
   );
+  test(
+    'saved complete README can be reused, and a request for current evidence fetches again',
+    () async {
+      for (final fresh in [false, true]) {
+        var calls = 0, plans = 0;
+        final result = await ResearchCommission.run(
+          goal: fresh ? '核对最新 README' : '沿用上次依据',
+          context: [],
+          priorRepositories: {'demo/a'},
+          savedReadmes: {'demo/a': 'saved text'},
+          cancellation: GenerationCancellationToken(),
+          progress: (_, __) {},
+          transport: MockClient((_) async {
+            calls++;
+            return http.Response('fresh text', 200);
+          }),
+          plan: (messages) async {
+            if (plans > 0)
+              expect(
+                messages.last['content'],
+                contains(fresh ? 'fresh text' : 'saved text'),
+              );
+            return (
+              content: '完成',
+              reasoning: '',
+              finishReason: 'stop',
+              toolCalls: plans++ == 0
+                  ? [
+                      DeepSeekToolCall(
+                        id: '1',
+                        name: ResearchCommission.read,
+                        arguments: '{"repository":"demo/a","use_saved":true}',
+                      ),
+                    ]
+                  : <DeepSeekToolCall>[],
+            );
+          },
+        );
+        expect(calls, fresh ? 1 : 0);
+        expect(result['verified_repositories'], contains('demo/a'));
+      }
+    },
+  );
 }

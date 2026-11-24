@@ -2379,6 +2379,21 @@ class CedarToyActivityStore {
     String playProtocol = '',
     bool includeRuleCorrections = false,
   }) {
+    return '${guidePrompt(session, playProtocol)}\n\n'
+        '${sessionPrompt(session, state: state, includeRuleCorrections: includeRuleCorrections)}';
+  }
+
+  String guidePrompt(CedarGameSession session, String playProtocol) => '''【完整真实指南 · 只授权 game=${session.gameId}】
+${session.guide}
+${playProtocol.trim().isEmpty ? '' : '【Cedar 实时玩家操作 schema】\n${playProtocol.trim()}'}
+${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
+游戏余额与规则：区分可下注的游戏币/筹码和兑换奖品所需的赢取额度。不要从筹码总数推断能够兑奖；需要时先查询当前余额、额度与奖品条件。规划与战报都沿用远端返回的名称和数值。规则未知时查指南，不把旧战报当规则。''';
+
+  String sessionPrompt(
+    CedarGameSession session, {
+    CedarToyActivityState? state,
+    bool includeRuleCorrections = false,
+  }) {
     final queued = state?.queuedSwitches.map((item) => item.targetGameId).join(',') ?? '';
     final notices = state?.notices
             .map((item) => '${item.sourceGameId}->${item.targetGameId}:${item.suggestedAction}')
@@ -2402,11 +2417,6 @@ class CedarToyActivityStore {
             '${event.action.isEmpty ? 'event' : event.action}:${_bounded(event.summary, 420)}')
         .join(' | ');
     return '''
-【完整真实指南 · 只授权 game=${session.gameId}】
-${session.guide}
-${playProtocol.trim().isEmpty ? '' : '【Cedar 实时玩家操作 schema】\n${playProtocol.trim()}'}
-${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
-
 【CEDAR_ACTIVITY_SESSION · REAL LOCAL STATE】
 game=${session.gameId}
 mode=${session.mode.key}
@@ -2425,7 +2435,6 @@ latest_platform_event=$latestPlatformEvent
 recent_submitted_inputs=${session.events.where((e) => e.inputJson.isNotEmpty).toList().reversed.take(6).map((e) => '${e.action}: ${e.inputJson}').join(' | ')}
 last_action=${session.lastAction}
 last_outcome=${session.lastOutcome}
-游戏余额与规则：区分可下注的游戏币/筹码和兑换奖品所需的赢取额度。不要从筹码总数推断能够兑奖；需要时先查询当前余额、额度与奖品条件。规划与战报都沿用远端返回的名称和数值。规则未知时查指南，不把旧战报当规则。
 viewer_url=${session.viewerUrl}
 queued_switches=$queued
 cross_game_notices=$notices

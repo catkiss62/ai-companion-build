@@ -61,6 +61,7 @@ class CommissionSession {
         .toList();
     String? threadId;
     final priorRepositories = <String>{};
+    final savedReadmes = <String, String>{};
     if (previousTask != null) {
       final rows = await workspace.conversation(previousTask);
       if (rows.isEmpty) throw StateError('委托记录已删除');
@@ -68,6 +69,21 @@ class CommissionSession {
       context.addAll(CommissionThread.history(rows));
       for (final row in rows) {
         for (final item in (row['evidence'] as List? ?? []).whereType<Map>()) {
+          final repo = item['repository'];
+          final excerpt = item['readme_excerpt'];
+          if (repo is String &&
+              excerpt is String &&
+              (item['offset'] ?? 0) == 0) {
+            final key = repo.toLowerCase();
+            savedReadmes.remove(key);
+            if (item['next_offset'] == null &&
+                item['limit'] == null &&
+                item['offset'] == 0 &&
+                excerpt.isNotEmpty &&
+                excerpt.length <= 4200) {
+              savedReadmes[key] = excerpt;
+            }
+          }
           final repos = [
             item,
             ...(item['repositories'] as List? ?? []).whereType<Map>(),
@@ -148,7 +164,17 @@ class CommissionSession {
               )
             : effort,
         messages: messages,
-        tools: finalAnswer ? const [] : ResearchCommission.tools,
+        tools: finalAnswer
+            ? const []
+            : previousTask != null
+            ? ResearchCommission.tools
+            : ResearchCommission.tools
+                  .where(
+                    (t) =>
+                        (t['function'] as Map)['name'] !=
+                        ResearchCommission.recall,
+                  )
+                  .toList(),
         cancellationToken: cancel,
         finalReplyRoute: route,
         thirdChannelSecure: config,
@@ -225,6 +251,7 @@ class CommissionSession {
               supplement: catalog,
               workspace: workspace,
               priorRepositories: priorRepositories,
+              savedReadmes: savedReadmes,
               searchHistory: previousTask == null
                   ? null
                   : (query, turn) async {

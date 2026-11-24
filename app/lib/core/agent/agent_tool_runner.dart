@@ -1182,14 +1182,17 @@ class AgentToolRunner {
             'role': 'system',
             'content': '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
 {"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0,"action_accepted":true,"goal_satisfied":false}
-action_accepted判断游戏是否实际接受本次动作，通信返回正常不等于动作成功。goal_satisfied只在用户本轮完整目标已有真实证据时为true，查询/恢复标志不等于完成。用户目标：$latestUserText；本机参数：${jsonEncode(params)}。
+action_accepted判断游戏是否实际接受本次动作，通信返回正常不等于动作成功。goal_satisfied只在用户本轮完整目标已有真实证据时为true，查询/恢复标志不等于完成。
 不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
-${CedarLiveSharePolicy.judgement}
+${CedarLiveSharePolicy.judgement}''',
+          },
+          {'role': 'system', 'content': '【完整指南】\n$guide'},
+          {
+            'role': 'system',
+            'content': '''用户目标：$latestUserText；本机参数：${jsonEncode(params)}。
 $shareContext
 game=$game
 action=$action
-【完整指南】
-$guide
 【真实 Outcome】
 ${CedarToyClient.redactSecrets(outcome.text)}''',
           },
