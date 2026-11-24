@@ -19,7 +19,7 @@ class CommissionSession {
       RegExp(r'(工作区|委托|调研报告|插件报告|上次.*调研|上次.*项目)').hasMatch(text) &&
       RegExp(r'(记得|还在|进度|刚才|继续|上次|之前|查到|做到|报告|结果|哪些|什么)').hasMatch(text);
   static bool followup(String text) => RegExp(
-    r'^(那|这个|那个|第[一二三四五六七八九十0-9]|上一个|下一个|刚才|继续|接着|还有哪些)',
+    r'^(?:那[，, ]*)?(?:第[一二三四五六七八九十0-9]+个|上一个|下一个|刚才(?:查|找|读|说的项目)|(?:这个|那个|还有哪些)(?:项目|仓库|插件|报告|工具)|(?:继续|接着)(?:查|搜|找|筛|调研))',
   ).hasMatch(text.trim());
 
   static Future<String> run({

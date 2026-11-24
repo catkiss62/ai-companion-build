@@ -1,3 +1,8 @@
+import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:ai_companion_localfirst/core/agent/commission_session.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
@@ -10,6 +15,65 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  sqfliteFfiInit();
+
+  test(
+    'a completed commission and passive follow-up never enqueue companion memory',
+    () async {
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      addTearDown(db.closeForTesting);
+      FlutterSecureStorage.setMockInitialValues({
+        'deepseek_api_key': 'fixture',
+      });
+      final config = SecureConfig.forTesting(const FlutterSecureStorage());
+      final client = DeepSeekClient(
+        streamClientFactory: () => MockClient(
+          (r) async => http.Response(
+            'data: {"choices":[{"delta":{"content":"work result"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+            200,
+          ),
+        ),
+      );
+      addTearDown(client.close);
+      final directory = await Directory.systemTemp.createTemp();
+      addTearDown(() => directory.delete(recursive: true));
+      final workspace = CommissionWorkspace(directory: directory);
+      Future<List<int>> counts() async {
+        final handle = await db.database;
+        return [
+          for (final table in ['messages', 'generation_jobs', 'post_turn_jobs'])
+            (await handle.rawQuery(
+                  'SELECT COUNT(*) AS n FROM $table',
+                )).single['n']
+                as int,
+        ];
+      }
+
+      final before = await counts();
+      Future<String> turn(bool recent) => CommissionSession.run(
+        workspace: workspace,
+        goal: recent ? '第二个呢' : '整理一下',
+        client: client,
+        db: db,
+        config: config,
+        cancel: GenerationCancellationToken(),
+        progress: (_) {},
+        recentContext: recent,
+      );
+      expect(await turn(false), 'work result');
+      final name = (await workspace.list()).single;
+      final initial = await workspace.read(name);
+      expect(await turn(true), 'work result');
+      expect(await workspace.read(name), initial);
+      expect(await counts(), before);
+    },
+  );
+  test('ordinary conversation stays out of work follow-ups', () {
+    expect(CommissionSession.followup('那我们去游戏厅玩吧'), isFalse);
+    expect(CommissionSession.followup('那第二个适合我手机吗'), isTrue);
+    expect(CommissionSession.followup('这个项目能离线用吗'), isTrue);
+  });
   late Directory dir;
   late CommissionWorkspace ws;
   setUp(() async {
