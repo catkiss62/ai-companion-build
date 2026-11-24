@@ -1,7 +1,7 @@
 status=success
-run_id=45347791599
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45347791599
-head_sha=6de3abc59b4b30e3f602d9f8fda398a9be603c25
+run_id=45376276494
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45376276494
+head_sha=325bafd186eef82cf036a3c2a00cdc579ab0462c
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-910570e9a6ea8e60beca92c819c050222bc95f7c0d23c15c1f370d4888032632  AI-Companion-v0.42.231-475-Whale-AR-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3833ac4fda46cddb91f8
+9922abfd334f207e6b2957a223e216c5d24dae4a6aab17e48a7665ced1eb41d1  AI-Companion-v0.42.232-476-Work-Mode-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0ced950ab05c5db574dd
