@@ -446,6 +446,8 @@ class ResearchCommission {
                   ? '已读取 ${result['file']}'
                   : call.name == recall
                   ? '找到 ${(result['matches'] as List).length} 段工作原文'
+                  : result['source'] != null && call.name == read
+                  ? '已沿用本会话读过的 ${result['repository']} README'
                   : call.name == read
                   ? '已读取 ${result['repository']} 的 README'
                   : '找到 ${(result['repositories'] as List).length} 个候选项目',

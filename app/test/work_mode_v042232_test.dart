@@ -97,6 +97,17 @@ void main() {
       expect(requests.last, contains('原回答'));
       expect(requests.last, isNot(contains('无关问题')));
       expect((await ws.conversations()).length, 2);
+      List names(String request) => (jsonDecode(request)['tools'] as List)
+          .map((t) => t['function']['name']).toList();
+      expect(names(requests.first), contains('work_history_search'));
+      requests.clear();
+      await CommissionSession.run(
+        workspace: ws, goal: '新任务', client: client, db: db, config: config,
+        cancel: GenerationCancellationToken(), progress: (_) {},
+      );
+      expect(names(requests.first), isNot(contains('work_history_search')));
+      expect(names(requests.first), contains('github_read_readme'));
+
     },
   );
 
