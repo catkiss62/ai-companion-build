@@ -92,6 +92,7 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
   late final StickerPackStorage _stickerStorage =
       StickerPackStorage(db: AppDatabase.instance);
   final LayerLink _composerToolsLink = LayerLink();
+  final _workFocus = FocusNode();
   final _workInput = TextEditingController();
   late final _work = WorkConversation(controller.db, controller.secureConfig,
     () => controller.generationActive);
@@ -844,6 +845,7 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
     _recall.dispose();
     _recallInput.dispose();
     _work.dispose();
+    _workFocus.dispose();
     _workInput.dispose();
     _observedRoute?.secondaryAnimation?.removeStatusListener(_wordSliceRouteStatus);
     _wordSlice.dispose();
@@ -1516,11 +1518,23 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
 
     return ChatDialogueColorScope(
       option: _dialogueColor,
-      child: Stack(fit: StackFit.expand,children:[Column(
-        children: [
-        _topBar(context),
-        Expanded(
-          child: LayoutBuilder(
+      child: Column(children: [
+        if (_showWork)
+          ListenableBuilder(listenable: _visibleWork, builder: (_, _) => WorkHeader(
+            work: _visibleWork, input: _visibleInput, close: closeWorkPanel, history: _chooseWork,
+            create: () {
+              if (_readingRecall) {
+                if (_work.busy) {setState(() => _readingRecall = false); return;}
+                setState(() => _readingRecall = false);
+              }
+              _work.clear();
+              _workInput.clear();
+              _workFocus.requestFocus();
+            },
+          ))
+        else _topBar(context),
+        Expanded(child: Stack(fit: StackFit.expand, children: [
+          LayoutBuilder(
             builder: (context, constraints) {
               final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
               _caicaiStableHeight = _caicaiViewport.resolve(width: constraints.maxWidth,
@@ -1713,14 +1727,8 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
               );
             },
           ),
-        ),
-        ],
-      ),
         if (_showWork) Positioned.fill(child:ListenableBuilder(listenable:_visibleWork,builder:(_,_) =>
-          WorkPanel(work:_visibleWork,input:_visibleInput,onClose:closeWorkPanel,onHistory:_chooseWork,
-            onNew:(){
-              if (_readingRecall) {setState(()=>_readingRecall=false);} else {_work.clear();_workInput.clear();}
-            },onSend:(){
+          WorkPanel(key: ObjectKey(_visibleWork),work:_visibleWork,input:_visibleInput,focus:_workFocus,onSend:(){
               final text=_visibleInput.text.trim();
               if(text.isEmpty || _visibleWork.busy)return;
               _visibleInput.clear();
@@ -1728,7 +1736,8 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
             }))),
         if (widget.active && _appResumed && _orbEnabled)
           Positioned.fill(child:ListenableBuilder(listenable:_visibleWork,builder:(_,_) =>
-            WorkOrb(phase:_visibleWork.phase,open:_showWork,toggle:(){if(!closeWorkPanel())_openWork();}))),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: WorkOrb(phase:_visibleWork.phase,open:_showWork,toggle:(){if(!closeWorkPanel())_openWork();})))),
+        ])),
       ]),
     );
   }

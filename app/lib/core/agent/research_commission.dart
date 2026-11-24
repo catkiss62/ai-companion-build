@@ -81,6 +81,8 @@ class ResearchCommission {
     plan,
     required GenerationCancellationToken cancellation,
     required void Function(String text, bool? success) progress,
+    void Function(String tool, String target)? onToolStart,
+    void Function(Map<String, Object?> result)? onToolResult,
     Future<void> Function(List<Map<String, Object?>>)? checkpoint,
     CommissionWorkspace? workspace,
     http.Client? transport,
@@ -145,8 +147,23 @@ class ResearchCommission {
             result = {'error': 'tool_budget'};
           } else {
             calls++;
+            Object? args;
             try {
-              final args = jsonDecode(call.arguments);
+              args = jsonDecode(call.arguments);
+            } on FormatException {
+              // Keep malformed calls visible in the execution history.
+            }
+            final target = args is Map
+                ? (args['name'] ??
+                      args['title'] ??
+                      args['repository'] ??
+                      args['query'])
+                : null;
+            onToolStart?.call(
+              call.name,
+              target is String ? _clip(target, 256) : '',
+            );
+            try {
               if (args is Map &&
                   workspace != null &&
                   (call.name == 'workspace_read' ||
@@ -270,6 +287,7 @@ class ResearchCommission {
               cancellation.throwIfCancelled();
               result = {'error': 'github_unavailable'};
             }
+            onToolResult?.call(result);
             evidence.add(result);
             await checkpoint?.call(evidence);
             progress(

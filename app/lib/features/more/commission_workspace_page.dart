@@ -15,6 +15,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
   CommissionWorkspace? store;
   List<String> files = [];
   final labels = <String, String>{};
+  final latestAt = <String, int>{};
   bool busy = true;
   String? error;
   @override
@@ -34,10 +35,12 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       store = await CommissionWorkspace.open();
       files = (await store!.list()).reversed.toList();
       labels.clear();
+      latestAt.clear();
       final threads = await store!.conversations();
       for (final rows in threads.values) {
         final latest = '任务-${rows.last['id']}.json';
         labels[latest] = rows.first['goal'] as String;
+        latestAt[latest] = rows.last['at'] as int? ?? 0;
         final older = rows
             .take(rows.length - 1)
             .map((r) => '任务-${r['id']}.json')
@@ -57,7 +60,9 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
     }
     final raw = await store!.read(name);
     final task = name.endsWith('.json');
-    final row = task ? jsonDecode(raw) as Map : null;
+    final row = task && labels.containsKey(name)
+        ? jsonDecode(raw) as Map
+        : null;
     final initial = row == null
         ? raw
         : (await store!.conversation(
@@ -131,84 +136,107 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('工作区'),
-      actions: [
-        PopupMenuButton<String>(
-          enabled: !busy,
-          onSelected: (v) => run(() async {
-            if (v == 'choose') await CommissionWorkspace.choose();
-            if (v == 'default') await CommissionWorkspace.useDefault();
-            if (v == 'export') await WorkspaceArchive.export(store!);
-            if (v == 'import') {
-              final msg = await WorkspaceArchive.import(store!);
-              if (mounted && msg.isNotEmpty)
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(msg)));
-            }
-          }),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'choose', child: Text('选择手机文件夹')),
-            PopupMenuItem(value: 'default', child: Text('打开默认工作区')),
-            PopupMenuItem(value: 'export', child: Text('导出工作区')),
-            PopupMenuItem(value: 'import', child: Text('合并导入工作区')),
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 3,
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('工作区'),
+        bottom: const TabBar(
+          tabs: [
+            Tab(text: '对话'),
+            Tab(text: '文件'),
+            Tab(text: '技能'),
           ],
         ),
-      ],
-    ),
-    body: busy
-        ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            children: [
-              if (error != null)
-                ListTile(title: Text(error!), onTap: () => run(() async {})),
-              if (files.isEmpty && error == null)
-                const ListTile(
-                  title: Text('还没有工作文件'),
-                  subtitle: Text('在聊天页点鲸尾，即可开始工作。'),
-                ),
-              for (final name in files)
-                ListTile(
-                  leading: Icon(
-                    name.endsWith('.json')
-                        ? Icons.history
-                        : name.contains('技能-')
-                        ? Icons.build_outlined
-                        : Icons.description_outlined,
-                  ),
-                  title: Text(
-                    labels[name] ?? name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => run(() => inspect(name)),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (v) => run(() async {
-                      if (v == 'remove') {
-                        await remove(name);
-                        return;
-                      }
-                      final target = name.startsWith('停用')
-                          ? name.substring(2)
-                          : '停用$name';
-                      if (files.contains(target))
-                        throw const FormatException('已有同名技能');
-                      await store!.write(target, await store!.read(name));
-                      await store!.remove(name);
-                    }),
-                    itemBuilder: (_) => [
-                      if (name.contains('技能-'))
-                        PopupMenuItem(
-                          value: 'toggle',
-                          child: Text(name.startsWith('停用') ? '启用' : '停用'),
-                        ),
-                      const PopupMenuItem(value: 'remove', child: Text('删除')),
-                    ],
-                  ),
-                ),
+        actions: [
+          PopupMenuButton<String>(
+            enabled: !busy,
+            onSelected: (v) => run(() async {
+              if (v == 'choose') await CommissionWorkspace.choose();
+              if (v == 'default') await CommissionWorkspace.useDefault();
+              if (v == 'export') await WorkspaceArchive.export(store!);
+              if (v == 'import') {
+                final msg = await WorkspaceArchive.import(store!);
+                if (mounted && msg.isNotEmpty)
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(msg)));
+              }
+            }),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'choose', child: Text('选择手机文件夹')),
+              PopupMenuItem(value: 'default', child: Text('打开默认工作区')),
+              PopupMenuItem(value: 'export', child: Text('导出工作区')),
+              PopupMenuItem(value: 'import', child: Text('合并导入工作区')),
             ],
           ),
+        ],
+      ),
+      body: busy
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              children: [
+                group(
+                  files.where((n) => n.endsWith('.json')).toList()..sort(
+                    (a, b) => (latestAt[b] ?? 0).compareTo(latestAt[a] ?? 0),
+                  ),
+                  '暂无工作对话',
+                ),
+                group(
+                  files.where((n) => !n.endsWith('.json') && !isSkill(n)),
+                  '暂无工作文件',
+                ),
+                group(files.where(isSkill), '暂无私人技能'),
+              ],
+            ),
+    ),
+  );
+  bool isSkill(String name) =>
+      name.startsWith('技能-') || name.startsWith('停用技能-');
+
+  Widget group(Iterable<String> entries, String empty) => ListView(
+    children: [
+      if (error != null)
+        ListTile(title: Text(error!), onTap: () => run(() async {})),
+      if (entries.isEmpty && error == null) ListTile(title: Text(empty)),
+      for (final name in entries)
+        ListTile(
+          leading: Icon(
+            name.endsWith('.json')
+                ? Icons.history
+                : isSkill(name)
+                ? Icons.build_outlined
+                : Icons.description_outlined,
+          ),
+          title: Text(
+            labels[name] ?? name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => run(() => inspect(name)),
+          trailing: PopupMenuButton<String>(
+            onSelected: (v) => run(() async {
+              if (v == 'remove') {
+                await remove(name);
+                return;
+              }
+              final target = name.startsWith('停用')
+                  ? name.substring(2)
+                  : '停用$name';
+              if (files.contains(target)) throw const FormatException('已有同名技能');
+              await store!.write(target, await store!.read(name));
+              await store!.remove(name);
+            }),
+            itemBuilder: (_) => [
+              if (isSkill(name))
+                PopupMenuItem(
+                  value: 'toggle',
+                  child: Text(name.startsWith('停用') ? '启用' : '停用'),
+                ),
+              const PopupMenuItem(value: 'remove', child: Text('删除')),
+            ],
+          ),
+        ),
+    ],
   );
 }

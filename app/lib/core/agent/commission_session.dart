@@ -1,4 +1,5 @@
 import 'commission_thread.dart';
+import 'work_turn_details.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
@@ -33,6 +34,8 @@ class CommissionSession {
     required SecureConfig config,
     required GenerationCancellationToken cancel,
     required void Function(String) progress,
+    WorkTurnDetails? details,
+    void Function()? onDetails,
     String? previousTask,
     bool recentContext = false,
     bool Function()? chatBusy,
@@ -46,6 +49,8 @@ class CommissionSession {
     final model = await FirstChannelModel.read(db);
     final effort = await FirstChannelModel.readEffort(db);
     final id = const Uuid().v7();
+    final activity = details ?? WorkTurnDetails();
+    activity.executionId = id;
     final name = '任务-$id.json';
     final files = await workspace.list();
     final context = <Map<String, Object?>>[];
@@ -87,7 +92,8 @@ class CommissionSession {
       'at': DateTime.now().millisecondsSinceEpoch,
       'state': 'running',
     };
-    Future<void> save() => workspace.write(name, jsonEncode(record));
+    Future<void> save() =>
+        workspace.write(name, jsonEncode({...record, ...activity.snapshot()}));
     cancel.throwIfCancelled();
     if (!recentContext) {
       await save();
@@ -199,7 +205,17 @@ class CommissionSession {
               context: context,
               workspace: workspace,
               cancellation: cancel,
+              onToolStart: (tool, target) {
+                activity.beginTool(tool, target);
+                onPhase?.call(CommissionPhase.tool);
+                onDetails?.call();
+              },
+              onToolResult: (result) {
+                activity.finishTool(result);
+                onDetails?.call();
+              },
               plan: (messages) {
+                activity.rounds++;
                 onPhase?.call(CommissionPhase.planning);
                 reportStep('正在规划');
                 return request(messages);

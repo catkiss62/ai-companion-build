@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/agent/commission_session.dart';
+import '../../core/agent/work_turn_details.dart';
 import '../../core/agent/commission_workspace.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/generation_cancellation.dart';
@@ -17,12 +18,30 @@ class WorkConversation extends ChangeNotifier {
   final bool Function() chatBusy;
   late final _client = DeepSeekClient(
     abortWhen: () async => !await db.brainWorkAllowed(),
-    onUsage: (event) => ModelUsageTelemetry.record(db, event),
+    onUsage: (event) async {
+      if (_details.addUsage(event)) _update();
+      await ModelUsageTelemetry.record(db, event);
+    },
   );
   GenerationCancellationToken? _token;
   bool _disposed = false;
   CommissionWorkspace? _workspace;
   String? _file;
+  WorkTurnDetails _details = WorkTurnDetails();
+  Map<String, dynamic> get currentTurn => {
+    'id': _details.executionId,
+    'goal': goal,
+    'answer': answer,
+    'steps': steps,
+    'status': status,
+    ..._details.snapshot(),
+  };
+  Future<String> readDocument(String name) async {
+    final workspace = _workspace;
+    if (workspace == null || !name.endsWith('.md')) throw StateError('文件不可用');
+    return workspace.read(name);
+  }
+
   List<Map<String, dynamic>> turns = [];
   List<String> steps = [];
   String goal = '', answer = '', status = '';
@@ -66,20 +85,14 @@ class WorkConversation extends ChangeNotifier {
     _token = token;
     phase = WorkPhase.planning;
     if (goal.isNotEmpty && !lookup) {
-      turns = [
-        ...turns,
-        {
-          'goal': goal,
-          'answer': answer.isEmpty ? status : answer,
-          'steps': steps,
-        },
-      ];
+      turns = [...turns, currentTurn];
     }
     if (lookup) {
       turns = [];
       _file = null;
       _workspace = null;
     }
+    _details = WorkTurnDetails();
     steps = [];
     goal = text.trim();
     answer = '';
@@ -96,6 +109,8 @@ class WorkConversation extends ChangeNotifier {
         client: _client,
         config: config,
         db: db,
+        details: _details,
+        onDetails: _update,
         previousTask: _file,
         recentContext: lookup,
         cancel: token,

@@ -1,6 +1,6 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
-import '../../core/platform/android_bridge.dart';
+import 'work_markdown.dart';
 import 'work_conversation.dart';
 
 class WhaleTail extends StatelessWidget {
@@ -84,182 +84,341 @@ class _WorkOrbState extends State<WorkOrb> {
   );
 }
 
+class WorkHeader extends StatelessWidget {
+  const WorkHeader({
+    super.key,
+    required this.work,
+    required this.input,
+    required this.close,
+    required this.history,
+    required this.create,
+  });
+  final WorkConversation work;
+  final TextEditingController input;
+  final VoidCallback close, history, create;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = work.turns.firstOrNull?['goal'] as String? ?? work.goal;
+    return ColoredBox(
+      color: workSurface,
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: '返回聊天',
+              onPressed: close,
+              icon: const Icon(Icons.arrow_back, color: workMuted, size: 20),
+            ),
+            Expanded(
+              child: Text(
+                title.isEmpty ? '工作模式' : title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: workInk,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            ValueListenableBuilder(
+              valueListenable: input,
+              builder: (_, value, _) => IconButton(
+                tooltip: '新对话',
+                onPressed: work.busy || (title.isEmpty && value.text.isEmpty)
+                    ? null
+                    : create,
+                color: workMuted,
+                disabledColor: workLine,
+                icon: const Icon(Icons.add_comment_outlined, size: 20),
+              ),
+            ),
+            IconButton(
+              tooltip: '工作区',
+              onPressed: history,
+              icon: const Icon(
+                Icons.folder_open_outlined,
+                color: workMuted,
+                size: 21,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class WorkPanel extends StatefulWidget {
   const WorkPanel({
     super.key,
     required this.work,
     required this.input,
-    required this.onClose,
-    required this.onHistory,
-    required this.onNew,
+    required this.focus,
     required this.onSend,
   });
   final WorkConversation work;
   final TextEditingController input;
-  final VoidCallback onClose, onHistory, onNew, onSend;
+  final FocusNode focus;
+  final VoidCallback onSend;
   @override
   State<WorkPanel> createState() => _WorkPanelState();
 }
 
-class _WorkPanelState extends State<WorkPanel> {
+class _WorkPanelState extends State<WorkPanel>
+    with SingleTickerProviderStateMixin {
+  late final tabs = TabController(length: 2, vsync: this);
   final scroll = ScrollController();
   bool following = true;
+  String lastUpdate = '';
+
   @override
   void dispose() {
+    tabs.dispose();
     scroll.dispose();
     super.dispose();
   }
 
+  Future<void> openFile(String name) async {
+    try {
+      final text = await widget.work.readDocument(name);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            backgroundColor: workSurface,
+            appBar: AppBar(
+              backgroundColor: workSurface,
+              foregroundColor: workInk,
+              title: Text(name, style: const TextStyle(fontSize: 16)),
+            ),
+            body: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [WorkMarkdown(text)],
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法读取此工作区文件')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final work = widget.work, colors = Theme.of(context).colorScheme;
-    final rows = [
-      ...work.turns,
-      if (work.goal.isNotEmpty)
-        {
-          'goal': work.goal,
-          'answer': work.answer,
-          'steps': work.steps,
-          'status': work.status,
-        },
-    ];
-    if (following)
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && scroll.hasClients && following)
-          scroll.jumpTo(scroll.position.maxScrollExtent);
-      });
+    final work = widget.work;
+    final rows = [...work.turns, if (work.goal.isNotEmpty) work.currentTurn];
+    final update =
+        '${rows.length}/${rows.lastOrNull?['id']}/${work.status}/${work.goal}';
+    if (update != lastUpdate) {
+      lastUpdate = update;
+      if (following)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && scroll.hasClients && following)
+            scroll.jumpTo(scroll.position.maxScrollExtent);
+        });
+    }
+    final total = _reportedTokens(rows);
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 13, sigmaY: 13),
         child: ColoredBox(
-          color: colors.surface.withValues(alpha: .80),
+          color: workSurface.withValues(alpha: .92),
           child: Column(
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: '返回聊天',
-                    onPressed: widget.onClose,
-                    icon: const Icon(Icons.arrow_back),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '工作模式',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '新对话',
-                    onPressed: work.busy ? null : widget.onNew,
-                    icon: const Icon(Icons.note_add_outlined),
-                  ),
-                  IconButton(
-                    tooltip: '工作区',
-                    onPressed: widget.onHistory,
-                    icon: const Icon(Icons.folder_open_outlined),
-                  ),
-                ],
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: NotificationListener<ScrollUpdateNotification>(
-                  onNotification: (n) {
-                    if (n.dragDetails != null)
-                      following = n.metrics.extentAfter < 48;
-                    return false;
-                  },
-                  child: ListView.builder(
-                    controller: scroll,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                    itemCount: rows.length,
-                    itemBuilder: (context, index) {
-                      final r = rows[index];
-                      final steps =
-                          (r['steps'] as List?)?.whereType<String>().toList() ??
-                          [];
-                      final answer = r['answer'] as String? ?? '';
-                      final status =
-                          r['status'] as String? ??
-                          (r['state'] == 'stopped' ? '已停止' : '本轮尚未交付');
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: colors.secondaryContainer,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: SelectableText(r['goal'] as String),
-                              ),
-                            ),
-                            if (steps.isNotEmpty)
-                              ExpansionTile(
-                                key: PageStorageKey(
-                                  'work-$index-${r['id'] ?? r['goal']}',
-                                ),
-                                tilePadding: EdgeInsets.zero,
-                                title: Text(
-                                  answer.isEmpty ? steps.last : '工作过程',
-                                  style: Theme.of(context).textTheme.labelLarge,
-                                ),
-                                children: [
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: SelectableText(steps.join('\n')),
-                                  ),
-                                ],
-                              ),
-                            if (answer.isNotEmpty)
-                              _WorkText(answer)
-                            else if (steps.isEmpty || steps.last != status)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Text(status),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TabBar(
+                  controller: tabs,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  labelColor: workAccent,
+                  unselectedLabelColor: workMuted,
+                  indicatorColor: workAccent,
+                  dividerColor: workLine,
+                  tabs: const [
+                    Tab(height: 39, text: '对话'),
+                    Tab(height: 39, text: '轨迹'),
+                  ],
                 ),
               ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+              Expanded(
+                child: TabBarView(
+                  controller: tabs,
+                  children: [
+                    NotificationListener<ScrollUpdateNotification>(
+                      onNotification: (n) {
+                        if (n.depth == 0 && n.dragDetails != null)
+                          following = n.metrics.extentAfter < 64;
+                        return false;
+                      },
+                      child: ListView.builder(
+                        controller: scroll,
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                        itemCount: rows.length,
+                        itemBuilder: (_, i) {
+                          final row = rows[i];
+                          final answer = row['answer']?.toString() ?? '';
+                          final saved = _receipts(
+                            row,
+                          ).map((e) => e['saved']).whereType<String>().toSet();
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                      left: 32,
+                                      bottom: 12,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 13,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: workRaised,
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: SelectableText(
+                                      row['goal']?.toString() ?? '',
+                                      style: const TextStyle(
+                                        color: workInk,
+                                        fontSize: 15,
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (answer.isNotEmpty)
+                                  WorkMarkdown(answer)
+                                else
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: () => tabs.animateTo(1),
+                                      icon: const Icon(
+                                        Icons.timeline,
+                                        size: 16,
+                                      ),
+                                      label: Text(_status(row)),
+                                    ),
+                                  ),
+                                for (final file in saved)
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: () => openFile(file),
+                                      icon: const Icon(
+                                        Icons.description_outlined,
+                                        size: 17,
+                                      ),
+                                      label: Text(file),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                      itemCount: rows.length,
+                      itemBuilder: (_, i) => _TurnTrace(
+                        row: rows[rows.length - i - 1],
+                        number: rows.length - i,
+                        live: i == 0 && work.busy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 3, 12, 7),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: workRaised,
+                    borderRadius: BorderRadius.circular(19),
+                    border: Border.all(color: workLine),
+                  ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(
                         child: TextField(
                           controller: widget.input,
+                          focusNode: widget.focus,
                           minLines: 1,
                           maxLines: 4,
+                          cursorColor: workAccent,
+                          style: const TextStyle(
+                            color: workInk,
+                            fontSize: 15,
+                            height: 1.4,
+                          ),
                           decoration: const InputDecoration(
                             hintText: '交给小鲸鱼做什么？',
-                            border: OutlineInputBorder(),
+                            hintStyle: TextStyle(color: workMuted),
+                            filled: false,
+                            contentPadding: EdgeInsets.fromLTRB(14, 12, 4, 12),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        tooltip: work.busy ? '停止任务' : '发送工作消息',
-                        onPressed: work.busy ? work.stop : widget.onSend,
-                        icon: Icon(
-                          work.busy ? Icons.stop_rounded : Icons.send_rounded,
+                      ValueListenableBuilder(
+                        valueListenable: widget.input,
+                        builder: (_, value, _) => IconButton(
+                          tooltip: work.busy ? '停止任务' : '发送工作消息',
+                          color: workAccent,
+                          disabledColor: workMuted.withValues(alpha: .4),
+                          onPressed: work.busy
+                              ? work.stop
+                              : value.text.trim().isEmpty
+                              ? null
+                              : () {
+                                  following = true;
+                                  tabs.animateTo(0);
+                                  widget.onSend();
+                                },
+                          icon: Icon(
+                            work.busy
+                                ? Icons.stop_circle_outlined
+                                : Icons.arrow_circle_up,
+                            size: 29,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+              if (rows.isNotEmpty)
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${rows.length} 轮对话  ·  ${total == null ? "Token 未回报" : "已回报 $total Token"}',
+                        style: const TextStyle(color: workMuted, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -268,75 +427,149 @@ class _WorkPanelState extends State<WorkPanel> {
   }
 }
 
-class _WorkText extends StatelessWidget {
-  const _WorkText(this.text);
-  final String text;
+String _status(Map row) =>
+    row['status']?.toString() ??
+    switch (row['state']) {
+      'completed' => '已完成',
+      'stopped' => '已停止',
+      _ => '本轮尚未交付',
+    };
+
+List<Map> _receipts(Map row) =>
+    (row['receipts'] as List? ?? row['evidence'] as List? ?? const [])
+        .whereType<Map>()
+        .toList();
+
+int? _reportedTokens(List<Map> rows) {
+  int? total;
+  for (final row in rows) {
+    for (final lane in (row['usage'] as Map? ?? {}).values.whereType<Map>()) {
+      total =
+          (total ?? 0) +
+          (lane['input'] as int? ?? 0) +
+          (lane['output'] as int? ?? 0) +
+          (lane['reasoning'] as int? ?? 0);
+    }
+  }
+  return total;
+}
+
+class _TurnTrace extends StatelessWidget {
+  const _TurnTrace({
+    required this.row,
+    required this.number,
+    required this.live,
+  });
+  final Map row;
+  final int number;
+  final bool live;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final links = <String>{};
-    bool code = false;
-    final lines = <InlineSpan>[];
-    final inline = RegExp(
-      r'\*\*(.+?)\*\*|`([^`]+)`|\[([^\]]+)\]\((https?://[^\s)]+)\)|(https?://[^\s<>）)]+)',
-    );
-    for (final line in text.split('\n')) {
-      if (line.trimLeft().startsWith('```')) {
-        code = !code;
-        continue;
-      }
-      if (code) {
-        lines.add(
-          TextSpan(
-            text: '$line\n',
-            style: const TextStyle(fontFamily: 'monospace'),
-          ),
-        );
-        continue;
-      }
-      final heading = RegExp(r'^#{1,6}\s+').firstMatch(line);
-      final value = line
-          .substring(heading?.end ?? 0)
-          .replaceFirst(RegExp(r'^[-*] '), '• ');
-      int start = 0;
-      final spans = <InlineSpan>[];
-      for (final m in inline.allMatches(value)) {
-        spans.add(TextSpan(text: value.substring(start, m.start)));
-        final link = m[4] ?? m[5];
-        if (link != null) links.add(link);
-        spans.add(
-          TextSpan(
-            text: m[1] ?? m[2] ?? m[3] ?? link,
-            style: TextStyle(
-              fontWeight: m[1] != null ? FontWeight.bold : null,
-              fontFamily: m[2] != null ? 'monospace' : null,
+    final steps = (row['steps'] as List? ?? const []).whereType<String>();
+    final receipts = _receipts(row);
+    final rounds = row['planningRounds'];
+    final usage = row['usage'] as Map? ?? {};
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '第 $number 轮 · ${row['goal']}',
+            style: const TextStyle(
+              color: workInk,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        );
-        start = m.end;
-      }
-      spans.add(TextSpan(text: '${value.substring(start)}\n'));
-      lines.add(
-        TextSpan(
-          children: spans,
-          style: heading == null ? null : theme.textTheme.titleMedium,
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SelectableText.rich(
-          TextSpan(children: lines),
-          style: theme.textTheme.bodyLarge,
-        ),
-        for (final url in links)
-          TextButton.icon(
-            onPressed: () => AndroidBridge.instance.openExternalHttpsUrl(url),
-            icon: const Icon(Icons.open_in_new, size: 16),
-            label: Text(url, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Text(
+            [
+              _status(row),
+              if (rounds is int) '规划 $rounds 轮',
+              if (receipts.isNotEmpty || rounds != null)
+                '工具 ${receipts.length} 次',
+            ].join('  ·  '),
+            style: const TextStyle(color: workMuted, fontSize: 12),
           ),
-      ],
+          if (receipts.isEmpty)
+            for (final step in steps)
+              Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text(
+                  step,
+                  style: const TextStyle(color: workMuted, fontSize: 13),
+                ),
+              ),
+          for (final item in receipts) _Receipt(item, live: live),
+          for (final lane in usage.entries)
+            if (lane.value case final Map u)
+              Padding(
+                padding: const EdgeInsets.only(top: 7),
+                child: Text(
+                  '${lane.key == "commission_final_reply" ? "正文" : "规划"} · 输入 ${u["input"]} / 输出 ${u["output"]}${u["reasoning"] != null ? " / 推理 ${u['reasoning']}" : ""}${u["hit"] != null ? " / 缓存命中 ${u['hit']}" : ""} Token',
+                  style: const TextStyle(color: workMuted, fontSize: 12),
+                ),
+              ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: workLine),
+        ],
+      ),
+    );
+  }
+}
+
+class _Receipt extends StatelessWidget {
+  const _Receipt(this.item, {required this.live});
+  final Map item;
+  final bool live;
+  @override
+  Widget build(BuildContext context) {
+    final action = switch (item['tool']) {
+      'workspace_save' => '保存文档',
+      'workspace_read' => '读取文档',
+      'github_search_repositories' => '搜索 GitHub',
+      'github_read_readme' => '读取 README',
+      _ => item['tool']?.toString() ?? '工具回执',
+    };
+    final target = item['target'] ?? item['query'] ?? item['repository'];
+    final result =
+        item['error'] ??
+        item['saved'] ??
+        item['file'] ??
+        (item['matches'] != null || item['repositories'] is List
+            ? '找到 ${item['matches'] ?? (item['repositories'] as List).length} 个仓库'
+            : item['state'] == 'pending'
+            ? (live ? '进行中' : '未收到回执')
+            : '读取完成');
+    return Padding(
+      padding: const EdgeInsets.only(top: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            item['error'] != null
+                ? Icons.error_outline
+                : item['state'] == 'pending'
+                ? Icons.schedule
+                : Icons.check_circle_outline,
+            size: 16,
+            color: item['error'] != null ? const Color(0xfff1adab) : workAccent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SelectableText(
+              [
+                action,
+                if (target != null && target != '') target,
+                result,
+              ].join(' · '),
+              style: const TextStyle(color: workInk, fontSize: 13, height: 1.5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
