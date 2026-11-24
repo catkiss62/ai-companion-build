@@ -7,7 +7,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
-import android.graphics.drawable.RippleDrawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -52,12 +51,8 @@ public final class CompanionArStyle {
             int fg = color(filled ? "onPrimary" : "onTonal");
             int bg = color(filled ? "primary" : "tonal");
             int[][] states = {{-android.R.attr.state_enabled}, {}};
-            GradientDrawable pill = shape(bg, 100);
-            pill.setColor(new ColorStateList(states, new int[]{color("tonal"), bg}));
-            RippleDrawable ripple = new RippleDrawable(ColorStateList.valueOf(
-                (fg & 0x00ffffff) | 0x24000000), pill, null);
-            button.setBackgroundTintList(null);
-            button.setBackground(new InsetDrawable(ripple, dp(3), dp(3), dp(3), dp(3)));
+            // WhaleButton inherits Widget.Material.Button's platform shape and insets.
+            button.setBackgroundTintList(new ColorStateList(states, new int[]{color("tonal"), bg}));
             button.setTextColor(new ColorStateList(states, new int[]{color("secondaryText"), fg}));
             button.setAllCaps(false);
             button.setTextSize(14);

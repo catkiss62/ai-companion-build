@@ -518,7 +518,8 @@ class SimulatedPhoneRepository {
     final cached = pending[day] is Map ? Map<String, dynamic>.from(pending[day] as Map) : <String, dynamic>{};
     if (record == null && cached['material'] is! Map) return;
     String clean(String value) => value.trim();
-    final material = cached['material'] is Map
+    final material = cached['material'] is Map && (record == null ||
+        (cached['material'] as Map)['thread_dates_verified'] == true)
         ? SimulatedDiaryMaterial.fromJson(Map<String, dynamic>.from(cached['material'] as Map))
         : SimulatedDiaryMaterial(
       localDay: day,
@@ -532,7 +533,7 @@ class SimulatedPhoneRepository {
           .where((item) => item.isNotEmpty)
           .take(2)
           .toList(growable: false),
-      carriedThreads: record.carriedThreads.where((t) => t.updatedOnDay)
+      carriedThreads: record.diaryThreads
           .map(
             (item) => [
               clean(item.title),
@@ -549,7 +550,7 @@ class SimulatedPhoneRepository {
           .toList(growable: false),
       messageCount: record.messageCount,
       relationshipEventCount: record.relationshipEventCount,
-      quietDay: record.sharedMoments.isEmpty && record.cares.isEmpty && !record.carriedThreads.any((t) => t.updatedOnDay),
+      quietDay: record.sharedMoments.isEmpty && record.cares.isEmpty && record.diaryThreads.isEmpty,
     );
     final recentBodies = entries.where((entry) => entry.localDay != day)
         .map((entry) => entry.body.trim()).where((body) => body.isNotEmpty)

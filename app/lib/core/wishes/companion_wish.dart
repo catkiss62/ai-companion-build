@@ -28,6 +28,7 @@ class CompanionWish {
     this.intentionNotBeforeAt,
     this.deadline,
     this.manualHold = false,
+    this.protectSoloArchive = false,
     this.legacy = false,
     this.completionKind = '',
   });
@@ -52,7 +53,7 @@ class CompanionWish {
       lastIntentionAt,
       intentionNotBeforeAt,
       deadline;
-  final bool manualHold, legacy;
+  final bool manualHold, legacy, protectSoloArchive;
   bool get active => state == 'active';
   bool get terminal =>
       const {'completed', 'satisfied', 'abandoned', 'expired', 'archived_solo'}.contains(state);
@@ -106,6 +107,7 @@ class CompanionWish {
     List<String>? evidenceIds,
     String? evidenceQuote,
     bool? manualHold,
+    bool? protectSoloArchive,
   }) => CompanionWish(
     id: id,
     goal: goal,
@@ -135,6 +137,7 @@ class CompanionWish {
         (this.lastIntentionAt == null ? intentionBoundary : null),
     deadline: deadline,
     manualHold: manualHold ?? this.manualHold,
+    protectSoloArchive: protectSoloArchive ?? this.protectSoloArchive,
     legacy: legacy,
     completionKind: completionKind,
   );
@@ -165,6 +168,7 @@ class CompanionWish {
     'intention_not_before_at': intentionNotBeforeAt?.millisecondsSinceEpoch,
     'deadline': deadline?.millisecondsSinceEpoch,
     'manual_hold': manualHold,
+    if (protectSoloArchive) 'protect_solo_archive': true,
     'legacy': legacy,
   };
   factory CompanionWish.fromJson(Map<String, dynamic> m) {
@@ -200,6 +204,8 @@ class CompanionWish {
       intentionNotBeforeAt: date('intention_not_before_at'),
       deadline: date('deadline'),
       manualHold: m['manual_hold'] == true,
+      protectSoloArchive: m['protect_solo_archive'] == true ||
+          (text('state') == 'active' && text('last_intention_source') == 'local_user'),
       legacy: m['legacy'] == true,
       completionKind: text('completion_kind'),
     );

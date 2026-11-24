@@ -744,7 +744,6 @@ class ProactiveEngine {
           score: (0.45 + wish.priority(evaluationStartedAt) * 0.24).clamp(0.0, .66),
           reason: wish.goal, wantAction: 'share_thought', reasonSource: 'wish:${wish.id}'));
       }
-      final gameWishes = liveWishes.where((w) => w.route == 'game' && w.mayAct(evaluationStartedAt)).toList();
       DesireIntent? discoverySource;
       for (final candidate in previewCandidates) {
         final thought = candidate.thoughtId == null
@@ -810,13 +809,10 @@ class ProactiveEngine {
           ),
         );
       }
-      final wishGameSession = await CedarToyActivityStore(db).load();
-      final activeGame = wishGameSession?.gameId ?? '';
-      final choosingGame = wishGameSession == null || const {CedarActivityPhase.completed, CedarActivityPhase.failed}.contains(wishGameSession.phase);
+      final gameSession = await CedarToyActivityStore(db).load();
+      final activeGame = gameSession?.gameId ?? '';
       final attitude = await CedarGameAttitudeStore(db).load();
-      final wishGameBonus = gameWishes.where((w) => choosingGame || w.gameId == activeGame)
-          .fold<double>(0, (best, w) => max(best, .08 * w.priority(evaluationStartedAt)));
-      final gameBias = (attitude?.bonusAt(evaluationStartedAt, activeGame) ?? 0.0) + wishGameBonus;
+      final gameBias = attitude?.bonusAt(evaluationStartedAt, activeGame) ?? 0.0;
       final period = await CedarPlaySessionStore(db).load();
       final sessionActive = period?.validAt(evaluationStartedAt, activeGame) ?? false;
       final cedarAvailability = await cedarToyAutonomy.availability(

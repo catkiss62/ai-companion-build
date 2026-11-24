@@ -1,6 +1,43 @@
 --- a/app/src/main/java/dev/littlewhale/ar/TableActivity.java
 +++ b/app/src/main/java/dev/littlewhale/ar/TableActivity.java
-@@ -82,7 +82,6 @@
+@@ -39,8 +39,15 @@
+     private PalmTracking palm;
+     private boolean recovering, otherMap;
+     private int goodFrames, lastGoodFrame = -1;
++    private int pendingLab;
++    private boolean awaitingPicker, awaitingImport, resumed;
+     private final ActivityResultLauncher<String[]> pickModel = registerForActivityResult(
+-        new ActivityResultContracts.OpenDocument(), uri -> { if(uri!=null) CharacterFile.obtain(this,uri); });
++        new ActivityResultContracts.OpenDocument(), uri -> {
++            awaitingPicker = false;
++            if (uri == null) { pendingLab = 0; return; }
++            awaitingImport = pendingLab != 0;
++            CharacterFile.obtain(this, uri);
++        });
+     private void motionToast(String message){android.widget.Toast.makeText(this,message,android.widget.Toast.LENGTH_LONG).show();}
+     private Button action;
+     private DisplayCorrection correction;
+@@ -66,6 +73,7 @@
+     };
+     private final ActivityResultLauncher<String> permission = registerForActivityResult(
+         new ActivityResultContracts.RequestPermission(), granted -> {
++            if (!granted) pendingLab = 0;
+             if (granted && getLifecycle().getCurrentState().isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+                 startSession();
+             updateControls();
+@@ -75,6 +83,11 @@
+         super.onCreate(state);
+         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+         palmMode=state!=null && state.getBoolean("palmMode");
++        if (state != null) {
++            pendingLab = state.getInt("pendingLab");
++            awaitingPicker = state.getBoolean("awaitingPicker");
++            awaitingImport = state.getBoolean("awaitingImport");
++        }
+         engine = new MenthaAR(this);
+         engine.setPointCloudVisible(false);
+         engine.setPoseAssistEnabled(true);
+@@ -82,7 +95,6 @@
  
          LinearLayout page = new LinearLayout(this);
          page.setOrientation(LinearLayout.VERTICAL);
@@ -8,7 +45,7 @@
          page.setOnApplyWindowInsetsListener((v, insets) -> {
              v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
                  insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
-@@ -124,11 +123,9 @@
+@@ -124,11 +136,9 @@
          status = new TextView(this);
          status.setTextColor(Color.WHITE);
          status.setTextSize(14);
@@ -21,24 +58,54 @@
          action.setOnClickListener(v -> act());
          bar.addView(action);
          page.addView(bar);
-@@ -137,7 +134,7 @@
+@@ -137,19 +147,39 @@
          LinearLayout modesBar=new LinearLayout(this);modesBar.setPadding(pad,0,pad,pad/2);
          modesBar.addView(characterMode,new LinearLayout.LayoutParams(0,-2,1));
          labs=new Button(this);labs.setText("定位对照");
 -        labs.setOnClickListener(v -> {if(palmMode){setPalmMode(false);return;}new AlertDialog.Builder(this).setTitle("定位对照")
 +        labs.setOnClickListener(v -> {if(palmMode){setPalmMode(false);return;}new CompanionArStyle(this).dialog().setTitle("定位对照")
              .setItems(new String[]{"原生引擎","参考图","EasyAR","ARCore"}, (dialog, index) -> {
++                pendingLab = index;
++                awaitingImport = false;
                  if (index == 0) { selectNative(); return; }
-                 if (!hasCamera()) { permission.launch(Manifest.permission.CAMERA); return; }
-@@ -148,6 +145,7 @@
-                 else startActivity(new Intent(this, index == 1 ? ImageLabActivity.class : CoreLabActivity.class));
+-                if (!hasCamera()) { permission.launch(Manifest.permission.CAMERA); return; }
+-                if (!CharacterFile.file(this).isFile()) {
+-                    pickLocalModel(); return;
+-                }
+-                if (index == 2) openEasyAR();
+-                else startActivity(new Intent(this, index == 1 ? ImageLabActivity.class : CoreLabActivity.class));
++                if (!hasCamera()) permission.launch(Manifest.permission.CAMERA);
++                else continueLabSelection();
              }).show();});
          modesBar.addView(labs,new LinearLayout.LayoutParams(0,-2,1));page.addView(modesBar);
 +        new CompanionArStyle(this).panel(page, action);
          setContentView(page);
          if (!hasCamera() && state == null) permission.launch(Manifest.permission.CAMERA);
++    }
++
++    private void continueLabSelection() {
++        if (!resumed || pendingLab == 0 || awaitingPicker || !hasCamera() || isFinishing()) return;
++        if (CharacterFile.busy) { awaitingImport = true; return; }
++        if (!CharacterFile.file(this).isFile()) {
++            if (awaitingImport) {
++                // A failed or interrupted copy must not reopen the picker.
++                pendingLab = 0;
++                awaitingImport = false;
++                return;
++            }
++            awaitingPicker = true;
++            pickLocalModel();
++            return;
++        }
++        int lab = pendingLab;
++        pendingLab = 0;
++        awaitingImport = false;
++        if (lab == 2) openEasyAR();
++        else startActivity(new Intent(this, lab == 1 ? ImageLabActivity.class : CoreLabActivity.class));
      }
-@@ -174,14 +172,14 @@
+ 
+     private void openEasyAR() {
+@@ -174,14 +204,14 @@
      }
      private void chooseMode() {
          boolean installed=CharacterFile.file(this).isFile();
@@ -55,7 +122,7 @@
                          .setNegativeButton("取消",null).setPositiveButton("删除",(confirm,w)->{
                              if(CharacterFile.remove(this)){setPalmMode(false);recreate();}
                              else motionToast("模型正在使用或无法删除，请稍后再试");
-@@ -189,7 +187,7 @@
+@@ -189,7 +219,7 @@
                      return;
                  }
                  if(index==5){
@@ -64,7 +131,7 @@
                          .setSingleChoiceItems(new String[]{"默认 · 向上移半身","鞋底对准选点"},whale.palmLift==50?0:1,(choice,which)->{
                              whale.setPalmLift(which==0?50:0);
                              getPreferences(MODE_PRIVATE).edit().putInt("palmLift",whale.palmLift).apply();
-@@ -207,7 +205,7 @@
+@@ -207,7 +237,7 @@
                          labels[i]=sizes[i]+"%";
                          if(sizes[i]==whale.sizePercent)selected=i;
                      }
@@ -73,7 +140,7 @@
                          whale.setSize(sizes[which]);
                          getPreferences(MODE_PRIVATE).edit().putInt("sizePercent",whale.sizePercent).apply();
                          choice.dismiss();
-@@ -220,7 +218,7 @@
+@@ -220,7 +250,7 @@
          }
          if(!palmMode)dialog.setNeutralButton("定位信息",(d,which)->{
              String timing="首次定位  "+(firstFix<0?"等待中":firstFix+" ms")+"\n首次可放置  "+(firstPlane<0?"等待中":firstPlane+" ms");
@@ -82,6 +149,39 @@
          });
          dialog.show();
      }
+@@ -245,6 +275,9 @@
+     }
+     @Override protected void onSaveInstanceState(Bundle out){
+         super.onSaveInstanceState(out);out.putBoolean("palmMode",palmMode);
++        out.putInt("pendingLab", pendingLab);
++        out.putBoolean("awaitingPicker", awaitingPicker);
++        out.putBoolean("awaitingImport", awaitingImport);
+     }
+ 
+     private boolean hasCamera() { return checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED; }
+@@ -299,12 +332,14 @@
+ 
+     @Override protected void onResume() {
+         super.onResume();
++        resumed = true;
+         whale.onResume();
+         startSession();
+         refresh.run();
+     }
+ 
+     @Override protected void onPause() {
++        resumed = false;
+         handler.removeCallbacks(refresh);
+         if (active) {
+             active = false;stopPalm();
+@@ -367,6 +402,7 @@
+     }
+ 
+     private void updateControls() {
++        continueLabSelection();
+         whale.startIfAvailable();
+         long now = SystemClock.elapsedRealtime();
+         if (!palmMode && (lastResult == 0 || now - lastResult > 1200)) {
 --- a/app/src/main/java/dev/littlewhale/ar/CoreLabActivity.java
 +++ b/app/src/main/java/dev/littlewhale/ar/CoreLabActivity.java
 @@ -69,6 +69,7 @@
@@ -152,20 +252,16 @@
  #palm-outline{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
  #palm-outline[hidden]{display:none}
 -button{color:#dec7ff;background:transparent;border:0;font:inherit;padding:5px 8px}
--#coin-button{position:absolute;top:8px;right:8px;z-index:1;border-radius:8px;background:#241f2aef;font:14px sans-serif;padding:8px 12px}
++button{color:var(--primary);background:transparent;border:0;font:inherit;padding:5px 8px}
+ #coin-button{position:absolute;top:8px;right:8px;z-index:1;border-radius:8px;background:#241f2aef;font:14px sans-serif;padding:8px 12px}
 -#speech{position:absolute;z-index:2;pointer-events:none;transform:translate(-50%,-100%);max-width:76%;width:max-content;padding:6px 11px;background:#f8f1fff5;color:#2a2134;border-radius:13px;font:600 15px/1.45 sans-serif;box-shadow:0 2px 7px #16273640}
 -#speech::after{content:"";position:absolute;left:50%;bottom:-4px;width:8px;height:8px;background:#f8f1ff;transform:rotate(45deg)}
--#voice{position:absolute;z-index:3;left:8px;top:8px;padding:7px 10px;border-radius:9px;background:#241f2aef;color:white;font:14px sans-serif}
-+button{color:var(--primary);background:transparent;border:0;font:inherit;padding:5px 8px}
-+#coin-button{position:absolute;top:8px;right:8px;z-index:1;border-radius:8px;background:var(--surface);font:14px sans-serif;padding:8px 12px}
 +#speech{position:absolute;z-index:2;pointer-events:none;transform:translate(-50%,-100%);max-width:76%;width:max-content;padding:6px 11px;background:var(--tonal);color:var(--onTonal);border-radius:13px;font:600 15px/1.45 sans-serif;box-shadow:0 2px 7px #16273640}
 +#speech::after{content:"";position:absolute;left:50%;bottom:-4px;width:8px;height:8px;background:var(--tonal);transform:rotate(45deg)}
-+#voice{position:absolute;z-index:3;left:8px;top:8px;padding:7px 10px;border-radius:9px;background:var(--surface);color:var(--text);font:14px sans-serif}
+ #voice{position:absolute;z-index:3;left:8px;top:8px;padding:7px 10px;border-radius:9px;background:#241f2aef;color:white;font:14px sans-serif}
  
--#voice,#coin-button{min-height:40px;border-radius:20px;padding:8px 15px;color:#e4d2ff}
--#voice[aria-pressed=true]{background:#4a365fed}#voice[aria-pressed=false]{color:#c9c3ce}
-+#voice,#coin-button{background:var(--tonal);min-height:40px;border-radius:20px;padding:8px 15px;color:var(--onTonal)}
-+#voice[aria-pressed=true]{background:var(--primary);color:var(--onPrimary)}#voice[aria-pressed=false]{color:var(--onTonal)}
+ #voice,#coin-button{min-height:40px;border-radius:20px;padding:8px 15px;color:#e4d2ff}
+ #voice[aria-pressed=true]{background:#4a365fed}#voice[aria-pressed=false]{color:#c9c3ce}
  #area-panel:not([hidden]),#pickup-tip:not([hidden]){top:54px}
 -</style></head><body>
 +</style><script>

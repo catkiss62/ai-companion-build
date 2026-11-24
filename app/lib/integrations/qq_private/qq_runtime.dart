@@ -1106,7 +1106,7 @@ class QqRuntime {
         firstEffort:await FirstChannelModel.readEffort(store.db),secondEffort:ReasoningEffort.fromApiName(await store.db.getSetting('reasoning_effort')),
         messages:[{'role':'system','content':'$prompt\n这是向已绑定本人主动分享的一次机会，没有新的用户发言。只发一小段自然的话，或者输出WAIT。不必汇报，不声称用户刚说了话。不发送工具或媒体标签。${QqMessageMaterial.policy}\n${UserAddressPolicy.dialogue}'},
           {'role':'user','content':offer.prompt}],usageLane:'qq_owner_group_share');
-      final text=StickerReplyChoice.visible(raw).trim();
+      final text=QqReplyParts.cleanFaces(StickerReplyChoice.visible(raw));
       if(text=='WAIT' || text.isEmpty) {
         await store.write(fence,(txn) async {await txn.update('qq_shares',{'state':'skipped'},where:'id=?',whereArgs:[offer.id]);});return;
       }

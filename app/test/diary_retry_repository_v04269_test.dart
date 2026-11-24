@@ -1,6 +1,7 @@
 import 'package:ai_companion_localfirst/core/phone/phone_history_store.dart';
 import 'package:ai_companion_localfirst/core/phone/simulated_cart_generator.dart';
 import 'dart:convert';
+import 'package:ai_companion_localfirst/core/continuity/daily_continuity_engine.dart';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -35,6 +36,35 @@ class _Cart implements SimulatedCartGenerator {
 }
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); sqfliteFfiInit();
+  test('finalized diary keeps dated evidence below the top twelve continuity threads', () async {
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    addTearDown(db.closeForTesting);
+    final day = DateTime(2026, 10, 3), next = DateTime(2026, 10, 4);
+    final sql = await db.database;
+    for (var index = 0; index < 15; index++) {
+      final at = index == 13 ? day : index == 14 ? next : DateTime(2026, 10, 1);
+      await sql.insert('unfinished_threads', {
+        'id': 't$index', 'title': '线索$index', 'detail': '记录$index',
+        'importance': index < 13 ? 1.0 : 0.1, 'status': 'active',
+        'created_at': at.millisecondsSinceEpoch, 'updated_at': at.millisecondsSinceEpoch,
+      });
+    }
+    await DailyContinuityEngine(db).maybeRefresh(now: next, force: true);
+    final record = (await db.dailyContinuityForDay('2026-10-03'))!;
+    expect(record.isFinalized, true);
+    expect(record.carriedThreads.single.updatedOnDay, false);
+    expect(record.diaryThreads.map((thread) => thread.id), ['t13']);
+  });
+
+  test('old retry material recomputes a quiet day after dropping undated threads', () {
+    final old = {'local_day':'2026-10-03','carried_threads':['旧的下潜'],
+      'quiet_day':false, 'awareness':['天气']};
+    final material = SimulatedDiaryMaterial.fromJson(old);
+    expect(material.carriedThreads, isEmpty);
+    expect(material.quietDay, true);
+    expect(SimulatedDiaryMaterial.fromJson({...old,'cares':['今天的事']}).quietDay, false);
+  });
+
   test('failed diary keeps source, respects cooldown, and repairs old date without blocking other columns', () async {
     final root = await Directory.systemTemp.createTemp('diary-retry-');
     final paths = PathProviderPlatform.instance;

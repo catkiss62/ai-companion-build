@@ -199,6 +199,7 @@ void main(){
     }
     await observed('group-a',clock.subtract(const Duration(minutes:9,seconds:59)));
     await observed('group-b',clock);
+    handler=(r,b)async=>b['stream']==true?_sse('来看看[QQ表情]🐳'):_json({'safe':true});
     await runtime.checkGroupPresence();
     expect(requests,isEmpty);
     expect(await db.getSetting('qq_presence_last_day:$scope'),isNull);
@@ -206,6 +207,10 @@ void main(){
     await runtime.checkGroupPresence();
     expect(api.sent.single['messageId'],'');
     expect(api.sent.single['target'],'group-a');
+    expect(api.sent.single['text'],'来看看🐳');
+    final archived = await (await db.database).query('qq_archive', columns:['content'],
+      where:'conversation_id=? AND role=?', whereArgs:[cid('group-a'),'assistant']);
+    expect(archived.single['content'],'来看看🐳');
     final count=requests.length;
     await runtime.checkGroupPresence();
     expect(api.sent,hasLength(1));

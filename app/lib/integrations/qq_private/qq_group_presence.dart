@@ -87,7 +87,7 @@ extension _GroupPresence on QqRuntime {
           '此刻你只是想在群里露个脸，随口一句就可以，发完可以继续潜水。没有人正在问你。不必找话题、找人回应或问候。只用群内公开身份。'
           '最近几句仅供判断场合，若不合适输出 WAIT。\n${imageAllowed?QqIllustrationChoice.prompt:"只发文字。"}'},
           {'role':'user','content':jsonEncode([for(final r in claim.context.reversed) {'role':r['role'],'text':String.fromCharCodes((r['content'] as String).runes.take(180))}])}]);
-      var words=QqIllustrationChoice.visible(raw).trim();
+      var words=QqReplyParts.cleanFaces(QqIllustrationChoice.visible(raw));
       if(words=='WAIT' || words.runes.length>180 || words.contains(RegExp(r'[<>]')) || !await current())return;
       final choice=imageAllowed?QqIllustrationChoice.parse(raw):null;
       await store.illustrationAudit(batch,'choice',at.millisecondsSinceEpoch,{'group':true,'presence':true,

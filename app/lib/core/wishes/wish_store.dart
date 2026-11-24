@@ -126,7 +126,8 @@ class WishStore {
     final index = items.indexWhere((w) => w.id == id);
     if (index < 0) return false;
     final wish = items[index];
-    if (wish.terminal ||
+    final restoringArchive = wish.state == 'archived_solo' && state == 'active';
+    if ((wish.terminal && !restoringArchive) ||
         wish.legacy ||
         (state == 'active' &&
             (items.where((w) => w.active && w.id != id).length >= 4 ||
@@ -135,6 +136,7 @@ class WishStore {
     items[index] = wish.copyWith(
       state: state,
       manualHold: state != 'active',
+      protectSoloArchive: wish.protectSoloArchive || state == 'active',
       updatedAt: instant,
       lastIntentionAt: instant,
       lastIntentionSource: 'local_user',

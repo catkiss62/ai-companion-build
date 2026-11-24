@@ -37,7 +37,7 @@ void main() {
       expect(material['can_generate'],false);
       return {'solo_archive':[
         for(final w in [solo,user,completed,held]) {'id':w.id,'quote':w.goal,'solo':true},
-        {'id':joint.id,'quote':'引用不符','solo':true},
+        {'id':joint.id,'quote':joint.goal,'solo':true},
       ]};
     });
     expect(await engine.maybeRefresh(now:now),true);
@@ -51,7 +51,15 @@ void main() {
     expect(saved.first.goal,solo.goal);
     expect(saved.skip(1).map((w)=>w.toJson()), all.skip(1).map((w)=>w.toJson()));
     expect(jsonDecode((await db.getSetting(WishStore.activeKey))!),hasLength(3));
-    expect(await store.setUserState(solo.id,'active'),false);
+    expect(await store.setUserState(solo.id,'active'),true);
+    expect(await store.setUserState(held.id,'active'),false); // Four active.
+    final restored = (await store.load()).first;
+    expect(restored.protectSoloArchive,true);
+    final afterReview = WishPolicy.apply(wishes:[CompanionWish.fromJson(restored
+        .copyWith(lastIntentionSource:'new_evidence').toJson())],
+      payload:{'solo_archive':[{'id':restored.id,'quote':restored.goal,'solo':true}]},
+      evidence:[], catalogIds:{}, now:now, canGenerate:false);
+    expect(afterReview.single.active,true);
   });
 
   test('QQ output removes only projected native faces',() {

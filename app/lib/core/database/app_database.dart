@@ -16151,6 +16151,18 @@ class AppDatabase {
     return rows.map(UnfinishedThread.fromDb).toList();
   }
 
+  Future<List<UnfinishedThread>> activeThreadsUpdatedBetween(
+    DateTime start, DateTime end, {int limit = 1}
+  ) async {
+    final sql = await database;
+    final rows = await sql.query('unfinished_threads',
+      where: 'status = ? AND created_at < ? AND updated_at >= ? AND updated_at < ?',
+      whereArgs: ['active', end.millisecondsSinceEpoch, start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+      orderBy: 'importance DESC, updated_at DESC, id ASC', limit: limit,
+    );
+    return rows.map(UnfinishedThread.fromDb).toList();
+  }
+
   /// Apply the existing direct-evidence rule before the prompt result limit.
   /// Walk bounded pages so unrelated high-priority threads cannot hide an
   /// explicitly recalled older thread as the local collection grows.

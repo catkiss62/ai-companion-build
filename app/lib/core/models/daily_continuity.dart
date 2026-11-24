@@ -119,6 +119,7 @@ class DailyContinuityRecord {
     required this.createdAt,
     required this.updatedAt,
     this.finalizedAt,
+    this.additionalDiaryThreads = const [],
   });
 
   final String id;
@@ -127,6 +128,9 @@ class DailyContinuityRecord {
   final DateTime windowEnd;
   final List<DailyContinuityMoment> sharedMoments;
   final List<DailyContinuityThread> carriedThreads;
+  final List<DailyContinuityThread> additionalDiaryThreads;
+  Iterable<DailyContinuityThread> get diaryThreads =>
+      [...carriedThreads, ...additionalDiaryThreads].where((thread) => thread.updatedOnDay);
   final List<DailyContinuityCare> cares;
   final List<String> awarenessSummaries;
   final int messageCount;
@@ -176,6 +180,7 @@ class DailyContinuityRecord {
         ? null
         : DateTime.fromMillisecondsSinceEpoch((value as num).toInt());
 
+    final threadRows = decodeList(row['carried_threads_json'], (map) => map);
     return DailyContinuityRecord(
       id: row['id'] as String,
       localDay: row['local_day'] as String,
@@ -189,10 +194,10 @@ class DailyContinuityRecord {
         row['shared_moments_json'],
         DailyContinuityMoment.fromJson,
       ),
-      carriedThreads: decodeList(
-        row['carried_threads_json'],
-        DailyContinuityThread.fromJson,
-      ),
+      carriedThreads: threadRows.where((row) => row['diary_only'] != true)
+          .map(DailyContinuityThread.fromJson).toList(),
+      additionalDiaryThreads: threadRows.where((row) => row['diary_only'] == true)
+          .map(DailyContinuityThread.fromJson).toList(),
       cares: decodeList(
         row['cares_json'],
         DailyContinuityCare.fromJson,

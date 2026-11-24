@@ -191,7 +191,17 @@ class DailyContinuityEngine {
       break;
     }
 
-    final careTopic = carriedThreads.isEmpty
+    // Freeze a dated diary source even when the continuity card carries an older topic.
+    final datedThreads = await db.activeThreadsUpdatedBetween(dayStart, dayEnd);
+    final storedThreads = [
+      for (final thread in carriedThreads) thread.toJson(),
+      for (final thread in datedThreads)
+        if (!carriedThreads.any((item) => item.id == thread.id))
+          {...DailyContinuityThread(id: thread.id, title: thread.title,
+            detail: _compact(thread.detail, 220), topicKey: thread.topicKey,
+            updatedOnDay: true).toJson(), 'diary_only': true},
+    ];
+    final careTopic = carriedThreads.isEmpty || !carriedThreads.first.updatedOnDay
         ? ''
         : carriedThreads.first.topicKey.trim().toLowerCase();
     final cares = dayCares
@@ -233,7 +243,7 @@ class DailyContinuityEngine {
     final payload = <String, Object?>{
       'day': _dayKey(dayStart),
       'moments': moments.map((e) => e.toJson()).toList(),
-      'threads': carriedThreads.map((e) => e.toJson()).toList(),
+      'threads': storedThreads,
       'cares': cares.map((e) => e.toJson()).toList(),
       'awareness': awarenessSummaries,
       'message_count': messageCount,
@@ -250,8 +260,7 @@ class DailyContinuityEngine {
       windowStart: dayStart,
       windowEnd: dayEnd,
       sharedMomentsJson: jsonEncode(moments.map((e) => e.toJson()).toList()),
-      carriedThreadsJson:
-          jsonEncode(carriedThreads.map((e) => e.toJson()).toList()),
+      carriedThreadsJson: jsonEncode(storedThreads),
       caresJson: jsonEncode(cares.map((e) => e.toJson()).toList()),
       awarenessJson: jsonEncode(awarenessSummaries),
       messageCount: messageCount,

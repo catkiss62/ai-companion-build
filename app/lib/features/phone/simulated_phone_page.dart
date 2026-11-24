@@ -2314,6 +2314,9 @@ class WishList extends StatelessWidget {
             const SizedBox(height:6),
             Text('${entry.localDay} · $status${legacy ? ' · 旧记录' : entry.metadata['route'] == 'aspiration' ? ' · 一个向往' : ''}',
               style: const TextStyle(color:text3, fontSize:11)),
+            if (!legacy && entry.state == 'archived_solo')
+              TextButton(onPressed: onChange == null ? null : () => onChange!(entry.id, 'active'),
+                child: const Text('恢复为互动愿望')),
             if (!legacy && !completed && (entry.state == 'active' || entry.state == 'paused'))
               Wrap(spacing:8, children: [
                 TextButton(onPressed: onChange == null ? null : () => onChange!(entry.id, entry.state == 'paused' ? 'active' : 'paused'),

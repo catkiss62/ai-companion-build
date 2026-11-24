@@ -43,13 +43,15 @@ class SimulatedDiaryMaterial {
   factory SimulatedDiaryMaterial.fromJson(Map<String, dynamic> value) {
     List<String> list(String key) => (value[key] as List? ?? const [])
         .whereType<String>().toList(growable: false);
+    final moments = list('shared_moments'), cares = list('cares');
+    final threads = value['thread_dates_verified'] == true ? list('carried_threads') : <String>[];
     return SimulatedDiaryMaterial(
       localDay: value['local_day'] as String,
-      sharedMoments: list('shared_moments'), cares: list('cares'),
-      carriedThreads: value['thread_dates_verified'] == true ? list('carried_threads') : const [], awareness: list('awareness'),
+      sharedMoments: moments, cares: cares,
+      carriedThreads: threads, awareness: list('awareness'),
       messageCount: (value['message_count'] as num?)?.toInt() ?? 0,
       relationshipEventCount: (value['relationship_event_count'] as num?)?.toInt() ?? 0,
-      quietDay: value['quiet_day'] == true,
+      quietDay: moments.isEmpty && cares.isEmpty && threads.isEmpty,
     );
   }
 

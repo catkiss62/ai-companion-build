@@ -440,6 +440,12 @@ class WishPolicy {
     return w;
   }
 
+  // Explicit participation in either stored field outweighs a solo classification.
+  static final _sharedGoal = RegExp(
+    r'(?:和|跟|与|陪|邀请|约|等)(?:主人|用户|你)|(?:主人|用户|你)(?:和我|陪我|帮我|教我|带我)|'
+    r'咱们|我们(?:俩|一起|共同)|一起|一同|共同|双人|共玩|合玩|联机对战',
+  );
+
   static bool duplicates(String a, String b) {
     Set<String> grams(String s) {
       s = s.toLowerCase().replaceAll(RegExp(r'[\s\p{P}]', unicode: true), '');
@@ -478,7 +484,9 @@ class WishPolicy {
     };
     var activeCount = wishes.where((w) => w.active).length;
     final result = wishes.map((w) {
-      if (!w.legacy && !w.manualHold && (w.active || w.state == 'paused') &&
+      if (!w.legacy && !w.manualHold && !w.protectSoloArchive &&
+          !_sharedGoal.hasMatch(w.goal) && !_sharedGoal.hasMatch(w.criterion) &&
+          (w.active || w.state == 'paused') &&
           (w.route == 'game' || w.route == 'aspiration') &&
           w.goal.isNotEmpty && solo[w.id] == w.goal) {
         if (w.active) activeCount--;
