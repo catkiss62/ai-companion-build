@@ -289,7 +289,7 @@ class _WorkPanelState extends State<WorkPanel>
                                       vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: workRaised,
+                                      color: const Color(0xff593b78),
                                       borderRadius: BorderRadius.circular(15),
                                     ),
                                     child: SelectableText(
