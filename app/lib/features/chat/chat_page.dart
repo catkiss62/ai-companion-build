@@ -1,6 +1,7 @@
+import 'work_conversation.dart';
+import 'work_mode_view.dart';
 import '../../core/agent/commission_session.dart';
 import '../../core/agent/commission_workspace.dart';
-import '../../core/ai/generation_cancellation.dart';
 import '../more/commission_workspace_page.dart';
 import 'word_slice_bridge.dart';
 import '../../core/illustration/illustration_job.dart';
@@ -78,10 +79,10 @@ class ChatPage extends StatefulWidget {
   final ValueChanged<int>? onSelectMainTab;
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  State<ChatPage> createState() => ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAware {
+class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAware {
   final ChatController controller = ChatController();
   final TextEditingController input = TextEditingController();
   final FocusNode inputFocus = FocusNode();
@@ -91,54 +92,93 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
   late final StickerPackStorage _stickerStorage =
       StickerPackStorage(db: AppDatabase.instance);
   final LayerLink _composerToolsLink = LayerLink();
-  bool _researchCommission = false;
-  GenerationCancellationToken? _workCancel;
-  String _workStatus = '', _workAnswer = '', _workGoal = '';
-  String? _resumeFile;
-  bool _checkingWork = false;
+  final _workInput = TextEditingController();
+  late final _work = WorkConversation(controller.db, controller.secureConfig,
+    () => controller.generationActive);
+  bool _showWork = false, _orbEnabled = false;
+  bool _openingRecall = false;
+  late final _recall = WorkConversation(controller.db, controller.secureConfig,
+    () => controller.generationActive);
+  bool _readingRecall = false;
+  WorkConversation get _visibleWork => _readingRecall ? _recall : _work;
+  final _recallInput = TextEditingController();
+  TextEditingController get _visibleInput => _readingRecall ? _recallInput : _workInput;
 
-  Future<void> _chooseWork() async {
-    final selected = await Navigator.push<String>(context, MaterialPageRoute(
-      builder: (_) => const CommissionWorkspacePage(selectTask:true)));
-    if (!mounted) return;
-    setState(() {
-      _workAnswer = ''; _workStatus = ''; _workGoal = '';
-      if (selected != null) { _resumeFile=selected; _workStatus='已选择要接续的委托'; _researchCommission=true; }
-    });
-  }
-
-  Future<bool> _sendWork(String text) async {
-    final requested = _researchCommission;
-    final recall=CommissionSession.explicitRecall(text);
-    if(!requested && !recall && !CommissionSession.followup(text)) return false;
-    if (_workCancel!=null || _checkingWork) return true;
-    _checkingWork=true;
-    try {
-      final workspace=await CommissionWorkspace.open();
-      if (!mounted) return true;
-      if (!requested) {
-        final rows=await workspace.recent();
-        if(rows.isEmpty) return false;
-        final lastChat=controller.messages.isEmpty ? 0 : controller.messages.last.createdAt.millisecondsSinceEpoch;
-        if(!recall && (rows.first['at'] as int)<lastChat) return false;
-      }
-      if (!mounted) return true;
-      final token=GenerationCancellationToken();
-      setState(() { _workCancel=token; _workStatus='正在处理委托'; _workGoal=text; _workAnswer=''; });
-      if(input.text==text) input.clear();
-      final answer=await CommissionSession.run(workspace:workspace, goal:text,previousTask:_resumeFile,
-        recentContext:!requested,client:controller.client,db:controller.db,config:controller.secureConfig,cancel:token,
-        progress:(message){if(mounted)setState(()=>_workStatus=message);});
-      if(mounted)setState((){_workAnswer=answer; _workStatus='委托结果';_resumeFile=null;});
-    } catch(e) {
-      if(!requested && _workCancel==null)return false;
-      if(mounted)setState(()=>_workStatus=_workCancel?.isCancelled==true?'已停止':'委托未完成 · $e');
-    } finally {
-      _checkingWork=false;
-      if(mounted) setState(()=>_workCancel=null);
-    }
+  bool closeWorkPanel() {
+    if (!_showWork) return false;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _showWork = false);
     return true;
   }
+
+  void _openWork() {
+    _closeComposerTools();
+    FocusManager.instance.primaryFocus?.unfocus();
+    _wordSlice.hide();
+    setState(() => _showWork = true);
+  }
+
+  Future<void> _restoreWorkOrb() async {
+    final enabled = await controller.db.getSetting('work_mode_orb') == '1';
+    if (mounted) setState(() => _orbEnabled = enabled);
+  }
+
+  Future<void> _chooseWork() async {
+    final file = await Navigator.push<String>(context, MaterialPageRoute(
+      builder: (_) => CommissionWorkspacePage(selectTask: !_visibleWork.busy)));
+    if (!mounted || file == null || _visibleWork.busy) return;
+    try {
+      await _work.open(await CommissionWorkspace.open(), file);
+      if (!mounted) return;
+      _readingRecall = false;
+      _workInput.clear();
+      _openWork();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('打开工作记录失败 · $error')));
+    }
+  }
+
+  Future<void> _workSettings() async {
+    final browse = await Navigator.push<bool>(context, MaterialPageRoute(
+      builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) => Scaffold(
+        appBar: AppBar(title:const Text('工作模式')),
+        body:ListView(children:[
+          SwitchListTile(title:const Text('开启工作模式'),subtitle:const Text('在聊天页显示鲸尾悬浮球'),
+            value:_orbEnabled,onChanged:(value) async {
+              await controller.db.setSetting('work_mode_orb',value?'1':'0');
+              if (!mounted) return;
+              setState(() { _orbEnabled=value; if(!value) _showWork=false; });
+              if(ctx.mounted) refresh(() {});
+            }),
+          ListTile(leading:const Icon(Icons.folder_open_outlined),title:const Text('工作区'),
+            trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.pop(ctx,true)),
+        ])))));
+    if(mounted && browse==true) await _chooseWork();
+  }
+
+  Future<bool> _recentWorkLookup(String text) async {
+    final explicit=CommissionSession.explicitRecall(text);
+    if (_work.busy || _recall.busy || _openingRecall || (!explicit && !CommissionSession.followup(text))) return false;
+    _openingRecall=true;
+    try {
+      final workspace = await CommissionWorkspace.open();
+      final recent=await workspace.recent();
+      if (!mounted || recent.isEmpty || _work.busy || _showWork || input.text!=text) return false;
+      if(!explicit && controller.messages.isNotEmpty &&
+          (recent.first['at'] as int)<controller.messages.last.createdAt.millisecondsSinceEpoch) return false;
+      input.clear();
+      _readingRecall = true;
+      _recallInput.clear();
+      _openWork();
+      unawaited(_recall.send(text,lookup:true,source:workspace));
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _openingRecall=false;
+    }
+  }
+
   OverlayEntry? _composerToolsOverlay;
   SelectedUserSticker? _selectedUserSticker;
   Timer? _externalSyncTimer;
@@ -231,6 +271,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
   Future<void> _initializeController() async {
     await controller.initialize();
+    if (mounted) unawaited(_restoreWorkOrb());
     unawaited(CalendarReminderFollowup(AppDatabase.instance).deliverOne());
     await _loadVisualSettings();
     _playfulForm = await PlayfulFormStore(AppDatabase.instance).load();
@@ -800,7 +841,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
   @override
   void dispose() {
-    _workCancel?.cancel();
+    _recall.dispose();
+    _recallInput.dispose();
+    _work.dispose();
+    _workInput.dispose();
     _observedRoute?.secondaryAnimation?.removeStatusListener(_wordSliceRouteStatus);
     _wordSlice.dispose();
     _chatOpenEpoch++;
@@ -840,15 +884,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    if (_workCancel!=null || _checkingWork) return;
-    if(sticker==null && await _sendWork(text)) return;
-    if(!mounted) return;
-    if(_researchCommission && sticker!=null){
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('请使用文字交代委托，或关闭委托模式发送表情包')));
-      return;
-    }
+    if (sticker == null && await _recentWorkLookup(text)) return;
+    if (!mounted || input.text != text) return;
     _followLatest = true;
-    setState((){_workStatus='';_workAnswer='';_workGoal='';});
     input.clear();
     if (mounted) setState(() => _selectedUserSticker = null);
     final accepted = await controller.sendText(
@@ -902,20 +940,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: '发送图片',
-                      onPressed: () {
-                        _closeComposerTools();
-                        unawaited(_chooseImageSource());
-                      },
-                      icon: const Icon(Icons.add_photo_alternate_outlined),
-                    ),
-                    IconButton(
                       tooltip: '表情包',
                       onPressed: () {
                         _closeComposerTools();
                         unawaited(_openStickerPicker());
                       },
                       icon: const Icon(Icons.emoji_emotions_outlined),
+                    ),
+                    IconButton(
+                      tooltip: '发送图片',
+                      onPressed: () {
+                        _closeComposerTools();
+                        unawaited(_chooseImageSource());
+                      },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
                     ),
                     IconButton(
                       tooltip: controller.deepThinking ? '关闭深度思考' : '开启深度思考',
@@ -925,14 +963,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       },
                       icon: ThinkingIcon(
                         color: controller.deepThinking ? thinkingColor : null),
-                    ),
-                    IconButton(
-                      tooltip: _researchCommission ? '退出委托模式' : '开启委托模式',
-                      onPressed: () {
-                        _closeComposerTools();
-                        setState(() => _researchCommission = !_researchCommission);
-                      },
-                      icon: Icon(Icons.build_outlined, color: _researchCommission ? thinkingColor : null),
                     ),
                   ],
                 ),
@@ -1486,7 +1516,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
 
     return ChatDialogueColorScope(
       option: _dialogueColor,
-      child: Column(
+      child: Stack(fit: StackFit.expand,children:[Column(
         children: [
         _topBar(context),
         Expanded(
@@ -1503,7 +1533,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                   _wordSlice.schedule(enabled: _chatVisible && _visualStageEnabled &&
                       (_observedRoute?.secondaryAnimation?.isDismissed ?? true) &&
                       keyboardInset == 0 && !_showCedarActivityWindow &&
-                      _composerToolsOverlay == null && edit == null,
+                      !_showWork && _composerToolsOverlay == null && edit == null,
                       fraction: fraction);
                   return Stack(
                 key: _wordSlice.areaKey,
@@ -1568,7 +1598,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       ),
                     ),
                   ],
-                  Positioned(
+                  if (!_showWork) Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
@@ -1626,22 +1656,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                               notice,
                               onDismiss: controller.dismissNotice,
                             ),
-                          if (_researchCommission || _workStatus.isNotEmpty)
-                            Card(child:Column(mainAxisSize:MainAxisSize.min,children:[
-                              ListTile(dense:true,leading:const Icon(Icons.build_outlined),
-                                title:Text(_workStatus.isEmpty?'委托模式':_workStatus,maxLines:2),
-                                subtitle:_workGoal.isEmpty?null:Text(_workGoal,maxLines:1,overflow:TextOverflow.ellipsis),
-                                trailing: IconButton(tooltip:'打开工作区或接续委托',icon:const Icon(Icons.folder_open),
-                                  onPressed:_workCancel==null?_chooseWork:null)),
-                              if(_workAnswer.isNotEmpty) ConstrainedBox(constraints:BoxConstraints(maxHeight:MediaQuery.sizeOf(context).height*.21),
-                                child:SingleChildScrollView(padding:const EdgeInsets.all(10),child:SelectableText(_workAnswer))),
-                            ])),
                           _composer(context),
                         ],
                       ),
                     ),
                   ),
-                  if (_visualStageEnabled)
+                  if (_visualStageEnabled && !_showWork)
                     Positioned(
                       left: 0,
                       right: 0,
@@ -1696,6 +1716,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
         ),
         ],
       ),
+        if (_showWork) Positioned.fill(child:ListenableBuilder(listenable:_visibleWork,builder:(_,_) =>
+          WorkPanel(work:_visibleWork,input:_visibleInput,onClose:closeWorkPanel,onHistory:_chooseWork,
+            onNew:(){
+              if (_readingRecall) {setState(()=>_readingRecall=false);} else {_work.clear();_workInput.clear();}
+            },onSend:(){
+              final text=_visibleInput.text.trim();
+              if(text.isEmpty || _visibleWork.busy)return;
+              _visibleInput.clear();
+              unawaited(_visibleWork.send(text));
+            }))),
+        if (widget.active && _appResumed && _orbEnabled)
+          Positioned.fill(child:ListenableBuilder(listenable:_visibleWork,builder:(_,_) =>
+            WorkOrb(phase:_visibleWork.phase,open:_showWork,toggle:(){if(!closeWorkPanel())_openWork();}))),
+      ]),
     );
   }
 
@@ -2439,6 +2473,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                       }
                     },
                   ),
+                  ListTile(contentPadding:EdgeInsets.zero,leading:const WhaleTail(size:24),
+                    title:const Text('工作模式'),trailing:const Icon(Icons.chevron_right_rounded),
+                    onTap:(){Navigator.pop(dialogContext); _workSettings();}),
                   const Divider(height: 26),
                   _QuickPanelTile(
                     icon: Icons.monitor_heart_outlined,
@@ -2698,8 +2735,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                         _pickingImage
                     ? null
                     : _toggleComposerTools,
-                tooltip: _researchCommission ? '委托模式已开启' : controller.deepThinking ? '深度思考已开启' : '图片、表情包、深度思考与委托模式',
-                style: (controller.deepThinking || _researchCommission)
+                tooltip: controller.deepThinking ? '深度思考已开启' : '表情包、图片与深度思考',
+                style: controller.deepThinking
                     ? IconButton.styleFrom(foregroundColor: thinkingColor)
                     : null,
                 icon: _pickingImage || controller.savingImage
@@ -2725,7 +2762,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: _researchCommission ? '把要办的事交给小鲸鱼…' : '和她说点什么…',
+                  hintText: '和她说点什么…',
                   border: const OutlineInputBorder(),
                   isDense: true,
                   prefixIconConstraints: const BoxConstraints(
@@ -2787,15 +2824,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteA
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              onPressed: _workCancel!=null ? _workCancel!.cancel : controller.generationActive
+              onPressed: controller.generationActive
                   ? (controller.cancellingGeneration
                       ? null
                       : controller.cancelCurrentGeneration)
                   : controller.analyzingImage
                       ? null
                       : _send,
-              tooltip: _workCancel!=null?'停止委托':controller.generationActive ? '停止这轮回复' : '发送',
-              icon: controller.generationActive || _workCancel!=null
+              tooltip: controller.generationActive ? '停止这轮回复' : '发送',
+              icon: controller.generationActive
                   ? const Icon(Icons.stop_rounded)
                   : const Icon(Icons.send_rounded),
             ),

@@ -1,3 +1,4 @@
+import 'commission_thread.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -92,6 +93,34 @@ class CommissionWorkspace {
     } else {
       await File('${directory!.path}/$name').delete();
     }
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>> conversations() async {
+    final threads = <String, List<Map<String, dynamic>>>{};
+    for (final name in (await list()).where((s) => s.startsWith('任务-'))) {
+      try {
+        final row = jsonDecode(await read(name));
+        if (row is! Map<String, dynamic> ||
+            row['id'] is! String ||
+            row['goal'] is! String ||
+            '任务-${row['id']}.json' != name)
+          continue;
+        threads.putIfAbsent(CommissionThread.key(row), () => []).add(row);
+      } on FormatException {
+        continue;
+      }
+    }
+    // Task names are UUIDv7, so listing order is also creation order.
+    return threads;
+  }
+
+  Future<List<Map<String, dynamic>>> conversation(String name) async {
+    validate(name);
+    final threads = await conversations();
+    for (final rows in threads.values) {
+      if (rows.any((row) => '任务-${row['id']}.json' == name)) return rows;
+    }
+    throw const FormatException('工作记录已删除或无法读取');
   }
 
   // Only compact summaries enter ordinary follow-up handling. Full reports

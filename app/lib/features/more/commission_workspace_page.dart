@@ -1,3 +1,4 @@
+import '../../core/agent/commission_thread.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/agent/commission_workspace.dart';
@@ -29,16 +30,19 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
     });
     try {
       await action();
+      if (!mounted) return;
       store = await CommissionWorkspace.open();
       files = (await store!.list()).reversed.toList();
       labels.clear();
-      for (final name in files.where((n) => n.endsWith('.json'))) {
-        try {
-          final row = jsonDecode(await store!.read(name));
-          labels[name] = row['goal'] as String;
-        } catch (_) {
-          labels[name] = '无法读取的任务';
-        }
+      final threads = await store!.conversations();
+      for (final rows in threads.values) {
+        final latest = '任务-${rows.last['id']}.json';
+        labels[latest] = rows.first['goal'] as String;
+        final older = rows
+            .take(rows.length - 1)
+            .map((r) => '任务-${r['id']}.json')
+            .toSet();
+        files.removeWhere(older.contains);
       }
     } catch (e) {
       error = e.toString();
@@ -47,18 +51,24 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
   }
 
   Future<void> inspect(String name) async {
+    if (widget.selectTask && labels.containsKey(name)) {
+      Navigator.pop(context, name);
+      return;
+    }
     final raw = await store!.read(name);
     final task = name.endsWith('.json');
     final row = task ? jsonDecode(raw) as Map : null;
     final initial = row == null
         ? raw
-        : '${row['goal']}\n\n${row['answer'] ?? '尚未完成交付，可从聊天中的委托记录接续。'}';
+        : (await store!.conversation(
+            name,
+          )).map(CommissionThread.display).join('\n\n');
     if (!mounted) return;
     var edited = initial;
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(task ? '委托记录' : name),
+        title: Text(task ? '工作记录' : name),
         content: SizedBox(
           width: 480,
           child: SingleChildScrollView(
@@ -77,11 +87,6 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
           ),
-          if (task && widget.selectTask)
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'resume'),
-              child: const Text('接着做'),
-            ),
           if (!task)
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'save'),
@@ -91,14 +96,13 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       ),
     );
     if (choice == 'save') await store!.write(name, edited);
-    if (choice == 'resume' && mounted) Navigator.pop(context, name);
   }
 
   Future<void> remove(String name) async {
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('删除${name.endsWith(".json") ? "委托记录" : "文件"}？'),
+        title: Text('删除${name.endsWith(".json") ? "整段工作对话" : "文件"}？'),
         content: Text(labels[name] ?? name),
         actions: [
           TextButton(
@@ -112,7 +116,18 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
         ],
       ),
     );
-    if (yes == true) await store!.remove(name);
+    if (yes != true) return;
+    if (name.endsWith('.json') && labels.containsKey(name)) {
+      final turns = await store!.conversation(name);
+      final names = turns.map((r) => '任务-${r['id']}.json').toList();
+      if (names.any(CommissionWorkspace.writingTasks.contains))
+        throw StateError('请先停止正在执行的任务');
+      for (final entry in names) {
+        await store!.remove(entry);
+      }
+    } else {
+      await store!.remove(name);
+    }
   }
 
   @override
@@ -152,7 +167,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
               if (files.isEmpty && error == null)
                 const ListTile(
                   title: Text('还没有工作文件'),
-                  subtitle: Text('在聊天输入框的 ＋ 中选择委托模式。'),
+                  subtitle: Text('在聊天页点鲸尾，即可开始工作。'),
                 ),
               for (final name in files)
                 ListTile(

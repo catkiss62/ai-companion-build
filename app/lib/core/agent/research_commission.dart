@@ -186,6 +186,7 @@ class ResearchCommission {
                     throw const FormatException('请先核对原文或技能停用状态');
                   }
                   cancellation.throwIfCancelled();
+                  progress('正在保存 $name', null);
                   await workspace.write(name, body);
                   result = {'saved': name};
                 }

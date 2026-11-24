@@ -102,6 +102,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int index = 0;
+  final _chatKey = GlobalKey<ChatPageState>();
   StreamSubscription<void>? _openChatSubscription;
 
   @override
@@ -172,6 +173,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           FocusManager.instance.primaryFocus?.unfocus();
           return;
         }
+        if (index == 1 && (_chatKey.currentState?.closeWorkPanel() ?? false)) return;
         if (index != 1) {
           setState(() => index = 1);
           return;
@@ -190,6 +192,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               child: CompanionHomePage(onOpenChat: _openChat),
             ),
             ChatPage(
+              key: _chatKey,
               active: index == 1,
               onOpenMore: _openMore,
               onSelectMainTab: (value) => setState(() => index = value),

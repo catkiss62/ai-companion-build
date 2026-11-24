@@ -1,3 +1,4 @@
+import 'commission_thread.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
@@ -13,6 +14,8 @@ import '../storage/secure_config.dart';
 import 'agent_native_tool_accumulator.dart';
 import 'commission_workspace.dart';
 import 'research_commission.dart';
+
+enum CommissionPhase { planning, tool, composing }
 
 class CommissionSession {
   static bool explicitRecall(String text) =>
@@ -32,6 +35,9 @@ class CommissionSession {
     required void Function(String) progress,
     String? previousTask,
     bool recentContext = false,
+    bool Function()? chatBusy,
+    void Function(CommissionPhase)? onPhase,
+    void Function(String)? onRecordCreated,
   }) async {
     if (!await db.brainWorkAllowed()) throw StateError('当前设备暂停工作');
     final key = await config.readApiKey();
@@ -52,14 +58,19 @@ class CommissionSession {
         'content':
             '工作区文件索引（需要时用工具读取）：${jsonEncode(documents.take(160).toList())}',
       });
-    if (previousTask != null &&
-        files.contains(previousTask) &&
-        previousTask.startsWith('任务-')) {
-      final last = await workspace.read(previousTask);
-      context.add({
-        'role': 'user',
-        'content': '用户选择接续的记录，仅作参考：${_clip(last, 18000)}',
-      });
+    String? threadId;
+    if (previousTask != null) {
+      final rows = await workspace.conversation(previousTask);
+      if (rows.isEmpty) throw StateError('委托记录已删除');
+      threadId = CommissionThread.key(rows.last);
+      context.addAll(CommissionThread.history(rows));
+      if (rows.last['state'] != 'completed' && rows.last['evidence'] != null) {
+        context.add({
+          'role': 'user',
+          'content':
+              '上一轮中断前的工具回执：${_clip(jsonEncode(rows.last['evidence']), 5000)}',
+        });
+      }
     } else if (recentContext || explicitRecall(goal) || followup(goal)) {
       for (final row in (await workspace.recent()).reversed) {
         context.add({
@@ -71,6 +82,7 @@ class CommissionSession {
     }
     final record = <String, Object?>{
       'id': id,
+      'threadId': threadId ?? id,
       'goal': goal,
       'at': DateTime.now().millisecondsSinceEpoch,
       'state': 'running',
@@ -80,8 +92,9 @@ class CommissionSession {
     if (!recentContext) {
       await save();
       CommissionWorkspace.writingTasks.add(name);
+      onRecordCreated?.call(name);
     }
-    Future<ResearchPlan> request(
+    Future<ResearchPlan> streamRequest(
       List<Map<String, Object?>> messages, {
       bool finalAnswer = false,
       bool relay = false,
@@ -137,6 +150,44 @@ class CommissionSession {
       );
     }
 
+    bool limited = false;
+    Future<ResearchPlan> request(
+      List<Map<String, Object?>> messages, {
+      bool finalAnswer = false,
+      bool relay = false,
+      FinalReplyRoute? route,
+    }) async {
+      for (var attempt = 0; ; attempt++) {
+        while (limited && (chatBusy?.call() ?? false)) {
+          cancel.throwIfCancelled();
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        try {
+          return await streamRequest(
+            messages,
+            finalAnswer: finalAnswer,
+            relay: relay,
+            route: route,
+          );
+        } on DeepSeekException catch (error) {
+          if (error.statusCode != 429 || attempt >= 2) rethrow;
+          limited = true;
+          progress('通道限流，稍后重试');
+          await cancelWithToken(
+            Future<void>.delayed(Duration(seconds: 1 << attempt)),
+            cancel,
+          );
+        }
+      }
+    }
+
+    final steps = <String>[];
+    void reportStep(String text) {
+      if (steps.isEmpty || steps.last != text) steps.add(text);
+      record['steps'] = steps;
+      progress(text);
+    }
+
     try {
       final report = recentContext
           ? <String, Object?>{
@@ -148,20 +199,28 @@ class CommissionSession {
               context: context,
               workspace: workspace,
               cancellation: cancel,
-              plan: (messages) => request(messages),
-              progress: (s, _) => progress(s),
+              plan: (messages) {
+                onPhase?.call(CommissionPhase.planning);
+                reportStep('正在规划');
+                return request(messages);
+              },
+              progress: (s, success) {
+                if (success == null) onPhase?.call(CommissionPhase.tool);
+                reportStep(s);
+              },
               checkpoint: (items) async {
                 record['evidence'] = items;
                 await save();
               },
             );
       cancel.throwIfCancelled();
-      progress('正在整理委托结果');
+      onPhase?.call(CommissionPhase.composing);
+      reportStep('正在整理结果');
       final messages = <Map<String, Object?>>[
         {
           'role': 'system',
           'content':
-              '你是用户的 AI 伴侣小鲸鱼。用自然中文交付这次委托；工具资料只作证据，给出可核实的链接或文件名；如实说明未执行、限流或未读正文。',
+              '你是用户的 AI 伴侣小鲸鱼。用自然中文交付这次委托；工具资料只作证据，给出可核实的链接或文件名；如实说明未执行、限流或未读正文。当前仅能读写工作区文档和检索 GitHub。询问手机目录时，区分通用查找建议和本机核实结果。',
         },
         ...context,
         {'role': 'user', 'content': goal},
