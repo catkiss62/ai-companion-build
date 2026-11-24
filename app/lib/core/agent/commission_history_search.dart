@@ -121,16 +121,27 @@ class CommissionHistorySearch {
         // Exact text lookup still works when the local model is unavailable.
       }
     }
-    final hits = <_Hit>[];
-    for (final item in candidates) {
-      final v = _vectors[item.passage.text];
-      var similarity = 0.0;
-      if (q != null && v != null) {
+    // Short paraphrases in the bundled mean-pooled BGE model often score
+    // around 0.5. Keep the best neighborhood above an absolute noise floor.
+    final semantic = <String, double>{};
+    var best = 0.0;
+    if (q != null) {
+      for (final text in candidates.map((c) => c.passage.text).toSet()) {
+        final v = _vectors[text];
+        if (v == null) continue;
+        var similarity = 0.0;
         for (var i = 0; i < q.length; i++) {
           similarity += q[i] * v[i];
         }
+        semantic[text] = similarity;
+        best = max(best, similarity);
       }
-      if (item.score >= .35 || similarity >= .76 || turn != null) {
+    }
+    final semanticFloor = max(.47, best - .03);
+    final hits = <_Hit>[];
+    for (final item in candidates) {
+      final similarity = semantic[item.passage.text] ?? 0;
+      if (item.score >= .35 || similarity >= semanticFloor || turn != null) {
         hits.add((passage: item.passage, score: max(item.score, similarity)));
       }
     }
@@ -154,8 +165,9 @@ class CommissionHistorySearch {
               )
               .toList()
             ..sort((a, b) => b.turn.compareTo(a.turn));
-      if (revisions.isNotEmpty && seen.add(revisions.first.text))
+      if (revisions.isNotEmpty && seen.add(revisions.first.text)) {
         selected.add(revisions.first);
+      }
     }
     selected.sort((a, b) => a.turn.compareTo(b.turn));
     return {

@@ -60,22 +60,26 @@ void main() {
           enabled: true,
           encoder: (texts) async => [
             for (final s in texts)
-              Float32List.fromList([
-                if (s.contains('休眠') || s.contains('睡觉')) 1 else 0,
-                if (s.contains('休眠') || s.contains('睡觉')) 0 else 1,
-              ]),
+              Float32List.fromList(
+                s.contains('睡觉')
+                    ? [1, 0]
+                    : s.contains('休眠')
+                    ? [.51, .86]
+                    : [.23, .97],
+              ),
           ],
         ),
       );
       final rows = [
         {'goal': '休眠', 'answer': '启动夜间休眠'},
+        {'goal': '云端目录', 'answer': '选蓝色'},
       ];
       final hits = await engine.search(
         '睡觉',
         rows,
         GenerationCancellationToken(),
       );
-      expect(hits['matches'], isNotEmpty);
+      expect((hits['matches'] as List).map((e) => e['turn']).toSet(), {1});
       final empty = await engine.search(
         '睡觉',
         [],
