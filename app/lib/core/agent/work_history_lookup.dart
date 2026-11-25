@@ -9,7 +9,8 @@ class WorkHistoryLookup {
   static bool explicit(String text) {
     if (RegExp(r'不要|不用查|别查|假设|举例|开玩笑|比如|能否实现|功能|误判|进入工作模式|设计成').hasMatch(text)) return false;
     final source = RegExp(r'工作区|工作模式|委托|(?:上次|之前|上周|昨天|刚才).{0,18}(?:做的|写的|给我写|给我做|那份).{0,16}(?:报告|网页|作品)|(?:报告|作品|技能)-[^/]+\.(?:md|html)').hasMatch(text);
-    return source && RegExp(r'读|查|翻|看|找|记得|哪|什么|内容|原文|第.{0,3}段|做到|进度|结果|做过|交付|还在').hasMatch(text);
+    if (!source || RegExp(r'工作模式(?:是什么|怎么(?:开|用|进)|.{0,5}(?:通道|模型|配置|设置))|工作区(?:在哪|路径|怎么(?:设置|改))').hasMatch(text)) return false;
+    return RegExp(r'读|查|翻|看|找|记得|做(?:过|了)?(?:些|点)?(?:什么|啥|哪些)|有哪些|有什么|里面.{0,5}内容|原文|第.{0,3}段|做到|进度|结果|交付|还在').hasMatch(text);
   }
 
   static bool followup(String text) => !RegExp(r'别|不要|不用|假设|比如').hasMatch(text) &&
@@ -56,9 +57,9 @@ class WorkHistoryLookup {
     final workspace = await CommissionWorkspace.open();
     final location = workspace.tree ?? workspace.directory?.path;
     if(previous!=null && previous['location']!=location) return result('工作区已切换，请重新指定文件',{},found:false);
-    if(anchor==null && RegExp(r'(?:最近|近期|这两天|刚才)').hasMatch(text) &&
+    if(anchor==null &&
         RegExp(r'做(?:过|了)?(?:些|点)?(?:什么|啥|哪些)|有哪些(?:工作|任务|委托|交付)|(?:工作|任务|委托).{0,5}(?:进度|怎么样)').hasMatch(text) &&
-        !RegExp(r'上周|原文|那份|那篇|文件名|读.{0,4}段').hasMatch(text)) {
+        !RegExp(r'上周|昨天|上个月|前天|本周|这周|原文|那份|那篇|文件名|读.{0,4}段').hasMatch(text)) {
       final recent = await workspace.recent();
       return result('已查询近期工作',{'tasks':[for(final row in recent) summary(row)]});
     }

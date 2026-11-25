@@ -9,11 +9,15 @@ import 'commission_workspace.dart';
 class WorkQuiz {
   static const example = 'https://zodiacgalore.com/quizzes/which-element/';
   static Uri? requested(String text) {
-    if (!RegExp(r'答题|答完|作答|填完|做.{0,8}(?:测验|测试)|测一下|测测').hasMatch(text) ||
+    final quizLink = text.contains('https://zodiacgalore.com/quizzes/');
+    final wantsAnswers = RegExp(r'答题|答完|作答|填完|填写|做.{0,8}(?:测验|测试)|测一下|测测').hasMatch(text) ||
+        quizLink && RegExp(r'玩一下|做一下|自己做|选完|给我.{0,3}结果|结果.{0,4}截图').hasMatch(text);
+    if (!wantsAnswers ||
         RegExp(r'不用答|别答|不要答|先讨论|能否实现|如果|举例').hasMatch(text)) return null;
     final match = RegExp(r'https?://[A-Za-z0-9./_?&=%#-]+').firstMatch(text);
     if (match == null && !RegExp(r'元素|五题|短测验').hasMatch(text)) return null;
     final uri = Uri.parse(match?.group(0) ?? example);
+    if (uri.scheme=='https' && uri.authority=='zodiacgalore.com' && uri.path=='/quizzes/') return Uri.parse(example);
     if(uri.scheme != 'https' || uri.authority != 'zodiacgalore.com' ||
        !RegExp(r'^/quizzes/[a-z0-9-]{1,80}/?$').hasMatch(uri.path)) {
       throw const FormatException('此网页暂不支持自动答题，可以试试五题元素测验');
@@ -24,8 +28,9 @@ class WorkQuiz {
   static Future<Uint8List> image(CommissionWorkspace workspace,String name,String digest) async {
     if (!name.endsWith('.png')) throw const FormatException('截图名称无效');
     final data = base64Decode(await workspace.read(name));
-    if (data.length < 33 || !data.take(8).toList().asMap().entries.every(
-      (e) => e.value == const [137,80,78,71,13,10,26,10][e.key]) || sha256.convert(data).toString() != digest) {
+    const signature = [137,80,78,71,13,10,26,10];
+    final isPng = data.length >= 33 && signature.asMap().entries.every((entry) => data[entry.key] == entry.value);
+    if (!isPng || sha256.convert(data).toString() != digest) {
       throw const FormatException('结果截图校验失败');
     }
     return data;

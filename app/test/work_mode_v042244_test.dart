@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('casual roleplay stays in chat and genuine work reads are explicit', () {
-    for (final text in ['上班了，进入工作模式','最近做了什么','第二个','比如说你去看工作区？']) {
+    for (final text in ['上班了，进入工作模式','最近做了什么','第二个','工作模式是什么','工作区在哪','比如说你去看工作区？']) {
       expect(WorkHistoryLookup.explicit(text),isFalse,reason:text);
       expect(WorkHistoryLookup.followup(text),isFalse,reason:text);
     }

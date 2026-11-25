@@ -65,6 +65,7 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
                 allowFileAccess = false
                 allowContentAccess = false
                 domStorageEnabled = false
+                offscreenPreRaster = true
                 javaScriptCanOpenWindowsAutomatically = false
                 setGeolocationEnabled(false)
                 cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
@@ -192,6 +193,15 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             canvas.drawColor(android.graphics.Color.WHITE)
             canvas.scale(width.toFloat()/view.width,width.toFloat()/view.width)
             view.draw(canvas)
+            val colors = mutableSetOf<Int>()
+            for (y in 0 until bitmap.height step 5) {
+                for (x in 0 until bitmap.width step 5) colors.add(bitmap.getPixel(x,y))
+                if (colors.size > 3) break
+            }
+            if (colors.size < 2) {
+                bitmap.recycle()
+                throw IllegalStateException("尚未绘制结果页面")
+            }
             val out = ByteArrayOutputStream()
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             bitmap.recycle()
