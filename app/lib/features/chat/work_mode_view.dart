@@ -324,9 +324,10 @@ class _WorkPanelState extends State<WorkPanel>
                                       title: item['title']?.toString() ?? 'HTML 作品',
                                       load: () => work.readHtml(item['artifact'] as String, expectedDigest: item['digest'] as String?)),
                                 for(final item in _receipts(row))
-                                  if(item['screenshot'] is String && item['digest'] is String)
-                                    _ResultPhoto(key:ValueKey("${row['id']}/${item['digest']}"),
-                                      load:()=>work.screenshot(item['screenshot'] as String,item['digest'] as String)),
+                                  for(final photo in (item['photos'] as List? ?? [item]).whereType<Map>())
+                                   if(photo['screenshot'] is String && photo['digest'] is String)
+                                    _ResultPhoto(key:ValueKey("${row['id']}/${photo['digest']}"),
+                                      load:()=>work.screenshot(photo['screenshot'] as String,photo['digest'] as String)),
                                 for (final file in saved)
                                   Align(
                                     alignment: Alignment.centerLeft,

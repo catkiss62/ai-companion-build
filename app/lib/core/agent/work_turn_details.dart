@@ -25,6 +25,7 @@ class WorkTurnDetails {
     for (final key in ['error', 'saved', 'file', 'repository', 'display', 'artifact', 'title', 'digest', 'screenshot']) {
       if (result[key] is String) receipt[key] = result[key];
     }
+    if (result['photos'] is List) receipt['photos']=result['photos'];
     if (result['matches'] case final List excerpts)
       receipt['excerpts'] = excerpts.length;
     if (result['repositories'] case final List rows) {

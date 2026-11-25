@@ -11,7 +11,7 @@ val syncImportSources = tasks.register<Sync>("syncImportSources") {
         include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt", "PortableCompanionState.kt")
         include("CalendarReminderSchedule.kt", "CalendarReminderRuntime.kt", "CalendarReminderCard.kt", "CalendarReminderCardHost.kt")
         include("CreativeWebSandbox.kt", "PlaybackSessionRegistry.kt")
-        include("OverlayHistoryRefreshState.kt", "DownloadWorkspace.kt", "WorkQuizBrowser.kt")
+        include("OverlayHistoryRefreshState.kt", "DownloadWorkspace.kt", "WorkQuizBrowser.kt", "WorkPublicPage.kt")
     }
     into(layout.buildDirectory.dir("generated/import-sources"))
 }
@@ -45,12 +45,13 @@ android {
         java.exclude("io/flutter/**")
         assets.srcDir("../../android/app/src/main/assets")
         assets.srcDir(layout.buildDirectory.dir("generated/galaxy-assets"))
-        assets.include("com/live2d/**", "sen-default-profile-v1.json", "maid-parameter-semantics-v1.json", "flutter_assets/assets/memory_galaxy/**")
+        assets.include("work_page.js", "com/live2d/**", "sen-default-profile-v1.json", "maid-parameter-semantics-v1.json", "flutter_assets/assets/memory_galaxy/**")
     }
 }
 tasks.named("preBuild").configure { dependsOn(syncImportSources, syncGalaxyAssets) }
 
 dependencies {
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(files("../../android/app/libs/Live2DCubismCore.aar"))
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.test:runner:1.6.2")

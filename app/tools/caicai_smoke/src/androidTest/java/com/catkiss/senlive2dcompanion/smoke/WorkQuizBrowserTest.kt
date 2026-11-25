@@ -36,6 +36,65 @@ class WorkQuizBrowserTest {
         exercise(html,null)
     }
 
+    @Test fun publicDereScaleAdvances35QuestionsAndCapturesActualResultCard() {
+        val assets=InstrumentationRegistry.getInstrumentation().context.assets
+        assumeTrue("Public Dere snapshot unavailable", assets.list("work-quiz")?.contains("dere.html")==true)
+        val html=assets.open("work-quiz/dere.html").bufferedReader().use { it.readText() }
+        exercisePage(html, true)
+    }
+
+    @Test fun genericRadioFormReturnsFullScrollableResult() {
+        val html="""<meta name="viewport" content="width=device-width,initial-scale=1"><body>
+            <fieldset><legend>First?</legend><label><input type="radio" name="x">Yes</label></fieldset>
+            <button onclick="document.body.innerHTML='<section id=result style=height:1180px;background:linear-gradient(red,blue)><h2>Outcome</h2>Done</section>'">Submit</button>"""
+        exercisePage(html, false)
+    }
+
+    private fun exercisePage(html:String,dere:Boolean) {
+        ActivityScenario.launch(ReminderCardSmokeActivity::class.java).use { scenario ->
+            lateinit var browser:WorkQuizBrowser
+            scenario.onActivity { browser=WorkQuizBrowser(it){ p ->
+                if(p=="/zh-cn/dere-type/") WebResourceResponse("text/html","utf-8",html.byteInputStream())
+                else WebResourceResponse("text/plain","utf-8","".byteInputStream())
+            } }
+            fun call(method:String,params:Map<String,Any> = emptyMap()):String {
+                val f=CompletableFuture<String>()
+                scenario.onActivity { browser.handle(method,params+("id" to "public"),object:WorkQuizBrowser.Reply{
+                    override fun success(value:String?){ f.complete(value ?: "") }
+                    override fun error(code:String,message:String){ f.completeExceptionally(AssertionError(message)) }
+                }) }
+                return f.get(35,TimeUnit.SECONDS)
+            }
+            try{
+                var state=JSONObject(call("workPageOpen",mapOf("url" to "https://uwakihantei.com/zh-cn/dere-type/#dere-tool")))
+                fun act(name:String){
+                    val cs=state.getJSONArray("controls")
+                    val c=(0 until cs.length()).map{cs.getJSONObject(it)}.firstOrNull{it.getString("name").contains(name)}
+                    assertNotNull("Missing control: "+name+" "+cs,c)
+                    val key=state.getString("key")
+                    assertEquals("ok",call("workPageAct",mapOf("key" to key,"id" to c!!.getInt("id"))))
+                    Thread.sleep(700)
+                    state=JSONObject(call("workPageRead",mapOf("previous" to key)))
+                }
+                if(dere){
+                    val qs=mutableSetOf<String>()
+                    repeat(35){
+                        assertTrue("Repeated "+state.optString("position"),qs.add(state.getString("question")))
+                        act("比较同意")
+                    }
+                    if(state.optString("title","").isEmpty()) act("结果")
+                }else{ act("Yes");act("Submit") }
+                assertTrue(state.optString("summary").isNotBlank())
+                val photos=org.json.JSONArray(call("workPageResult"))
+                val bytes=Base64.decode(photos.getString(0),Base64.DEFAULT)
+                val image=BitmapFactory.decodeByteArray(bytes,0,bytes.size)
+                assertNotNull(image)
+                assertTrue("Result should extend below a viewport or be the portrait result card", image.height>image.width)
+                image.recycle()
+            }finally{call("workQuizClose")}
+        }
+    }
+
     private fun exercise(html:String, portal:String?) {
         ActivityScenario.launch(ReminderCardSmokeActivity::class.java).use { scenario ->
             lateinit var browser: WorkQuizBrowser

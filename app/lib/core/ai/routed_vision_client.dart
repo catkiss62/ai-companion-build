@@ -129,8 +129,9 @@ class VisionRoutingTransport extends http.BaseClient {
         if (first) return _response(response.body, response.statusCode);
         throw QwenVisionException(response.statusCode, 'vision_provider_failed');
       }
-      _validate(response.body);
-      return _response(jsonEncode({...Map<String, Object?>.from(jsonDecode(response.body) as Map),
+      final decoded = utf8.decode(response.bodyBytes);
+      _validate(decoded);
+      return _response(jsonEncode({...Map<String, Object?>.from(jsonDecode(decoded) as Map),
         '_client_provider': first ? 'deepseek' : 'qwen_vision'}), response.statusCode);
     } catch (_) { await check(); rethrow; }
     finally { timer.cancel(); _active.remove(client); client.close(); }

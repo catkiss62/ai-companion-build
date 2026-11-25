@@ -64,6 +64,7 @@ class SystemBridge(
         SnapshotCacheCleaner.clean(activity)
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "workPageOpen", "workPageRead", "workPageAct", "workPageFrame", "workPageResult",
                 "workQuizOpen", "workQuizChoose", "workQuizCapture", "workQuizClose" -> workQuiz.handle(
                     call.method, call.arguments as? Map<*, *> ?: emptyMap<Any,Any>(), object : WorkQuizBrowser.Reply {
                         override fun success(value: String?) = result.success(value)

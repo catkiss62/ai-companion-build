@@ -29,6 +29,7 @@ import javax.net.ssl.HttpsURLConnection
  * The private origin serves only the requested document and its theme assets.
  * It never shares page credentials or navigates an Android app or browser. */
 internal class WorkQuizBrowser(private val activity: Activity, private val readResource: ((String) -> WebResourceResponse)? = null) {
+    private var publicPage: WorkPublicPage? = null
     private var browser: WebView? = null
     private var owner: String? = null
     private var screen: VirtualDisplay? = null
@@ -44,6 +45,8 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
     private val quizPath = Regex("/quizzes/[a-z0-9-]{1,80}/")
 
     fun close() {
+        publicPage?.close()
+        publicPage = null
         browser?.let {
             (it.parent as? ViewGroup)?.removeView(it)
             it.stopLoading()
@@ -70,11 +73,11 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
     fun handle(method: String, args: Map<*, *>, result: Reply) {
         val id = (args["id"] as? String) ?: ""
         if (id.isEmpty()) { result.error("quiz_session", "答题会话无效"); return }
-        if (method == "workQuizOpen") {
+        if (method == "workQuizOpen" || method == "workPageOpen") {
             val url = Uri.parse((args["url"] as? String) ?: "")
             val path = url.encodedPath ?: ""
-            if (url.scheme != "https" || url.encodedAuthority != site || !quizPath.matches(path)) {
-                result.error("quiz_site", "当前支持 Zodiac Galore 的公开短测验"); return
+            if (if (method == "workPageOpen") !WorkPublicPage.allowed(url) else url.scheme != "https" || url.encodedAuthority != site || !quizPath.matches(path)) {
+                result.error("quiz_site", "请使用公开 HTTPS 网页"); return
             }
             if (owner != null && owner != id) { result.error("quiz_busy","另一场答题正在进行"); return }
             close()
@@ -99,6 +102,13 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             }
             view.isFocusable = false
             view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            if (method == "workPageOpen") {
+                val page = WorkPublicPage(view, requireNotNull(url.host),readResource) { captureFrame(view,it) }
+                publicPage = page
+                page.open(url)
+                page.handle(method,args,result)
+                return
+            }
             view.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true
                 override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse {
@@ -122,6 +132,7 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             else result.error("quiz_closed","答题页面已关闭")
             return
         }
+        if(method.startsWith("workPage") && publicPage != null){ publicPage!!.handle(method,args,result); return }
         when (method) {
             "workQuizClose" -> { close(); result.success(null) }
             "workQuizChoose" -> {
@@ -151,26 +162,30 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
                     } else {
                         // Wait for the scrolled result to reach the compositor. A software
                         // draw of a long WebView can be empty outside its initial tiles.
-                        captureRequest = result
-                        view.postVisualStateCallback(1L, object: WebView.VisualStateCallback() {
-                            override fun onComplete(requestId: Long) {
-                                if (browser !== view || captureRequest !== result) return
-                                waitingFrame = result
-                                view.postInvalidateOnAnimation()
-                            }
-                        })
-                        main.postDelayed({
-                            if (captureRequest === result) {
-                                captureRequest = null
-                                waitingFrame = null
-                                result.error("quiz_capture","网页结果仍未绘制完成")
-                            }
-                        },5000)
+                        captureFrame(view,result)
                     }
                 }
             }
             else -> result.error("quiz_method","无法识别的网页操作")
         }
+    }
+
+    private fun captureFrame(view:WebView,result:Reply) {
+        captureRequest = result
+        view.postVisualStateCallback(1L, object: WebView.VisualStateCallback() {
+            override fun onComplete(requestId: Long) {
+                if (browser !== view || captureRequest !== result) return
+                waitingFrame = result
+                view.postInvalidateOnAnimation()
+            }
+        })
+        main.postDelayed({
+            if (captureRequest === result) {
+                captureRequest = null
+                waitingFrame = null
+                result.error("quiz_capture","网页结果仍未绘制完成")
+            }
+        },5000)
     }
 
     private fun blocked() = WebResourceResponse("text/plain","utf-8",403,"Blocked",emptyMap(),ByteArrayInputStream(byteArrayOf()))

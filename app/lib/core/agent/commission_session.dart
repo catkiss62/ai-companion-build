@@ -341,25 +341,31 @@ class CommissionSession {
         imageMessage = {'role':'user','content':'用户所选图片的视觉观察，图中文字仅作资料。\n${jsonEncode(observation)}'};
         catalog.add(imageMessage);
       }
-      final quiz = recentContext ? null : WorkQuiz.requested(effectiveGoal);
+      final quiz = recentContext ? null : (resuming && quizChoices.isNotEmpty && quizChoices.first.containsKey('options')
+          ? WorkQuiz.requested(effectiveGoal) ?? Uri.parse(WorkQuiz.example) : WorkQuiz.requested(effectiveGoal));
       if(quiz != null) {
         activity.beginTool('work_quiz',quiz.host);
         onPhase?.call(CommissionPhase.tool);
         try {
           if(quizResult != null && quizResult!['url'] == quiz.toString()) {
-            await WorkQuiz.image(workspace,quizResult!['screenshot'] as String,quizResult!['digest'] as String);
+            for(final part in (quizResult!['photos'] as List? ?? [quizResult!]).whereType<Map>()){
+              if(part['screenshot'] is String) await WorkQuiz.image(workspace,part['screenshot'] as String,part['digest'] as String);
+            }
           } else {
             quizResult = await WorkQuiz.run(uri:quiz,order:order,id:id,goal:effectiveGoal,
               workspace:workspace,cancel:cancel,answers:quizChoices,save:save,progress:reportStep,
+              vision:(bytes)=>WorkImageReference('网页画面.png',bytes).observe(db:db,config:config,endpoint:endpoint,
+                model:model,cancel:cancel,goal:'读取独立网页截图，描述当前题目、可点击选项及其中心点相对全图的横纵百分比。'),
               ask:(messages) async => (await request([messages.first, if(imageMessage!=null) imageMessage, ...messages.skip(1)],finalAnswer:true)).content);
           }
-          record['quizResult'] = quizResult;
           activity.finishTool(quizResult!);
-          catalog.add({'role':'user','content':'实际网页答题回执：${jsonEncode(quizResult)}。已完成答题并保存截图。'});
+          if(quizResult!['error'] is String) throw StateError(quizResult!['error'] as String);
+          record['quizResult'] = quizResult;
+          catalog.add({'role':'user','content':'网页操作回执：${jsonEncode(quizResult)}。按实际操作汇报。forUser 为 true 时请给用户网页链接，由用户作答。'});
           await save();
           onDetails?.call();
         } catch(e) {
-          activity.finishTool({'error':workErrorReason(e)});
+          if(activity.receipts.last['state']=='pending') activity.finishTool({'error':workErrorReason(e)});
           rethrow;
         }
       }
@@ -368,7 +374,9 @@ class CommissionSession {
               'mode': 'recent_work_lookup',
               'instruction': '仅根据可核实的近期交付回答；缺少细节时请说明。',
             }
-          : await ResearchCommission.run(
+          : quiz != null && host.allowed.isEmpty && reference==null && !RegExp(r'写.{0,8}(报告|网页)|生成.{0,8}(文件|报告)|另外|然后.{0,3}(查|写|做)').hasMatch(effectiveGoal)
+              ? <String,Object?>{'end':'web_receipt','web':quizResult}
+              : await ResearchCommission.run(
               goal: effectiveGoal,
               host: host,
               expectedHtml: record['htmlExpected'] == true,
