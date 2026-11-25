@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:ai_companion_localfirst/core/agent/work_error.dart';
 import 'dart:io';
 import 'package:ai_companion_localfirst/features/chat/work_html_card.dart';
 
@@ -14,6 +16,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('work failures distinguish a dropped connection, timeout and missing file', () {
+    expect(workErrorReason(const SocketException('lost')), '连接中断');
+    expect(workErrorReason(TimeoutException('late')), '请求超时');
+    expect(workErrorReason(StateError('工作文件已移动或删除')), '工作文件已移动或删除');
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
