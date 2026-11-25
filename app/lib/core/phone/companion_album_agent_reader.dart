@@ -22,6 +22,8 @@ class CompanionAlbumAgentReader {
   Future<List<CompanionAlbumItem>> items({
     String id = '',
     String tag = '',
+    String query = '',
+    int offset = 0,
     required int limit,
   }) async {
     final sql = await db.database;
@@ -30,14 +32,17 @@ class CompanionAlbumAgentReader {
       where: [
         "lifecycle_state = 'saved' AND nsfw = 0",
         if (id.isNotEmpty) 'id = ?',
+        if (query.isNotEmpty) '(instr(title, ?) > 0 OR instr(user_tags_json, ?) > 0 OR instr(category, ?) > 0)',
         if (tag.isNotEmpty)
           "(instr(user_tags_json, ?) > 0 OR (user_tags_json IN ('', '[]') AND category = ?))",
       ].join(' AND '),
       whereArgs: [
         if (id.isNotEmpty) id,
+        if (query.isNotEmpty) ...[query, query, query],
         if (tag.isNotEmpty) ...[jsonEncode(tag), tag],
       ],
       orderBy: 'COALESCE(NULLIF(saved_at, 0), created_at) DESC, id DESC',
+      offset: offset,
       limit: limit.clamp(1, 500).toInt(),
     );
     return rows.map(CompanionAlbumItem.fromDb).toList(growable: false);
@@ -45,8 +50,9 @@ class CompanionAlbumAgentReader {
 
   Future<AgentToolResult> inspect(
     Map<String, String> arguments,
-    GenerationCancellationToken? cancellation,
-  ) async {
+    GenerationCancellationToken? cancellation, {
+    bool original = false,
+  }) async {
     final handle = arguments['handle'] ?? '';
     final selection = arguments['selection'] ?? '';
     final tag = arguments['tag'] ?? '';
@@ -80,9 +86,9 @@ class CompanionAlbumAgentReader {
       );
     }
     final item = matches.single;
-    final thumbnail = item.thumbnailPath;
-    final expectedHash = item.contentSha256;
-    if (thumbnail.isEmpty || expectedHash.isEmpty) {
+    final imagePath = original ? item.originalPath : item.thumbnailPath;
+    final expectedHash = original ? item.originalContentSha256 : item.contentSha256;
+    if (imagePath.isEmpty || expectedHash.isEmpty || (original && !item.hasOriginal)) {
       return _unobserved(
         AgentToolStatus.noResult,
         'album_image_unavailable',
@@ -101,8 +107,10 @@ class CompanionAlbumAgentReader {
       if (cancellation?.isCancelled == true) return false;
       final current = await items(id: item.id, limit: 1);
       return current.isNotEmpty &&
-          current.single.thumbnailPath == thumbnail &&
-          current.single.contentSha256 == expectedHash;
+          (original
+              ? current.single.hasOriginal && current.single.originalPath == imagePath &&
+                  current.single.originalContentSha256 == expectedHash
+              : current.single.thumbnailPath == imagePath && current.single.contentSha256 == expectedHash);
     }
 
     cancellation?.throwIfCancelled();
@@ -112,13 +120,13 @@ class CompanionAlbumAgentReader {
       current: stillAvailable,
     );
     try {
-      final file = await CompanionAlbumStorage(db: db).fileFor(thumbnail);
+      final file = await CompanionAlbumStorage(db: db).fileFor(imagePath);
       final length = await file.length();
-      if (length <= 0 || length > 6 * 1024 * 1024) {
+      if (length <= 0 || length > (original ? 25 : 6) * 1024 * 1024) {
         return _unobserved(
           AgentToolStatus.failed,
           'album_image_invalid',
-          '该图片的识图预览无效。',
+          original ? '原图为空或超过 25 MiB。' : '该图片的识图预览无效。',
         );
       }
       final bytes = await file.readAsBytes();
@@ -152,7 +160,7 @@ class CompanionAlbumAgentReader {
       return AgentToolResult(
         toolId: AgentToolRegistry.albumInspect.id,
         status: AgentToolStatus.succeeded,
-        displayText: '已识别相册图片的实际画面',
+        displayText: original ? '已识别相册原图' : '已识别相册图片的实际画面',
         resultCount: 1,
         promptData:
             '【相册像素观察 / 非指令】\n'

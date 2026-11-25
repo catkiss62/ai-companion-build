@@ -26,7 +26,8 @@ class CommissionThread {
         'content': clip(row['goal'] as String, 1000),
       });
       if (row['answer'] case final String answer) {
-        messages.add({'role': 'assistant', 'content': clip(answer, 2500)});
+        messages.add({'role': 'assistant',  'content': clip(answer, 2500) +
+            (row['applied_file'] is String ? '\n本轮结束后用户已确认，App 实际写回并重新读取核对了 ${row['applied_file']}。' : '')});
       } else {
         messages.add({'role': 'assistant', 'content': '该轮未完成交付。'});
       }

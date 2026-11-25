@@ -2,6 +2,8 @@ package com.aicompanion.localfirst
 
 import android.app.Activity
 import android.content.Intent
+import android.system.Os
+import android.system.OsConstants
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.os.Handler
@@ -17,7 +19,7 @@ internal class CommissionDocuments(private val activity: Activity) {
     private val executor = Executors.newSingleThreadExecutor()
     private var picker: MethodChannel.Result? = null
     // A grant is scoped to the current UI session. Never accept an arbitrary URI from a task file.
-    private var reference: Pair<String, Uri>? = null
+    @Volatile private var reference: Pair<String, Uri>? = null
     private fun displayName(uri: Uri): String =
         resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
             if (it.moveToFirst()) it.getString(0) else null
@@ -39,6 +41,62 @@ internal class CommissionDocuments(private val activity: Activity) {
         require(text.none { it < ' ' && it !in "\t\r\n" }) { "请选择 UTF-8 文本文件" }
         return mapOf("name" to displayName(uri), "text" to text)
     }
+    // Require a seekable regular descriptor before touching bytes. Some SAF
+    // providers only support a destructive "wt" stream; keep those read-only.
+    private fun applyReference(selected: Pair<String, Uri>, expected: String, text: String) {
+        val replacement = text.toByteArray(Charsets.UTF_8)
+        require(replacement.size <= 65536 && text.none { it < ' ' && it !in "\t\r\n" }) { "修改稿不符合文本要求" }
+        val doc = resolver.openFileDescriptor(selected.second, "rw") ?: error("文件不支持写回")
+        doc.use {
+            val fd = it.fileDescriptor
+            fun readBytes(): ByteArray {
+                val stat = Os.fstat(fd)
+                require(OsConstants.S_ISREG(stat.st_mode) && stat.st_size in 0L..65536L) { "仅支持可定位且不超过 64 KiB 的文本文件" }
+                val bytes = ByteArray(stat.st_size.toInt())
+                var offset = 0
+                while (offset < bytes.size) {
+                    val count = Os.pread(fd, bytes, offset, bytes.size - offset, offset.toLong())
+                    check(count > 0) { "读取期间文件已变化" }
+                    offset += count
+                }
+                return bytes
+            }
+            fun writeBytes(bytes: ByteArray) {
+                var offset = 0
+                while (offset < bytes.size) {
+                    val count = Os.pwrite(fd, bytes, offset, bytes.size - offset, offset.toLong())
+                    check(count > 0) { "文件写入中断" }
+                    offset += count
+                }
+                Os.ftruncate(fd, bytes.size.toLong())
+                Os.fsync(fd)
+            }
+            val original = readBytes()
+            val bom = byteArrayOf(0xef.toByte(), 0xbb.toByte(), 0xbf.toByte())
+            val hasBom = original.size >= 3 && bom.indices.all { i -> original[i] == bom[i] }
+            val payload = if (hasBom) original.copyOfRange(3, original.size) else original
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest(payload)
+                .joinToString("") { byte -> "%02x".format(byte) }
+            require(digest == expected && reference == selected) { "文件或引用已变化，请重新读取后生成修改稿" }
+            val output = if (hasBom) bom + replacement else replacement
+            require(output.size <= 65536) { "文件超过 64 KiB" }
+            if (output.contentEquals(original)) return
+            try {
+                writeBytes(output)
+                check(readBytes().contentEquals(output))
+            } catch (e: Exception) {
+                try {
+                    writeBytes(original)
+                    check(readBytes().contentEquals(original))
+                } catch (rollback: Exception) {
+                    throw IllegalStateException("写回中断，无法核实原文已恢复，请检查文件", rollback)
+                }
+                throw IllegalStateException("写回失败，已恢复并核对原文", e)
+            }
+        }
+        check(readReference(selected.second)["text"] == text) { "无法核实提供方保存的最终内容，请检查文件" }
+    }
+
     private val namePattern = Regex("""(任务-[a-f0-9-]{36}\.json|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)""")
     private val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
@@ -88,6 +146,28 @@ internal class CommissionDocuments(private val activity: Activity) {
                 if (reference?.first == call.argument<String>("key")) reference = null
                 result.success(null)
             }
+            "workReferenceApply" -> {
+                val selected = reference
+                val expected = call.argument<String>("expected")
+                val text = call.argument<String>("text")
+                if (selected == null || selected.first != call.argument<String>("key") || expected == null || text == null) {
+                    result.error("unavailable", "修改稿或文件引用已失效", null)
+                    return
+                }
+                executor.execute {
+                    try {
+                        applyReference(selected, expected, text)
+                        Handler(Looper.getMainLooper()).post { result.success(null) }
+                    } catch (e: Exception) {
+                        val message = when (e) {
+                            is SecurityException, is java.io.FileNotFoundException -> "文件只读、已删除或写入授权已撤销"
+                            is IllegalArgumentException, is IllegalStateException -> e.message ?: "文件写回失败"
+                            else -> "文件提供方不支持本次写回，请检查文件"
+                        }
+                        Handler(Looper.getMainLooper()).post { result.error("reference_write", message, null) }
+                    }
+                }
+            }
             "workReferenceRead" -> {
                 val selected = reference
                 if (selected == null || selected.first != call.argument<String>("key")) {
@@ -114,7 +194,7 @@ internal class CommissionDocuments(private val activity: Activity) {
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                     .setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES,
                         arrayOf("text/*", "application/json", "application/octet-stream"))
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(flags)
                 try { activity.startActivityForResult(intent, 4282) }
                 catch (e: Exception) { picker = null; result.error("picker", "无法打开文件选择器", null) }
             }

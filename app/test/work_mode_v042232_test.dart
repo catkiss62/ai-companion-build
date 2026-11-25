@@ -1,4 +1,8 @@
 import 'dart:async';
+import 'package:ai_companion_localfirst/core/agent/work_app_reader.dart';
+import 'package:ai_companion_localfirst/core/agent/research_commission.dart';
+import 'package:ai_companion_localfirst/core/creative/creative_contract.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -23,6 +27,65 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  test('work app reads visible published bytes, pinned pages and the last actual game receipt', () async {
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    addTearDown(db.closeForTesting);
+    final reader = WorkAppReader(db, SecureConfig.forTesting(const FlutterSecureStorage()));
+    final token = GenerationCancellationToken();
+    final html = 'a' * 4199 + '🐳<p>真实正文</p>';
+    final version = CreativeContract.hash(html);
+    Future<void> save(String id, {bool hidden = false}) async {
+      await db.setSetting('${CreativeContract.metaPrefix}$id', jsonEncode({'id': id, 'current': version,
+        'title': id, 'updated': 1, 'status': 'ready', if (hidden) 'origin': 'autonomous'}));
+    }
+    await save('work'); await save('private', hidden: true);
+    await db.setSetting('${CreativeContract.sourcePrefix}$version', html);
+    final list = await reader.read({'section': 'works'}, token);
+    expect((list['items'] as List).single['id'], 'work');
+    final first = await reader.read({'section': 'source', 'id': 'work'}, token);
+    final rest = await reader.read({'section': 'source', 'id': 'work', 'version': version,
+        'offset': first['next_offset']}, token);
+    expect('${first['html']}${rest['html']}', html);
+    await expectLater(reader.read({'section':'source','id':'private'}, token), throwsFormatException);
+    await expectLater(reader.read({'section':'source','id':'work','version':'old','offset':10}, token), throwsFormatException);
+    final original = await reader.read({'section':'original','id':'missing'}, token);
+    expect(original['error'], 'album_item_unavailable');
+    final session = jsonEncode({'id':'s1','game_id':'garden','last_outcome':'本轮收获两朵花','updated_at':123456});
+    await db.setSetting(CedarToyActivityStore.sessionSettingKey, session);
+    final game = await reader.read({'section':'game'}, token);
+    expect(game['last_outcome'], '本轮收获两朵花');
+    expect(game['source_kind'], contains('本机'));
+    expect(await db.getSetting(CedarToyActivityStore.sessionSettingKey), session);
+    final help = await reader.read({'section':'help'}, token);
+    expect(help['registered_only'], contains('理解视频片段'));
+  });
+
+  test('model draft is staged and only a separate user apply invokes the write channel', () async {
+    final token = GenerationCancellationToken();
+    var round = 0;
+    String? proposal;
+    final snapshot = WorkTextSnapshot('1.txt', '原文');
+    final report = await ResearchCommission.run(goal: '在末尾加上123', context: [], reference: snapshot,
+      cancellation: token, progress: (_, __) {}, proposeEdit: (value) => proposal = value,
+      plan: (_) async => (content:'待预览', reasoning:'', finishReason:'stop',
+        toolCalls: round++ == 0 ? [DeepSeekToolCall(id:'edit',name:WorkTextReference.editToolName,
+          arguments:jsonEncode({'text':'原文\n123'}))] : <DeepSeekToolCall>[]));
+    expect(proposal, '原文\n123');
+    expect((report['evidence'] as List).single['display'], contains('等待'));
+    expect(jsonEncode(report), isNot(contains('原文')));
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(CommissionWorkspace.channel, (call) async {
+      expect(call.method, 'workReferenceApply');
+      expect(call.arguments['expected'], snapshot.digest);
+      expect(call.arguments['key'], 'selected');
+      expect(call.arguments['text'], proposal);
+      throw PlatformException(code: 'reference_write', message: '文件已变化');
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(CommissionWorkspace.channel, null));
+    await expectLater(const WorkTextReference('selected','1.txt').apply(snapshot.digest, proposal!),
+      throwsA(isA<PlatformException>()));
+  });
+
   test('a selected reference rereads edits; revoked and removed grants cannot reuse old bytes', () async {
     final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     var body = '第一版', valid = true;

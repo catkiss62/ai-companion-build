@@ -64,7 +64,7 @@ class SystemBridge(
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "workTreeCurrent", "workTreeDefault", "workTreeChoose", "workTreeList",
-                "workReferenceChoose", "workReferenceRead", "workReferenceForget",
+                "workReferenceChoose", "workReferenceRead", "workReferenceForget", "workReferenceApply",
                 "workTreeRead", "workTreeWrite", "workTreeDelete" -> commissionDocuments.handle(call, result)
                 "recoverPortablePreferences" -> {
                     try {

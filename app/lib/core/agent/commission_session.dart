@@ -17,6 +17,7 @@ import 'agent_native_tool_accumulator.dart';
 import 'commission_workspace.dart';
 import 'research_commission.dart';
 import 'work_text_reference.dart';
+import 'work_app_reader.dart';
 
 enum CommissionPhase { planning, tool, composing }
 
@@ -40,6 +41,7 @@ class CommissionSession {
     void Function()? onDetails,
     String? previousTask,
     WorkTextSnapshot? reference,
+    void Function(String)? proposeEdit,
     CommissionHistorySearch? historySearch,
     bool recentContext = false,
     bool Function()? chatBusy,
@@ -179,15 +181,12 @@ class CommissionSession {
         messages: messages,
         tools: finalAnswer
             ? const []
-            : previousTask != null
-            ? ResearchCommission.tools
-            : ResearchCommission.tools
-                  .where(
-                    (t) =>
-                        (t['function'] as Map)['name'] !=
-                        ResearchCommission.recall,
-                  )
-                  .toList(),
+            : [
+                for (final t in ResearchCommission.tools)
+                  if (previousTask != null || (t['function'] as Map)['name'] != ResearchCommission.recall) t,
+                WorkAppReader.tool,
+                if (reference != null && proposeEdit != null) WorkTextReference.editTool,
+              ],
         cancellationToken: cancel,
         finalReplyRoute: route,
         thirdChannelSecure: config,
@@ -266,6 +265,8 @@ class CommissionSession {
               priorRepositories: priorRepositories,
               previousTargets: previousTargets,
               reference: reference,
+              appReader: WorkAppReader(db, config),
+              proposeEdit: proposeEdit,
               savedReadmes: savedReadmes,
               searchHistory: previousTask == null
                   ? null

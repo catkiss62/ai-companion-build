@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../ai/deepseek_client.dart';
 import 'commission_workspace.dart';
 import 'work_text_reference.dart';
+import 'work_app_reader.dart';
 import '../ai/generation_cancellation.dart';
 
 typedef ResearchPlan = ({
@@ -27,6 +28,7 @@ class ResearchCommission {
       '追问旧决定、被裁剪原文或先前调研依据时，如工具表含 work_history_search，可用它 从当前工作会话查原文，结合轮次与后续修订。'
       '比较项目时逐个核对所问条件；README 有后文时可继续读取。搜索摘要用于筛选。交付说明各结论的依据，无法取得的材料标为待核实。'
       '可以说明未能核实的部分。有足够证据、需要用户澄清或遇到无法解决的限制时结束。'
+      '需要 App 内资料时用 work_app_read 查可见原图、作品正文、游戏状态；目录和说明只能用于定位。修改稿只有用户预览写回后才会生效。'
       '交付时用自然中文，按实际工具回执给出可核实的链接或文件名，说明未执行、限流或未读正文。区分通用建议和本机核实结果。';
 
   static Map<String, Object?> _tool(
@@ -146,6 +148,8 @@ class ResearchCommission {
     Set<String> priorRepositories = const {},
     Set<String> previousTargets = const {},
     WorkTextSnapshot? reference,
+    WorkAppReader? appReader,
+    void Function(String)? proposeEdit,
     Map<String, String> savedReadmes = const {},
     http.Client? transport,
   }) async {
@@ -198,6 +202,7 @@ class ResearchCommission {
       caseSensitive: false,
     ).hasMatch(goal);
     final opened = <String>{};
+    final unavailableAppReads = <String>{};
     var summary = '';
     var end = 'budget';
     try {
@@ -272,6 +277,7 @@ class ResearchCommission {
             }
             final target = args is Map
                 ? (args['name'] ??
+                      args['section'] ??
                       args['title'] ??
                       args['repository'] ??
                       args['query'])
@@ -281,7 +287,27 @@ class ResearchCommission {
               target is String ? _clip(target, 256) : '',
             );
             try {
-              if (call.name == recall && args is Map) {
+              if (call.name == WorkAppReader.name && appReader != null && args is Map) {
+                try {
+                  result = await appReader.read(args, cancellation);
+                  cancellation.throwIfCancelled();
+                } on FormatException {
+                  rethrow;
+                } catch (_) {
+                  cancellation.throwIfCancelled();
+                  throw const FormatException('App 资料读取失败');
+                }
+                result = {...result, 'app_section': args['section']};
+              } else if (call.name == WorkTextReference.editToolName && args is Map &&
+                  reference != null && proposeEdit != null) {
+                final draft = args['text'];
+                if (draft is! String || utf8.encode(draft).length > 65536 ||
+                    RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f]').hasMatch(draft)) {
+                  throw const FormatException('修改稿必须是 64 KiB 以内的文本');
+                }
+                proposeEdit(draft);
+                result = {'display': '已生成修改稿，等待用户预览写回', 'draft_for': reference.name};
+              } else if (call.name == recall && args is Map) {
                 final query = args['query'], turn = args['turn'];
                 if (query is! String ||
                     query.trim().isEmpty ||
@@ -481,15 +507,28 @@ class ResearchCommission {
               cancellation.throwIfCancelled();
               result = {'error': 'github_unavailable'};
             }
+            if (call.name == WorkAppReader.name && args is Map) {
+              final key = '${args['section']} ${args['id'] ?? ''}'.trim();
+              if (result.containsKey('error')) {
+                unavailableAppReads.add(key);
+              } else {
+                unavailableAppReads.remove(key);
+              }
+            }
             onToolResult?.call(result);
             evidence.add(result);
             await checkpoint?.call([
               for (final e in evidence)
-                if (!e.containsKey('thread_turns')) e,
+                if (!e.containsKey('thread_turns'))
+                  if (e.containsKey('app_section'))
+                    { 'app_section': e['app_section'], if (e['display'] != null) 'display': e['display'], if (e['error'] != null) 'error': e['error']}
+                  else e,
             ]);
             progress(
               result.containsKey('error')
                   ? '这一步未取得资料 · ${result['error']}'
+                  : result['display'] is String
+                  ? result['display'] as String
                   : result['saved'] != null
                   ? '已保存 ${result['saved']}'
                   : result['file'] != null
@@ -511,13 +550,14 @@ class ResearchCommission {
           });
         }
       }
-      if (lacksFreshEvidence()) end = 'evidence_incomplete';
+      if (lacksFreshEvidence() || unavailableAppReads.isNotEmpty) end = 'evidence_incomplete';
       return {
         if (needsLiveRead) ...{
           'refresh_targets': targets.toList(),
           'live_readmes': liveReads.toList(),
           'unverified_repositories': missingTargets().toList(),
         },
+        if (unavailableAppReads.isNotEmpty) 'unavailable_app_reads': unavailableAppReads.toList(),
         'planner_summary': summary,
         'end': end,
         'planning_rounds': rounds,

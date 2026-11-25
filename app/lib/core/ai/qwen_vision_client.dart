@@ -154,6 +154,13 @@ class QwenVisionClient {
     }
     final bytes = imageBytes;
     if (bytes.isEmpty) throw const FormatException('识图用图片为空');
+    final mime = bytes.length >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff
+        ? 'image/jpeg'
+        : bytes.length >= 12 && ascii.decode(bytes.sublist(0, 4), allowInvalid: true) == 'RIFF' &&
+            ascii.decode(bytes.sublist(8, 12), allowInvalid: true) == 'WEBP'
+        ? 'image/webp'
+        : bytes.length >= 6 && ['GIF87a', 'GIF89a'].contains(ascii.decode(bytes.sublist(0, 6), allowInvalid: true))
+        ? 'image/gif' : 'image/png';
     final inputContentSha256 = sha256.convert(bytes).toString();
 
     final userText = creativeReview
@@ -165,7 +172,7 @@ class QwenVisionClient {
       {
         'type': 'image_url',
         'image_url': {
-          'url': 'data:image/png;base64,${base64Encode(bytes)}',
+          'url': 'data:$mime;base64,${base64Encode(bytes)}',
         },
       },
       {

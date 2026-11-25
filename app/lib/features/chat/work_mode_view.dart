@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'work_markdown.dart';
@@ -346,6 +347,31 @@ class _WorkPanelState extends State<WorkPanel>
                   ],
                 ),
               ),
+              if (work.draft != null && work.draftBase != null)
+                TextButton.icon(
+                  icon: const Icon(Icons.edit_document),
+                  label: Text('预览修改 · ${work.referenceName}'),
+                  onPressed: work.busy ? null : () async {
+                    final draft = work.draft!, base = work.draftBase!;
+                    final accepted = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                      title: Text('写回 ${base.name}'),
+                      content: SizedBox(width: double.maxFinite, child: SingleChildScrollView(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('原文'), SelectableText(base.text),
+                          const Divider(), const Text('写回后的全文'), SelectableText(draft),
+                        ]))),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('写回原文件')),
+                      ],
+                    ));
+                    if (accepted != true || !context.mounted) return;
+                    String message;
+                    try { await work.applyDraft(draft, base); message = '已写回并核对原文件'; }
+                    catch (e) { message = e is PlatformException ? (e.message ?? '写回失败') : e.toString(); }
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                  },
+                ),
               if (work.referenceName != null)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -504,7 +530,7 @@ class _TurnTrace extends StatelessWidget {
           Text(
             [
               if (!live) _status(row),
-              if (row['text_reference'] case {'name': final String name}) '只读引用 · $name',
+              if (row['text_reference'] case {'name': final String name}) '引用 · $name',
               if (row['researchEnd'] == 'budget') '已到调研上限',
               if (row['researchEnd'] == 'evidence_incomplete') '部分依据待核实',
               if (rounds is int) '规划 $rounds 轮',
@@ -552,6 +578,9 @@ class _Receipt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final action = switch (item['tool']) {
+      'work_file_applied' => '用户确认写回',
+      'work_app_read' => '读取 App 资料',
+      'work_propose_text_edit' => '生成文件修改稿',
       'workspace_save' => '保存文档',
       'workspace_read' => '读取文档',
       'github_search_repositories' => '搜索 GitHub',
@@ -562,6 +591,7 @@ class _Receipt extends StatelessWidget {
     final target = item['target'] ?? item['query'] ?? item['repository'];
     final result =
         item['error'] ??
+        item['display'] ??
         item['saved'] ??
         item['file'] ??
         (item['excerpts'] != null

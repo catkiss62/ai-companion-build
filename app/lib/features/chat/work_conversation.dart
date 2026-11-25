@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,39 @@ class WorkConversation extends ChangeNotifier {
   String? _file;
   WorkTextReference? _reference;
   Map<String, Object?>? _turnReference;
+  String? draft;
+  WorkTextSnapshot? draftBase;
+  bool applying = false;
+  Future<void> applyDraft(String proposed, WorkTextSnapshot base) async {
+    final selected = _reference;
+    if (busy || choosingReference || applying || selected == null ||
+        draft != proposed || !identical(draftBase, base)) throw StateError('修改稿已失效');
+    applying = true;
+    _update();
+    try {
+      final workspace = _workspace, file = _file;
+      await selected.apply(base.digest, proposed);
+      draft = null;
+      draftBase = null;
+      _details.receipts.add({'tool': 'work_file_applied', 'target': base.name,
+        'state': 'done', 'display': '已写回并重新读取核对'});
+      if (workspace != null && file != null) {
+        try {
+          final row = jsonDecode(await workspace.read(file)) as Map;
+          if (row['id'] == _details.executionId) {
+            row['receipts'] = _details.receipts;
+            row['applied_file'] = base.name;
+            await workspace.write(file, jsonEncode(row));
+          }
+        } catch (_) {
+          status = '文件已写回，工作记录未能更新';
+        }
+      }
+    } finally {
+      applying = false;
+      _update();
+    }
+  }
   String? get referenceName => _reference?.name;
   int _viewGeneration = 0;
   bool choosingReference = false;
@@ -51,6 +85,8 @@ class WorkConversation extends ChangeNotifier {
         await selected.forget();
         return;
       }
+      draft = null;
+      draftBase = null;
       _reference = selected;
     } finally {
       choosingReference = false;
@@ -61,6 +97,8 @@ class WorkConversation extends ChangeNotifier {
   void removeReference() {
     final selected = _reference;
     _reference = null;
+    draft = null;
+    draftBase = null;
     if (selected != null) unawaited(selected.forget());
     _update();
   }
@@ -83,7 +121,7 @@ class WorkConversation extends ChangeNotifier {
   List<Map<String, dynamic>> turns = [];
   List<String> steps = [];
   String goal = '', answer = '', status = '';
-  bool get busy => _token != null;
+  bool get busy => _token != null || applying;
   WorkPhase phase = WorkPhase.idle;
 
   void _update() {
@@ -123,6 +161,8 @@ class WorkConversation extends ChangeNotifier {
     CommissionWorkspace? source,
   }) async {
     if (busy || choosingReference || text.trim().isEmpty) return;
+    draft = null;
+    draftBase = null;
     final token = GenerationCancellationToken();
     _token = token;
     phase = WorkPhase.planning;
@@ -150,8 +190,10 @@ class WorkConversation extends ChangeNotifier {
       final snapshot = await _reference?.read();
       token.throwIfCancelled();
       _turnReference = snapshot?.receipt;
+      String? proposal;
       answer = await CommissionSession.run(
         reference: snapshot,
+        proposeEdit: snapshot == null ? null : (text) { proposal = text; },
         workspace: workspace,
         goal: goal,
         client: _client,
@@ -179,6 +221,10 @@ class WorkConversation extends ChangeNotifier {
           _update();
         },
       );
+      if (proposal != null && !token.isCancelled) {
+        draftBase = snapshot;
+        draft = proposal;
+      }
       status = _details.researchEnd == 'evidence_incomplete' ? '已交付 · 部分依据待核实' : '已完成';
     } catch (e) {
       status = token.isCancelled ? '已停止' : '工作未完成 · ${e is PlatformException ? e.message : e}';
