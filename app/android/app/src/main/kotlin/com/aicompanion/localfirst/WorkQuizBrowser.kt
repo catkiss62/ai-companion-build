@@ -2,7 +2,12 @@ package com.aicompanion.localfirst
 
 import android.app.Activity
 import android.graphics.Bitmap
-import android.graphics.Canvas
+import android.app.Presentation
+import android.content.Context
+import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.media.ImageReader
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +31,13 @@ import javax.net.ssl.HttpsURLConnection
 internal class WorkQuizBrowser(private val activity: Activity, private val readResource: ((String) -> WebResourceResponse)? = null) {
     private var browser: WebView? = null
     private var owner: String? = null
+    private var screen: VirtualDisplay? = null
+    private var window: Presentation? = null
+    private var reader: ImageReader? = null
+    private var captureRequest: Reply? = null
+    private var waitingFrame: Reply? = null
+    private val frameWidth = 720
+    private val frameHeight = 1080
     private val main = Handler(Looper.getMainLooper())
     private val origin = "work-quiz.invalid"
     private val site = "zodiacgalore.com"
@@ -37,6 +49,15 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             it.stopLoading()
             it.destroy()
         }
+        captureRequest?.error("quiz_closed","答题页面已关闭")
+        captureRequest = null
+        waitingFrame = null
+        window?.dismiss()
+        screen?.release()
+        reader?.close()
+        window = null
+        screen = null
+        reader = null
         browser = null
         owner = null
     }
@@ -57,7 +78,13 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             }
             if (owner != null && owner != id) { result.error("quiz_busy","另一场答题正在进行"); return }
             close()
-            val view = WebView(activity)
+            val view = try {
+                createScreen()
+            } catch (e: Exception) {
+                close()
+                result.error("quiz_display","无法建立独立答题画面")
+                return
+            }
             browser = view
             owner = id
             view.settings.apply {
@@ -72,16 +99,6 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             }
             view.isFocusable = false
             view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-            view.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-            val root = activity.findViewById<ViewGroup>(android.R.id.content)
-            val w = (400 * activity.resources.displayMetrics.density).toInt().coerceIn(480, 1200)
-            val h = w * 3 / 2
-            root.addView(view, 0, ViewGroup.LayoutParams(w, h))
-            // Keep it physically outside the interactive window, including on transparent activities.
-            view.translationX = -w.toFloat() - 1
-            view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
-            view.layout(0, 0, w, h)
             view.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true
                 override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse {
@@ -131,11 +148,25 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
                     val title = runCatching { JSONTokener(raw).nextValue() as? String }.getOrNull()
                     if (title.isNullOrEmpty() || title != (args["title"] as? String)) {
                         result.error("quiz_result","网页尚未显示该结果")
-                    } else main.postDelayed({
-                        if (browser !== view) result.error("quiz_closed","答题页面已关闭")
-                        else try { result.success(capture(view)) }
-                        catch (e: Exception) { result.error("quiz_capture","截图保存失败") }
-                    }, 250)
+                    } else {
+                        // Wait for the scrolled result to reach the compositor. A software
+                        // draw of a long WebView can be empty outside its initial tiles.
+                        captureRequest = result
+                        view.postVisualStateCallback(1L, object: WebView.VisualStateCallback() {
+                            override fun onComplete(requestId: Long) {
+                                if (browser !== view || captureRequest !== result) return
+                                waitingFrame = result
+                                view.postInvalidateOnAnimation()
+                            }
+                        })
+                        main.postDelayed({
+                            if (captureRequest === result) {
+                                captureRequest = null
+                                waitingFrame = null
+                                result.error("quiz_capture","网页结果仍未绘制完成")
+                            }
+                        },5000)
+                    }
                 }
             }
             else -> result.error("quiz_method","无法识别的网页操作")
@@ -185,29 +216,62 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
         }
     }
 
-    private fun capture(view: WebView): String {
-        var width = view.width.coerceAtMost(800)
-        while (width >= 260) {
-            val bitmap = Bitmap.createBitmap(width, width * view.height / view.width, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            canvas.drawColor(android.graphics.Color.WHITE)
-            canvas.scale(width.toFloat()/view.width,width.toFloat()/view.width)
-            view.draw(canvas)
-            val colors = mutableSetOf<Int>()
-            for (y in 0 until bitmap.height step 5) {
-                for (x in 0 until bitmap.width step 5) colors.add(bitmap.getPixel(x,y))
-                if (colors.size > 3) break
-            }
-            if (colors.size < 2) {
-                bitmap.recycle()
-                throw IllegalStateException("尚未绘制结果页面")
-            }
-            val out = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            bitmap.recycle()
-            if (out.size() <= 256*1024) return Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP)
-            width = width * 3 / 4
+    private fun createScreen(): WebView {
+        val frames = ImageReader.newInstance(frameWidth,frameHeight,PixelFormat.RGBA_8888,3)
+        reader = frames
+        frames.setOnImageAvailableListener({ source ->
+            if (reader !== source) return@setOnImageAvailableListener
+            val frame = source.acquireLatestImage() ?: return@setOnImageAvailableListener
+            try {
+                val reply = waitingFrame ?: return@setOnImageAvailableListener
+                val plane = frame.planes[0]
+                val bitmap = Bitmap.createBitmap(plane.rowStride/plane.pixelStride,frameHeight,Bitmap.Config.ARGB_8888)
+                try {
+                    bitmap.copyPixelsFromBuffer(plane.buffer)
+                    val png = encodeFrame(bitmap)
+                    if (png != null) {
+                        waitingFrame = null
+                        captureRequest = null
+                        reply.success(png)
+                    } else browser?.postInvalidateOnAnimation()
+                } finally { bitmap.recycle() }
+            } catch (e: Exception) {
+                val reply = waitingFrame
+                captureRequest = null
+                waitingFrame = null
+                reply?.error("quiz_capture",e.message ?: "截图保存失败")
+            } finally { frame.close() }
+        },main)
+        val manager = activity.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        val display = requireNotNull(manager.createVirtualDisplay("WorkQuiz",frameWidth,frameHeight,320,frames.surface,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION))
+        screen = display
+        val presentation = Presentation(activity,display.display)
+        window = presentation
+        val view = WebView(presentation.context)
+        presentation.setContentView(view)
+        presentation.show()
+        return view
+    }
+
+    private fun encodeFrame(source: Bitmap): String? {
+        val first = source.getPixel(0,0)
+        val drawn = (0 until frameHeight step 5).any { y ->
+            (0 until frameWidth step 5).any { x -> source.getPixel(x,y) != first }
         }
-        throw IllegalStateException("截图过大")
+        if (!drawn) return null
+        val cropped = Bitmap.createBitmap(source,0,0,frameWidth,frameHeight)
+        try {
+            var w = frameWidth
+            while(w >= 260) {
+                val image = Bitmap.createScaledBitmap(cropped,w,w*frameHeight/frameWidth,true)
+                val out = ByteArrayOutputStream()
+                try { image.compress(Bitmap.CompressFormat.PNG,100,out) }
+                finally { if(image !== cropped) image.recycle() }
+                if(out.size() <= 256*1024) return Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP)
+                w = w*3/4
+            }
+            throw IllegalStateException("结果截图超过文件大小限制")
+        } finally { if(cropped !== source) cropped.recycle() }
     }
 }
