@@ -1569,7 +1569,9 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
                       height: _caicaiEnabled ? _caicaiStableHeight : constraints.maxHeight,
                       child: _caicaiEnabled
                           ? CaicaiLive2DStage(qForm: visualQForm, emotion: _currentEmotion.key,
-                              active: widget.active && _appResumed && TickerMode.of(context),
+                              // Android pauses GL in hostPause. Focus changes alone must
+                              // not make the visible platform view transparent.
+                              active: widget.active && TickerMode.of(context),
                               sceneSize: Size(constraints.maxWidth, _caicaiStableHeight!),
                               depthEnabled: _backgroundDepth, depthStrength: _backgroundDepthStrength,
                               backgroundAsset: _useNightBackground
