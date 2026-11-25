@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/agent/work_quiz.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -114,10 +115,16 @@ class WorkConversation extends ChangeNotifier {
     'status': status,
     ..._details.snapshot(),
   };
-  Future<String> readHtml(String name) async {
+  Future<String> readHtml(String name, {String? expectedDigest}) async {
     final workspace = _workspace;
     if (workspace == null) throw StateError('工作区不可用');
-    return workspace.readHtml(name);
+    return workspace.readHtml(name, expectedDigest: expectedDigest);
+  }
+
+  Future<Uint8List> screenshot(String name,String digest) async {
+    final workspace = _workspace;
+    if(workspace==null) throw StateError('工作区不可用');
+    return WorkQuiz.image(workspace,name,digest);
   }
 
   Future<String> readDocument(String name) async {

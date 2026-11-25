@@ -49,6 +49,7 @@ import '../phone/companion_album_agent_reader.dart';
 import '../phone/companion_album_discovery_engine.dart';
 import '../phone/simulated_phone_reader.dart';
 import '../history/room_history_reader.dart';
+import 'work_history_lookup.dart';
 import '../history/conversation_history_reader.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
@@ -391,6 +392,9 @@ class AgentToolRunner {
     }
     if (call.toolId == AgentToolRegistry.rulesRead.id) {
       return _readRules(call.arguments['scope'] ?? '');
+    }
+    if (call.toolId == WorkHistoryLookup.tool && origin == AgentToolOrigin.userTurn) {
+      return WorkHistoryLookup.run(db, latestUserText, userMessageId, call.arguments);
     }
     if(call.toolId.startsWith('qq_history.')) return _readQq(call,latestUserText,cancellationToken);
     if (call.toolId == AgentToolRegistry.memorySearch.id) {

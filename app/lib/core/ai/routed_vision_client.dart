@@ -12,12 +12,12 @@ import 'qwen_vision_client.dart';
 /// Retains the canonical pixel input, observation parser and content hash.
 /// The transport changes only the provider, never the image or business fields.
 class RoutedVisionClient extends QwenVisionClient {
-  factory RoutedVisionClient({SecureConfig? secure, AppDatabase? db, bool qq = false,
+  factory RoutedVisionClient({SecureConfig? secure, AppDatabase? db, bool qq = false, ImageVisionRoute? route,
     Future<DeepSeekModelProfile> Function()? firstModel,
     http.Client Function()? clientFactory,
     Future<bool> Function()? current}) => RoutedVisionClient._(VisionRoutingTransport(
       secure: secure ?? SecureConfig.instance, db: db ?? (qq ? null : AppDatabase.instance),
-      qq: qq, firstModel: firstModel, clientFactory: clientFactory,
+      qq: qq, route: route, firstModel: firstModel, clientFactory: clientFactory,
       current: current));
   RoutedVisionClient._(this.routing) : super(client: routing, requiresApiKey: false, qqObservation: routing.qq);
   final VisionRoutingTransport routing;

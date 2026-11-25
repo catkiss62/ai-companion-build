@@ -65,6 +65,10 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const workspaceLookup = AgentToolDefinition(
+    id:'workspace.lookup',title:'回看工作区',description:'按用户明确要求查看工作任务或指定文件的原文。',
+    risk:AgentToolRisk.readOnly,executable:true,userTurnAvailable:true,autonomousAvailable:false,
+  );
   static const qqHistorySearch = AgentToolDefinition(
     id:'qq_history.search',title:'查找QQ档案与群记录',
     description:'只读查询已归档QQ私聊/群聊目录；按中文群名定位，唯一目标可直接带回近期原文。连接关闭仍可查已有档案，不等于联网读取全部QQ。',
@@ -304,6 +308,7 @@ class AgentToolRegistry {
     publicWebDiscovery,
     rulesRead,
     memorySearch,
+    workspaceLookup,
     qqHistorySearch,
     qqHistoryRead,
     chatHistorySearch,

@@ -14,7 +14,7 @@ class CommissionWorkspace {
   static final Set<String> writingTasks = {};
   static const maxBytes = 256 * 1024;
   static final names = RegExp(
-    r'^(任务-[a-f0-9-]{36}\.json|作品-[a-f0-9]{64}\.html|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)$',
+    r'^(任务-[a-f0-9-]{36}\.json|作品-[\u3400-\u9fffA-Za-z0-9 _（）-]{1,75}\.html|截图-[a-f0-9-]{36}\.png|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)$',
   );
   static void validate(String name) {
     if (!names.hasMatch(name)) throw const FormatException('无效工作文件名');
@@ -77,23 +77,55 @@ class CommissionWorkspace {
       }))!;
     final file = File('${directory!.path}/$name');
     if (await file.length() > maxBytes) throw const FormatException('文件过大');
-    return file.readAsString();
+    return name.endsWith('.png') ? base64Encode(await file.readAsBytes()) : file.readAsString();
   }
 
-  Future<String> readHtml(String name) async {
-    if (!name.startsWith('作品-') || !name.endsWith('.html')) {
-      throw const FormatException('无效的作品文件');
-    }
-    final html = await read(name);
-    if (name != '作品-${CreativeContract.hash(html)}.html') {
+  static final _signature = RegExp(r'^<!-- work-sha256:([a-f0-9]{64}) -->\n');
+  Future<String> readHtml(String name, {String? expectedDigest}) async {
+    if (!name.startsWith('作品-') || !name.endsWith('.html')) throw const FormatException('无效的作品文件');
+    final raw = await read(name);
+    final header = _signature.firstMatch(raw);
+    final legacy = RegExp(r'^作品-([a-f0-9]{64})\.html$').firstMatch(name);
+    final page = header == null ? raw : raw.substring(header.end);
+    final digest = CreativeContract.hash(page);
+    if ((header?.group(1) ?? legacy?.group(1)) != digest || expectedDigest != null && digest != expectedDigest) {
       throw const FormatException('作品文件内容已变化');
     }
-    return html;
+    return page;
+  }
+
+  Future<String> savePage(String title, String page, Future<void> Function(String?)? checkpoint) async {
+    final base = filename('作品', title).replaceFirst(RegExp(r'\.md$'), '');
+    final digest = CreativeContract.hash(page);
+    final encoded = '<!-- work-sha256:$digest -->\n$page';
+    if (utf8.encode(encoded).length > maxBytes) throw const FormatException('文件过大');
+    final existing = (await list()).toSet();
+    for (var i = 1; ; i++) {
+      final name = i == 1 ? '$base.html' : '$base（$i）.html';
+      validate(name);
+      if (existing.contains(name)) {
+        if (await read(name) == encoded) { await checkpoint?.call(name); return name; }
+        continue;
+      }
+      await checkpoint?.call(name);
+      if (directory == null) {
+        final created = await channel.invokeMethod<bool>('workTreeCreate', {'tree':tree,'name':name,'text':encoded});
+        if (created != true) { existing.add(name); continue; }
+      } else {
+        final file = File('${directory!.path}/$name');
+        try { await file.create(exclusive:true); }
+        on FileSystemException { if (!await file.exists()) rethrow; existing.add(name); continue; }
+        try { await file.writeAsString(encoded, flush:true); } catch (_) { await file.delete(); rethrow; }
+      }
+      await readHtml(name, expectedDigest:digest);
+      return name;
+    }
   }
 
   Future<void> write(String name, String content) async {
     validate(name);
-    if (utf8.encode(content).length > maxBytes)
+    final bytes = name.endsWith('.png') ? base64Decode(content) : utf8.encode(content);
+    if (bytes.length > maxBytes)
       throw const FormatException('文件过大');
     if (directory == null) {
       await channel.invokeMethod<void>('workTreeWrite', {
@@ -105,7 +137,7 @@ class CommissionWorkspace {
       final path = '${directory!.path}/$name';
       final temp = File('$path.${DateTime.now().microsecondsSinceEpoch}.tmp');
       try {
-        await temp.writeAsString(content, flush: true);
+        await temp.writeAsBytes(bytes, flush: true);
         await temp.rename(path);
       } finally {
         if (await temp.exists()) await temp.delete();

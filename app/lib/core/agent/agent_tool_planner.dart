@@ -9,6 +9,7 @@ import '../phone/phone_history_request.dart';
 import '../history/room_history_request.dart';
 import 'agent_task_loop.dart';
 import 'agent_tool.dart';
+import 'work_history_lookup.dart';
 import 'agent_tool_registry.dart';
 
 /// Hybrid tool routing:
@@ -58,6 +59,8 @@ class AgentToolPlanner {
         ),
       ]);
     }
+    if (WorkHistoryLookup.explicit(text)) return AgentToolPlan(calls:[AgentToolCall(
+      toolId:WorkHistoryLookup.tool, arguments:{'query':text}, reasonTag:'workspace_recall')]);
     if(QqHistoryCatalog.request(text)) return AgentToolPlan(calls:[AgentToolCall(
       toolId:'qq_history.search',arguments:{'query':text},reasonTag:'qq_history_recall')]);
     final roomHistory=RoomHistoryRequest.parse(text);
@@ -291,7 +294,7 @@ class AgentToolPlanner {
   /// inherit planning/reporting pressure from a permanent toolbox prompt.
   static AgentToolPlan? routeForTurn(String text, SemanticToolRoute semantic) {
     final local = routeLocally(text);
-    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' || c.reasonTag=='qq_history_recall') ?? false;
+    final explicit = local?.calls.any((c)=>c.reasonTag == 'explicit_system_command' || (c.reasonTag=='qq_history_recall' || c.reasonTag=='workspace_recall')) ?? false;
     if (explicit) return local;
     if (!semantic.available) {
       final fallback = semantic.directPlan ?? local;
@@ -338,6 +341,11 @@ class AgentToolPlanner {
     }
     if (toolIds.contains(AgentToolRegistry.albumSearch.id)) {
       toolIds.add(AgentToolRegistry.albumInspect.id);
+    }
+    if (WorkHistoryLookup.explicit(text)) {
+      toolIds.add(WorkHistoryLookup.tool);
+    } else if (!WorkHistoryLookup.followup(text)) {
+      toolIds.remove(WorkHistoryLookup.tool);
     }
     if(QqHistoryCatalog.request(text)) toolIds.addAll({'qq_history.search','qq_history.read'});
     if (webSearchRequested) toolIds.add(AgentToolRegistry.publicWebSearch.id);
@@ -538,6 +546,10 @@ class AgentToolPlanner {
         'type': 'string',
         'description': '可选规则编号、标题或范围。',
       };
+    } else if (tool.id == AgentToolRegistry.workspaceLookup.id) {
+      properties['query'] = const {'type':'string','description':'所问的工作主题或文件关键词'};
+      properties['name'] = const {'type':'string','description':'已经查实的文件名'};
+      properties['offset'] = const {'type':'integer','minimum':0};
     } else if (tool.id == AgentToolRegistry.qqHistorySearch.id) {
       properties['query']=const {'type':'string','description':'本轮要查的QQ群名/上下文问题；保留群名，不猜平台ID。'};
       properties['kind']=const {'type':'string','enum':['all','group','private']};
@@ -871,6 +883,7 @@ class AgentToolPlanner {
     'public_web.read': 'public_web_read',
     'rules.read': 'rules_read',
     'memory.search': 'memory_search',
+    'workspace.lookup':'workspace_lookup',
     'qq_history.search':'qq_history_search',
     'qq_history.read':'qq_history_read',
     'chat_history.search': 'chat_history_search',
@@ -901,6 +914,7 @@ class AgentToolPlanner {
     'public_web_read': 'public_web.read',
     'rules_read': 'rules.read',
     'memory_search': 'memory.search',
+    'workspace_lookup':'workspace.lookup',
     'qq_history_search':'qq_history.search',
     'qq_history_read':'qq_history.read',
     'chat_history_search': 'chat_history.search',

@@ -1,6 +1,6 @@
 import 'work_conversation.dart';
 import 'work_mode_view.dart';
-import '../../core/agent/commission_session.dart';
+import 'work_model_settings.dart';
 import '../../core/agent/commission_workspace.dart';
 import '../more/commission_workspace_page.dart';
 import 'word_slice_bridge.dart';
@@ -97,14 +97,6 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
   late final _work = WorkConversation(controller.db, controller.secureConfig,
     () => controller.generationActive);
   bool _showWork = false, _orbEnabled = false;
-  bool _openingRecall = false;
-  late final _recall = WorkConversation(controller.db, controller.secureConfig,
-    () => controller.generationActive);
-  bool _readingRecall = false;
-  WorkConversation get _visibleWork => _readingRecall ? _recall : _work;
-  final _recallInput = TextEditingController();
-  TextEditingController get _visibleInput => _readingRecall ? _recallInput : _workInput;
-
   bool closeWorkPanel() {
     if (!_showWork) return false;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -126,12 +118,11 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
 
   Future<void> _chooseWork() async {
     final file = await Navigator.push<String>(context, MaterialPageRoute(
-      builder: (_) => CommissionWorkspacePage(selectTask: !_visibleWork.busy)));
-    if (!mounted || file == null || _visibleWork.busy) return;
+      builder: (_) => CommissionWorkspacePage(selectTask: !_work.busy)));
+    if (!mounted || file == null || _work.busy) return;
     try {
       await _work.open(await CommissionWorkspace.open(), file);
       if (!mounted) return;
-      _readingRecall = false;
       _workInput.clear();
       _openWork();
     } catch (error) {
@@ -151,33 +142,11 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
               setState(() { _orbEnabled=value; if(!value) _showWork=false; });
               if(ctx.mounted) refresh(() {});
             }),
+          WorkModelSettings(controller.db),
           ListTile(leading:const Icon(Icons.folder_open_outlined),title:const Text('工作区'),
             trailing:const Icon(Icons.chevron_right),onTap:()=>Navigator.pop(ctx,true)),
         ])))));
     if(mounted && browse==true) await _chooseWork();
-  }
-
-  Future<bool> _recentWorkLookup(String text) async {
-    final explicit=CommissionSession.explicitRecall(text);
-    if (_work.busy || _recall.busy || _openingRecall || (!explicit && !CommissionSession.followup(text))) return false;
-    _openingRecall=true;
-    try {
-      final workspace = await CommissionWorkspace.open();
-      final recent=await workspace.recent();
-      if (!mounted || recent.isEmpty || _work.busy || _showWork || input.text!=text) return false;
-      if(!explicit && controller.messages.isNotEmpty &&
-          (recent.first['at'] as int)<controller.messages.last.createdAt.millisecondsSinceEpoch) return false;
-      input.clear();
-      _readingRecall = true;
-      _recallInput.clear();
-      _openWork();
-      unawaited(_recall.send(text,lookup:true,source:workspace));
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      _openingRecall=false;
-    }
   }
 
   OverlayEntry? _composerToolsOverlay;
@@ -842,8 +811,6 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
 
   @override
   void dispose() {
-    _recall.dispose();
-    _recallInput.dispose();
     _work.dispose();
     _workFocus.dispose();
     _workInput.dispose();
@@ -886,7 +853,6 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    if (sticker == null && await _recentWorkLookup(text)) return;
     if (!mounted || input.text != text) return;
     _followLatest = true;
     input.clear();
@@ -1520,13 +1486,9 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
       option: _dialogueColor,
       child: Column(children: [
         if (_showWork)
-          ListenableBuilder(listenable: _visibleWork, builder: (_, _) => WorkHeader(
-            work: _visibleWork, input: _visibleInput, close: closeWorkPanel, history: _chooseWork,
+          ListenableBuilder(listenable: _work, builder: (_, _) => WorkHeader(
+            work: _work, input: _workInput, close: closeWorkPanel, history: _chooseWork,
             create: () {
-              if (_readingRecall) {
-                if (_work.busy) {setState(() => _readingRecall = false); return;}
-                setState(() => _readingRecall = false);
-              }
               _work.clear();
               _workInput.clear();
               _workFocus.requestFocus();
@@ -1729,16 +1691,16 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
               );
             },
           ),
-        if (_showWork) Positioned.fill(child:ListenableBuilder(listenable:_visibleWork,builder:(_,_) =>
-          WorkPanel(key: ObjectKey(_visibleWork),work:_visibleWork,input:_visibleInput,focus:_workFocus,onSend:(){
-              final text=_visibleInput.text.trim();
-              if(text.isEmpty || _visibleWork.busy)return;
-              _visibleInput.clear();
-              unawaited(_visibleWork.send(text));
+        if (_showWork) Positioned.fill(child:ListenableBuilder(listenable:_work,builder:(_,_) =>
+          WorkPanel(key: ObjectKey(_work),work:_work,input:_workInput,focus:_workFocus,onSend:(){
+              final text=_workInput.text.trim();
+              if(text.isEmpty || _work.busy)return;
+              _workInput.clear();
+              unawaited(_work.send(text));
             }))),
         if (widget.active && _appResumed && _orbEnabled)
-          Positioned.fill(child:ListenableBuilder(listenable:_visibleWork,builder:(_,_) =>
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: WorkOrb(phase:_visibleWork.phase,open:_showWork,toggle:(){if(!closeWorkPanel())_openWork();})))),
+          Positioned.fill(child:ListenableBuilder(listenable:_work,builder:(_,_) =>
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: WorkOrb(phase:_work.phase,open:_showWork,toggle:(){if(!closeWorkPanel())_openWork();})))),
         ])),
       ]),
     );

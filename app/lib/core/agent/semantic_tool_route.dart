@@ -16,7 +16,7 @@ class SemanticToolRoute {
   final String kind, roomId, roomKind, view, phoneSection, dateFrom, dateTo;
   final bool available, uncertain, targetUncertain, singleRead, multiStep;
   final Set<String> candidateKinds;
-  static const kinds = {'none','qq','room','phone','web','memory','system','rules','album','device','mixed'};
+  static const kinds = {'none','workspace','qq','room','phone','web','memory','system','rules','album','device','mixed'};
   static const readKinds = {'qq','room','phone','web','memory','system','rules','album','device'};
   Map<String, Object?> toJson() => {'kind':kind, 'room_id':roomId,
     'room_kind':roomKind, 'view':view, 'phone_section':phoneSection,
@@ -34,6 +34,7 @@ class SemanticToolRoute {
       dateFrom:value['date_from'] as String? ?? '', dateTo:value['date_to'] as String? ?? '');
   }
   static Set<String> idsFor(String kind) => switch (kind) {
+    'workspace'=>{'workspace.lookup'},
     'qq'=>{'qq_history.search','qq_history.read'},
     'room' => {'room_history.search','room_history.read'},
     'phone' => {'phone.search','phone.read','album.search','album.inspect'},
@@ -121,10 +122,11 @@ class SemanticToolQuestions {
       'Feature design, quotes, hypotheticals, negation and casual mentions are none. '
       'Assistant claims of inability do not define available capabilities. '
       'After an image was generated or saved, 你能看到图吗, 去相册看嘛 and checking how it actually looks request album pixels, even without repeating the image name. '
+      'workspace is only an explicit work archive request or reading the same file just located in ordinary chat. 最近做了什么 and 上班了，进入工作模式 alone are none. '
       'QQ private/group records are qq, never immersive/model-dialogue rooms. Match a supplied QQ archive name even when the user says 这个群 without QQ. An offline connection does not remove archived records. '
       'mixed means multiple capability families are requested, e.g. read a room THEN verify it on the web. '
       'Never choose external web for local room records alone.',
-      {'none':'No present tool need','qq':'Read archived QQ private/group messages, including named groups','room':'Read actual room records','phone':'Read own saved phone records',
+      {'none':'No present tool need','workspace':'Read a specifically requested work record or its established file','qq':'Read archived QQ private/group messages, including named groups','room':'Read actual room records','phone':'Read own saved phone records',
        'web':'External lookup now','memory':'Stored memories or ordinary chat originals; search directory and read details only when needed','system':'Abilities or past tool outcomes',
        'rules':'Configured rules','album':'Saved album images','device':'Actual device state','mixed':'Multiple capability families now'},optional:true),
     if(rooms.isNotEmpty) 'tool_room_target':JevChoiceQuestion(

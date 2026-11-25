@@ -1,4 +1,5 @@
 import '../../core/agent/work_error.dart';
+import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'work_markdown.dart';
@@ -321,7 +322,11 @@ class _WorkPanelState extends State<WorkPanel>
                                   if (item['artifact'] is String)
                                     WorkHtmlCard(key: ValueKey("${row['id']}/${item['artifact']}/$index"),
                                       title: item['title']?.toString() ?? 'HTML 作品',
-                                      load: () => work.readHtml(item['artifact'] as String)),
+                                      load: () => work.readHtml(item['artifact'] as String, expectedDigest: item['digest'] as String?)),
+                                for(final item in _receipts(row))
+                                  if(item['screenshot'] is String && item['digest'] is String)
+                                    _ResultPhoto(key:ValueKey("${row['id']}/${item['digest']}"),
+                                      load:()=>work.screenshot(item['screenshot'] as String,item['digest'] as String)),
                                 for (final file in saved)
                                   Align(
                                     alignment: Alignment.centerLeft,
@@ -644,4 +649,23 @@ class _Receipt extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ResultPhoto extends StatefulWidget {
+  const _ResultPhoto({super.key, required this.load});
+  final Future<Uint8List> Function() load;
+  @override
+  State<_ResultPhoto> createState()=>_ResultPhotoState();
+}
+class _ResultPhotoState extends State<_ResultPhoto> {
+  late final photo = widget.load();
+  @override
+  Widget build(BuildContext context)=>FutureBuilder<Uint8List>(future:photo,builder:(ctx,snap){
+    if(snap.hasError) return const Text('无法读取这张结果截图');
+    if(!snap.hasData) return const LinearProgressIndicator();
+    final image = snap.requireData;
+    return InkWell(onTap:()=>showDialog<void>(context:ctx,builder:(d)=>Dialog(
+      child:InteractiveViewer(child:Image.memory(image)))),child:Image.memory(image,height:220,
+      fit:BoxFit.contain,semanticLabel:'网页答题结果截图'));
+  });
 }

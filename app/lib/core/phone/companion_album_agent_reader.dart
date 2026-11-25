@@ -7,13 +7,16 @@ import '../agent/agent_tool.dart';
 import '../agent/agent_tool_registry.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/routed_vision_client.dart';
+import '../ai/model_profile.dart';
+import '../models/message_attachment.dart';
 import '../database/app_database.dart';
 import '../models/companion_album.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/secure_config.dart';
 
 class CompanionAlbumAgentReader {
-  CompanionAlbumAgentReader({required this.db, required this.secureConfig});
+  CompanionAlbumAgentReader({required this.db, required this.secureConfig, this.workModel});
+  final DeepSeekModelProfile? workModel;
 
   final AppDatabase db;
   final SecureConfig secureConfig;
@@ -118,6 +121,8 @@ class CompanionAlbumAgentReader {
       secure: secureConfig,
       db: db,
       current: stillAvailable,
+      firstModel: workModel == null ? null : () async => workModel!,
+      route: workModel == null ? null : ImageVisionRoute.first,
     );
     try {
       final file = await CompanionAlbumStorage(db: db).fileFor(imagePath);

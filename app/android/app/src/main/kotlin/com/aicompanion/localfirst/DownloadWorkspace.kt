@@ -66,6 +66,7 @@ internal class DownloadWorkspace(private val resolver: ContentResolver, private 
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.RELATIVE_PATH, path)
             put(MediaStore.MediaColumns.MIME_TYPE, when {
+                name.endsWith(".png") -> "image/png"
                 name.endsWith(".html") -> "text/html"
                 name.endsWith(".json") -> "application/json"
                 else -> "text/markdown"
@@ -91,9 +92,14 @@ internal class DownloadWorkspace(private val resolver: ContentResolver, private 
         requireNotNull(name)
         val uri = rows(name)[name]
         when (method) {
-            "workTreeRead" -> return read(requireNotNull(uri) { "工作文件已移动或删除" }).toString(Charsets.UTF_8)
-            "workTreeWrite" -> {
-                val bytes = requireNotNull(text).toByteArray(Charsets.UTF_8)
+            "workTreeRead" -> {
+                val bytes = read(requireNotNull(uri) { "工作文件已移动或删除" })
+                return if (name.endsWith(".png")) android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP) else bytes.toString(Charsets.UTF_8)
+            }
+            "workTreeWrite", "workTreeCreate" -> {
+                if (method == "workTreeCreate" && uri != null) return false
+                val value = requireNotNull(text)
+                val bytes = if (name.endsWith(".png")) android.util.Base64.decode(value, android.util.Base64.DEFAULT) else value.toByteArray(Charsets.UTF_8)
                 require(bytes.size <= LIMIT) { "工作文件超过 256 KiB" }
                 if (uri == null) create(name, bytes) else {
                     val original = read(uri)
@@ -108,6 +114,6 @@ internal class DownloadWorkspace(private val resolver: ContentResolver, private 
             "workTreeDelete" -> check(uri != null && resolver.delete(uri, null, null) == 1) { "工作文件已移动或无法删除" }
             else -> error("未知的工作区操作")
         }
-        return null
+        return if (method == "workTreeCreate") true else null
     }
 }

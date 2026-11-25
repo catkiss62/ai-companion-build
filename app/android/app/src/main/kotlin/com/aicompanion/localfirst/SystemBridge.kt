@@ -41,6 +41,7 @@ class SystemBridge(
 ) {
     private val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
     private val commissionDocuments = CommissionDocuments(activity)
+    private val workQuiz = WorkQuizBrowser(activity)
     private val reminderListener: () -> Unit = { methodChannel.invokeMethod("calendarReminderChanged", null) }
     private var permissionResult: MethodChannel.Result? = null
     private var permissionRequestCode: Int? = null
@@ -63,9 +64,14 @@ class SystemBridge(
         SnapshotCacheCleaner.clean(activity)
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "workQuizOpen", "workQuizChoose", "workQuizCapture", "workQuizClose" -> workQuiz.handle(
+                    call.method, call.arguments as? Map<*, *> ?: emptyMap<Any,Any>(), object : WorkQuizBrowser.Reply {
+                        override fun success(value: String?) = result.success(value)
+                        override fun error(code: String, message: String) = result.error(code,message,null)
+                    })
                 "workTreeCurrent", "workTreeDefault", "workTreeChoose", "workTreeList",
                 "workReferenceChoose", "workReferenceRead", "workReferenceForget", "workReferenceApply",
-                "workTreeOpen", "workTreeRead", "workTreeWrite", "workTreeDelete" -> commissionDocuments.handle(call, result)
+                "workTreeOpen", "workTreeCreate", "workTreeRead", "workTreeWrite", "workTreeDelete" -> commissionDocuments.handle(call, result)
                 "recoverPortablePreferences" -> {
                     try {
                         PortableCompanionState.recover(activity,
@@ -506,6 +512,7 @@ class SystemBridge(
     }
 
     fun dispose() {
+        workQuiz.close()
         CalendarReminderAlarm.removeListener(reminderListener)
         methodChannel.setMethodCallHandler(null)
         permissionResult?.error("activity_disposed", "Activity was destroyed during permission request", null)

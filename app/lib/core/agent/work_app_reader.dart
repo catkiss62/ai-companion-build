@@ -1,4 +1,5 @@
 import '../ai/deepseek_client.dart';
+import '../ai/model_profile.dart';
 import '../platform/android_bridge.dart';
 import 'agent_tool_runner.dart';
 import '../ai/generation_cancellation.dart';
@@ -14,7 +15,8 @@ import 'agent_tool_registry.dart';
 
 /// Work-mode reads are deliberately dispatched here, separately from chat actions.
 class WorkAppReader {
-  WorkAppReader(this.db, this.config, {this.goal = '', this.client});
+  WorkAppReader(this.db, this.config, {this.goal = '', this.client, this.model});
+  final DeepSeekModelProfile? model;
   final String goal;
   final DeepSeekClient? client;
   final AppDatabase db;
@@ -48,7 +50,7 @@ class WorkAppReader {
     if (id is! String || id.length > 220 || focus is! String || focus.length > 160 ||
         offset is! int || offset < 0) throw const FormatException('无效的资料请求');
     final section = args['section'];
-    final album = CompanionAlbumAgentReader(db: db, secureConfig: config);
+    final album = CompanionAlbumAgentReader(db: db, secureConfig: config, workModel: model);
     if (section is String && AgentToolRunner.workReaders.contains(section)) {
       final raw = args['params'] ?? const {};
       if (raw is! Map || raw.length > 16) throw const FormatException('无效的资料参数');

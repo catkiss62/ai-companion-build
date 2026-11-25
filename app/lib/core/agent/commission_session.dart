@@ -9,10 +9,9 @@ import 'package:uuid/uuid.dart';
 import '../ai/chat_api_provider.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
-import '../ai/final_reply_route.dart';
-import '../ai/first_channel_model.dart';
+import 'work_model.dart';
+import 'work_quiz.dart';
 import '../ai/generation_cancellation.dart';
-import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../storage/secure_config.dart';
 import 'agent_native_tool_accumulator.dart';
@@ -31,9 +30,15 @@ class CommissionSession {
     r'^(?:那[，, ]*)?(?:第[一二三四五六七八九十0-9]+个|上一个|下一个|刚才(?:查|找|读|说的项目)|(?:这个|那个|还有哪些)(?:项目|仓库|插件|报告|工具)|(?:继续|接着)(?:查|搜|找|筛|调研))',
   ).hasMatch(text.trim());
 
+  static Set<String> omittedActions(String text) {
+    final match = RegExp(r'^(?:请)?(?:继续|接着)(?:任务|工作)?[，, ]*(?:但|不过)?(?:这次)?(?:别|不要|不用)(?:再)?(响铃|响了|响一声|朗读|读出来)(?:了)?[。！! ]*$').firstMatch(text.trim());
+    if (match == null) return {};
+    return {match.group(1)!.startsWith('响') ? 'ring' : 'speak'};
+  }
+
   static bool resumesOrder(String text) => RegExp(
-    r'^(?:请|麻烦你|好[，, ]*)?(?:继续|接着|接续|恢复)(?:之前|上次|刚才|刚刚|原来|未完成|中断)?(?:的)?(?:工作|任务|委托|做|做下去|执行|完成)?(?:吧|一下)?[。！! ]*$',
-  ).hasMatch(text.trim());
+    r'^(?:请|麻烦你|好[，, ]*)?(?:继续|接着|接续|恢复)(?:之前|上次|刚才|刚刚|原来|未完成|中断)?(?:的)?(?:工作|任务|委托|做|做下去|执行|完成)?(?:吧|一下)?(?:[，,。 ]+(?:刚才|刚刚|上次)(?:断网了?|网络中断了?|中断了?|断线了?|停了|没做完))?[。！! ]*$',
+  ).hasMatch(text.trim()) || omittedActions(text).isNotEmpty;
 
   static Future<String> run({
     required CommissionWorkspace workspace,
@@ -58,8 +63,9 @@ class CommissionSession {
     final key = await config.readApiKey();
     if (key == null || key.isEmpty) throw StateError('请先配置第一通道');
     final endpoint = await config.readEndpoint();
-    final model = await FirstChannelModel.read(db);
-    final effort = await FirstChannelModel.readEffort(db);
+    final profile = await WorkModel.read(db);
+    final model = profile.model;
+    final effort = profile.effort;
     final id = const Uuid().v7();
     final activity = details ?? WorkTurnDetails();
     activity.executionId = id;
@@ -74,6 +80,10 @@ class CommissionSession {
     var effectiveGoal = goal;
     var started = DateTime.now().millisecondsSinceEpoch;
     String? candidateHtml;
+    String? htmlDigest;
+    final omitted = <String>{};
+    final quizChoices = <Map>[];
+    Map<String,Object?>? quizResult;
     bool htmlExpected = false;
     Map? priorReference;
     bool resuming = false;
@@ -92,6 +102,11 @@ class CommissionSession {
         effectiveGoal = last['orderGoal'] as String? ?? last['goal'] as String;
         started = last['orderStarted'] as int? ?? last['at'] as int? ?? started;
         htmlExpected = last['htmlExpected'] == true;
+        htmlDigest = last['htmlDigest'] as String?;
+        omitted.addAll((last['omittedActions'] as List? ?? []).whereType<String>());
+        omitted.addAll(omittedActions(goal));
+        quizChoices.addAll((last['quizChoices'] as List? ?? []).whereType<Map>());
+        if(last['quizResult'] is Map) quizResult = Map<String,Object?>.from(last['quizResult'] as Map);
         priorReference = last['text_reference'] as Map?;
         candidateHtml = last['htmlCandidate'] as String?;
         for (final result in (last['evidence'] as List? ?? []).whereType<Map>()) {
@@ -151,7 +166,7 @@ class CommissionSession {
     }
     // The current directory can change between turns. Keep the transcript
     // and current goal as a stable prefix, then append the fresh catalog.
-    final requestedActions = recentContext ? <String>{} : WorkHostActions.requested(effectiveGoal);
+    final requestedActions = recentContext ? <String>{} : WorkHostActions.requested(effectiveGoal).difference(omitted);
     // A workspace JSON can be imported or edited outside the app. Only the
     // original user request on this installation can authorize a resumed action.
     final authorityKey = 'work_order_authority_$order';
@@ -162,11 +177,15 @@ class CommissionSession {
       }
       if (!resuming) await db.setSetting(authorityKey, authority);
     }
-    final host = WorkHostActions(db, order, threadId ?? id, requestedActions, cancel);
+    final deferred = <String>{
+      if (requestedActions.contains('ring') && RegExp(r'(?:整理完?|完成|做完|保存|交付)(?:之后|以后|后)[，, ]*(?:请|再|就)?响').hasMatch(effectiveGoal)) 'ring',
+    };
+    final host = WorkHostActions(db, order, threadId ?? id, requestedActions.difference(deferred), cancel);
     final catalog = <Map<String, Object?>>[
       if (resuming) {'role': 'user', 'content': '用户要求继续之前中断的工作。原目标：$effectiveGoal。请复用已核实的回执，从未完成处继续。'},
+      if (omitted.isNotEmpty) {'role':'user','content':'本轮已取消这些播放动作：${omitted.map((a)=>WorkHostActions.labels[a]).join("、")}，继续其余目标。'},
       if (requestedActions.isNotEmpty) {'role': 'user', 'content':
-        '原始任务的手机本地时间：${DateTime.fromMillisecondsSinceEpoch(started)}。本次执行的本地时间：${DateTime.now()}。可执行操作：${requestedActions.join("、")}。须取得宿主回执才能报告完成。'},
+        '原始任务的手机本地时间：${DateTime.fromMillisecondsSinceEpoch(started)}。本次执行的本地时间：${DateTime.now()}。可执行操作：${host.allowed.join("、")}。${deferred.isEmpty ? "" : "整理后响铃由宿主在最终正文生成后执行。"}须取得宿主回执才能报告完成。'},
       if (documents.isNotEmpty)
         {
           'role': 'user',
@@ -179,6 +198,11 @@ class CommissionSession {
       'id': id,
       'threadId': threadId ?? id,
       if (reference != null || priorReference != null) 'text_reference': priorReference ?? reference?.receipt,
+      'omittedActions':omitted.toList(),
+      'quizChoices':quizChoices,
+      if(quizResult!=null) 'quizResult':quizResult,
+      if(htmlDigest!=null) 'htmlDigest':htmlDigest,
+      'workModel': model.apiName, 'workEffort': effort.apiName,
       'orderId': order, 'orderGoal': effectiveGoal, 'orderStarted': started,
       'htmlExpected': htmlExpected || ResearchCommission.requestsHtml(effectiveGoal),
       if (candidateHtml != null) 'htmlCandidate': candidateHtml,
@@ -198,8 +222,6 @@ class CommissionSession {
       List<Map<String, Object?>> messages, {
       bool finalAnswer = false,
       bool htmlOnly = false,
-      bool relay = false,
-      FinalReplyRoute? route,
     }) async {
       if (!await db.brainWorkAllowed()) throw StateError('当前设备暂停工作');
       cancel.throwIfCancelled();
@@ -207,22 +229,12 @@ class CommissionSession {
           reasoning = StringBuffer(),
           acc = AgentNativeToolCallAccumulator();
       String finish = '';
-      final provider = relay
-          ? await config.readChatProvider()
-          : ChatApiProvider.deepSeek;
       final stream = client.streamChat(
-        apiKey: relay ? (await config.readFinalReplyApiKey() ?? '') : key,
-        endpoint: relay ? await config.readFinalReplyEndpoint() : endpoint,
+        apiKey: key,
+        endpoint: endpoint,
         model: model,
-        modelName: relay ? await config.readFinalReplyModel() : null,
-        requestProvider: provider,
-        effort: relay
-            ? provider.normalizeEffort(
-                ReasoningEffort.fromApiName(
-                  await db.getSetting('reasoning_effort'),
-                ),
-              )
-            : effort,
+        requestProvider: ChatApiProvider.deepSeek,
+        effort: effort,
         messages: messages,
         tools: finalAnswer
             ? const []
@@ -232,13 +244,10 @@ class CommissionSession {
                 for (final t in ResearchCommission.tools)
                   if (previousTask != null || (t['function'] as Map)['name'] != ResearchCommission.recall) t,
                 WorkAppReader.tool,
-                if (requestedActions.isNotEmpty) host.tool,
+                if (host.allowed.isNotEmpty) host.tool,
                 if (reference != null && proposeEdit != null) WorkTextReference.editTool,
               ],
         cancellationToken: cancel,
-        finalReplyRoute: route,
-        thirdChannelSecure: config,
-        thirdChannelCurrent: db.brainWorkAllowed,
         usageLane: finalAnswer
             ? 'commission_final_reply'
             : ResearchCommission.lane,
@@ -266,8 +275,6 @@ class CommissionSession {
       List<Map<String, Object?>> messages, {
       bool finalAnswer = false,
       bool htmlOnly = false,
-      bool relay = false,
-      FinalReplyRoute? route,
     }) async {
       for (var attempt = 0; ; attempt++) {
         while (limited && (chatBusy?.call() ?? false)) {
@@ -279,8 +286,6 @@ class CommissionSession {
             messages,
             finalAnswer: finalAnswer,
             htmlOnly: htmlOnly,
-            relay: relay,
-            route: route,
           );
         } on DeepSeekException catch (error) {
           if (error.statusCode != 429 || attempt >= 2) rethrow;
@@ -306,6 +311,28 @@ class CommissionSession {
           (reference == null || reference.digest != priorReference['sha256'])) {
         throw StateError('请重新选择中断前的同一份文本附件，然后继续任务');
       }
+      final quiz = recentContext ? null : WorkQuiz.requested(effectiveGoal);
+      if(quiz != null) {
+        activity.beginTool('work_quiz',quiz.host);
+        onPhase?.call(CommissionPhase.tool);
+        try {
+          if(quizResult != null && quizResult!['url'] == quiz.toString()) {
+            await WorkQuiz.image(workspace,quizResult!['screenshot'] as String,quizResult!['digest'] as String);
+          } else {
+            quizResult = await WorkQuiz.run(uri:quiz,order:order,id:id,goal:effectiveGoal,
+              workspace:workspace,cancel:cancel,answers:quizChoices,save:save,progress:reportStep,
+              ask:(messages) async => (await request(messages,finalAnswer:true)).content);
+          }
+          record['quizResult'] = quizResult;
+          activity.finishTool(quizResult!);
+          catalog.add({'role':'user','content':'实际网页答题回执：${jsonEncode(quizResult)}。已完成答题并保存截图。'});
+          await save();
+          onDetails?.call();
+        } catch(e) {
+          activity.finishTool({'error':workErrorReason(e)});
+          rethrow;
+        }
+      }
       final report = recentContext
           ? <String, Object?>{
               'mode': 'recent_work_lookup',
@@ -316,6 +343,8 @@ class CommissionSession {
               host: host,
               expectedHtml: record['htmlExpected'] == true,
               candidateHtml: candidateHtml,
+              expectedDigest:htmlDigest,
+              onDigest:(digest) { record['htmlDigest']=digest; },
               onHtmlCandidate: (file) async {
                 record['htmlExpected'] = true;
                 if (file != null) record['htmlCandidate'] = file;
@@ -328,7 +357,7 @@ class CommissionSession {
               priorRepositories: priorRepositories,
               previousTargets: previousTargets,
               reference: reference,
-              appReader: WorkAppReader(db, config, goal: effectiveGoal, client: client),
+              appReader: WorkAppReader(db, config, goal: effectiveGoal, client: client, model: model),
               proposeEdit: proposeEdit,
               savedReadmes: savedReadmes,
               searchHistory: previousTask == null
@@ -394,26 +423,7 @@ class CommissionSession {
         if (reference == null && goal.contains('附件'))
           {'role': 'user', 'content': '本轮没有选中文件附件，请如实说明本轮用了哪些材料。'},
       ];
-      final provider = await config.readChatProvider();
-      final relay =
-          provider.isGeminiRelay &&
-          (await config.readFinalReplyApiKey() ?? '').isNotEmpty;
-      final route = FinalReplyRoute(secondChannelEnabled: relay);
-      String answer;
-      try {
-        answer = (await request(
-          messages,
-          finalAnswer: true,
-          relay: relay,
-          route: route,
-        )).content.trim();
-        if (answer.isEmpty) throw StateError('回复为空');
-      } catch (_) {
-        cancel.throwIfCancelled();
-        if (!relay) rethrow;
-        route.recordFailure('secondary_failed');
-        answer = (await request(messages, finalAnswer: true)).content.trim();
-      }
+      var answer = (await request(messages, finalAnswer: true)).content.trim();
       if (answer.isEmpty) throw StateError('未收到正文');
       if (report['end'] == 'evidence_incomplete' && report.containsKey('unverified_repositories')) {
         final missing = (report['unverified_repositories'] as List).whereType<String>().join('、');
@@ -422,6 +432,17 @@ class CommissionSession {
         }
       }
       cancel.throwIfCancelled();
+      if(deferred.isNotEmpty) {
+        final after = WorkHostActions(db,order,threadId ?? id,deferred,cancel);
+        activity.beginTool(WorkHostActions.name,'整理后响铃');
+        try {
+          activity.finishTool(await after.execute({'action':'ring'}));
+        } catch(e) {
+          activity.finishTool({'error':workErrorReason(e)});
+          rethrow;
+        }
+        cancel.throwIfCancelled();
+      }
       record.addAll({
         'state': 'completed',
         'answer': answer,

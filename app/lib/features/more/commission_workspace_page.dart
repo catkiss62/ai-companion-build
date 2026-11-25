@@ -62,6 +62,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       Navigator.pop(context, name);
       return;
     }
+    final image = name.endsWith('.png');
     final html = name.endsWith('.html');
     final raw = html ? await store!.readHtml(name) : await store!.read(name);
     final task = name.endsWith('.json');
@@ -82,7 +83,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
         content: SizedBox(
           width: 480,
           child: SingleChildScrollView(
-            child: task || html
+            child: image ? Image.memory(base64Decode(raw)) : task || html
                 ? SelectableText(initial)
                 : TextFormField(
                     initialValue: raw,
@@ -93,17 +94,17 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
           ),
         ),
         actions: [
-          if (html) WorkCopyButton('源码', raw),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('用其他应用打开')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
-          ),
-          if (!task && !html)
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'save'),
-              child: const Text('保存'),
-            ),
+          if (html || task || image) ...[
+            if (html) WorkCopyButton('源码', raw),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('用其他应用打开')),
+          ] else Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('用其他应用打开')),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('保存')),
+            ]),
+          ]),
         ],
       ),
     );

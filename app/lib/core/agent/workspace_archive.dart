@@ -16,7 +16,8 @@ class WorkspaceArchive {
       try {
         Future<void> add(String name, String content) async {
           final source = File('${temp.path}/$name');
-          await source.writeAsString(content, flush: true);
+          if (name.endsWith('.png')) { await source.writeAsBytes(base64Decode(content), flush:true); }
+          else { await source.writeAsString(content, flush:true); }
           await encoder.addFile(source, name);
         }
 
@@ -63,7 +64,7 @@ class WorkspaceArchive {
               total > 32 * 1024 * 1024 ||
               imported.containsKey(item.name))
             throw const FormatException('无效工作区条目');
-          final body = utf8.decode(item.content);
+          final body = item.name.endsWith('.png') ? base64Encode(item.content) : utf8.decode(item.content);
           if (item.name.endsWith('.json')) {
             final data = jsonDecode(body);
             if (data is! Map ||
