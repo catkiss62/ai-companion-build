@@ -113,6 +113,11 @@ class CommissionWorkspace {
     }
   }
 
+  Future<void> openExternally(String name) async {
+    validate(name);
+    await channel.invokeMethod<void>('workTreeOpen', {'name': name, 'tree': tree});
+  }
+
   Future<void> remove(String name) async {
     validate(name);
     if (writingTasks.contains(name)) throw StateError('请先停止正在执行的委托');

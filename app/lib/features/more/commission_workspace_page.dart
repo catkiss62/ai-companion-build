@@ -94,6 +94,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
         ),
         actions: [
           if (html) WorkCopyButton('源码', raw),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('用其他应用打开')),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
@@ -106,6 +107,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
         ],
       ),
     );
+    if (choice == 'open') await store!.openExternally(name);
     if (choice == 'save') await store!.write(name, edited);
   }
 

@@ -171,6 +171,13 @@
         </service>
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
+        <provider
+            android:name=".WorkFileProvider"
+            android:authorities="${applicationId}.workfiles"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/work_file_paths"/>
+        </provider>
     </application>
 
     <queries>

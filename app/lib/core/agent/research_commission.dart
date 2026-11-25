@@ -8,6 +8,7 @@ import 'commission_workspace.dart';
 import 'work_text_reference.dart';
 import 'work_app_reader.dart';
 import 'work_error.dart';
+import 'work_host_actions.dart';
 import '../creative/creative_contract.dart';
 import '../creative/creative_workspace.dart';
 import '../ai/generation_cancellation.dart';
@@ -157,7 +158,7 @@ class ResearchCommission {
     };
   }
 
-  static Future<Map<String, Object?>> _saveHtml(CommissionWorkspace workspace, Object? args) async {
+  static Future<Map<String, Object?>> _saveHtml(CommissionWorkspace workspace, Object? args, Future<void> Function(String?)? onCandidate) async {
     if (args is! Map) throw const FormatException('缺少 HTML 交付参数');
     final title = args['title'], html = args['html'];
     if (title is! String || title.trim().isEmpty || title.length > 100 ||
@@ -171,6 +172,7 @@ class ResearchCommission {
       if (args['script'] != null) 'script.js': args['script'],
     }});
     final name = '作品-${CreativeContract.hash(page)}.html';
+    await onCandidate?.call(name);
     await workspace.write(name, page);
     await workspace.readHtml(name);
     return {'artifact': name, 'title': title.trim(), 'display': '已保存可预览作品'};
@@ -189,6 +191,10 @@ class ResearchCommission {
     void Function(Map<String, Object?> result)? onToolResult,
     Future<void> Function(List<Map<String, Object?>>)? checkpoint,
     CommissionWorkspace? workspace,
+    WorkHostActions? host,
+    bool expectedHtml = false,
+    String? candidateHtml,
+    Future<void> Function(String?)? onHtmlCandidate,
     Future<Map<String, Object?>> Function(String query, int? turn)?
     searchHistory,
     Set<String> priorRepositories = const {},
@@ -253,7 +259,7 @@ class ResearchCommission {
     final unavailableAppReads = <String>{};
     var summary = '';
     var end = 'budget';
-    var requiresHtml = requestsHtml(goal);
+    var requiresHtml = expectedHtml || requestsHtml(goal) || candidateHtml != null;
     String? deliveredFile;
     Future<void> recordResult(Map<String, Object?> result) async {
       onToolResult?.call(result);
@@ -267,12 +273,35 @@ class ResearchCommission {
       ]);
     }
     try {
+      if (host != null) {
+        for (final receipt in await host.verifyExisting()) {
+          onToolStart?.call(WorkHostActions.name, receipt['action'] as String);
+          await recordResult(receipt);
+          history.add({'role': 'user', 'content': '已核对之前的手机操作：${jsonEncode(receipt)}，无需重做。'});
+        }
+      }
+      if (candidateHtml != null && workspace != null) {
+        final exists = (await workspace.list()).contains(candidateHtml);
+        if (exists) {
+          await workspace.readHtml(candidateHtml);
+          deliveredFile = candidateHtml;
+          onToolStart?.call(deliverHtml, '核对已保存的网页');
+          final receipt = {'artifact': candidateHtml, 'display': '已核对上次保存的网页'};
+          await recordResult(receipt);
+          history.add({'role': 'user', 'content': '已读回验证上次交付的网页 $candidateHtml，继续剩余工作。'});
+        }
+      }
       while (rounds < 6 && calls < 10) {
         cancellation.throwIfCancelled();
         rounds++;
         final next = await plan(List.unmodifiable(history));
         cancellation.throwIfCancelled();
         if (next.toolCalls.isEmpty) {
+          final missingActions = host == null ? <String>{} : host.allowed.difference(host.confirmed);
+          if (missingActions.isNotEmpty && rounds < 6 && prompted.add('host')) {
+            history.add({'role': 'user', 'content': '仍需执行或核实：${missingActions.map((a) => WorkHostActions.labels[a]).join("、")}。使用 work_host_action，缺必要参数时说明需要用户补充什么。'});
+            continue;
+          }
           final hasCandidates = evidence.any(
             (e) => e.containsKey('repositories'),
           );
@@ -325,7 +354,10 @@ class ResearchCommission {
         });
         for (final call in next.toolCalls) {
           cancellation.throwIfCancelled();
-          if (call.name == deliverHtml) requiresHtml = true;
+          if (call.name == deliverHtml && !requiresHtml) {
+            requiresHtml = true;
+            await onHtmlCandidate?.call(null);
+          }
           Map<String, Object?> result;
           if (calls >= 10) {
             result = {'error': 'tool_budget'};
@@ -350,8 +382,18 @@ class ResearchCommission {
             );
             try {
               if (call.name == deliverHtml && workspace != null) {
-                result = await _saveHtml(workspace, args);
+                result = deliveredFile != null && candidateHtml != null
+                    ? {'artifact': deliveredFile, 'display': '复用已核对的网页'}
+                    : await _saveHtml(workspace, args, onHtmlCandidate);
                 deliveredFile = result['artifact'] as String;
+              } else if (call.name == WorkHostActions.name && host != null && args is Map) {
+                try {
+                  result = await host.execute(args);
+                } catch (error) {
+                  cancellation.throwIfCancelled();
+                  host.lastError = workErrorReason(error, fallback: '手机操作未能核实');
+                  result = {'error': host.lastError};
+                }
               } else if (call.name == WorkAppReader.name && appReader != null && args is Map) {
                 try {
                   result = await appReader.read(args, cancellation);
@@ -623,7 +665,7 @@ class ResearchCommission {
           cancellation.throwIfCancelled();
           final calls = turn.toolCalls.where((c) => c.name == deliverHtml).toList();
           if (calls.length != 1) throw const FormatException('未收到完整的网页源码');
-          result = await _saveHtml(workspace, jsonDecode(calls.single.arguments));
+          result = await _saveHtml(workspace, jsonDecode(calls.single.arguments), onHtmlCandidate);
           deliveredFile = result['artifact'] as String;
         } catch (e) {
           cancellation.throwIfCancelled();
@@ -633,6 +675,10 @@ class ResearchCommission {
         }
         await recordResult(result);
         progress('已保存可预览作品', true);
+      }
+      if (host != null && !host.confirmed.containsAll(host.allowed)) {
+        final missing = host.allowed.difference(host.confirmed).map((a) => WorkHostActions.labels[a]).join('、');
+        throw StateError(host.lastError ?? '$missing 未执行，请明确操作要求、时间或内容');
       }
       if (lacksFreshEvidence() || unavailableAppReads.isNotEmpty) end = 'evidence_incomplete';
       return {

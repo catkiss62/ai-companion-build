@@ -39,6 +39,9 @@ internal class DownloadWorkspace(private val resolver: ContentResolver, private 
         return result
     }
 
+    fun documentUri(name: String): Uri =
+        requireNotNull(rows(name)[name]) { "工作文件已移动或删除" }
+
     private fun read(uri: Uri): ByteArray {
         return resolver.openInputStream(uri)?.use { input ->
             val out = ByteArrayOutputStream()

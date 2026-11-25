@@ -1,5 +1,6 @@
 import 'commission_thread.dart';
 import 'work_error.dart';
+import 'work_host_actions.dart';
 import 'commission_history_search.dart';
 import 'work_turn_details.dart';
 import 'dart:convert';
@@ -28,6 +29,10 @@ class CommissionSession {
       RegExp(r'(记得|还在|进度|刚才|继续|上次|之前|查到|做到|报告|结果|哪些|什么)').hasMatch(text);
   static bool followup(String text) => RegExp(
     r'^(?:那[，, ]*)?(?:第[一二三四五六七八九十0-9]+个|上一个|下一个|刚才(?:查|找|读|说的项目)|(?:这个|那个|还有哪些)(?:项目|仓库|插件|报告|工具)|(?:继续|接着)(?:查|搜|找|筛|调研))',
+  ).hasMatch(text.trim());
+
+  static bool resumesOrder(String text) => RegExp(
+    r'^(?:请|麻烦你|好[，, ]*)?(?:继续|接着|接续|恢复)(?:之前|上次|刚才|刚刚|原来|未完成|中断)?(?:的)?(?:工作|任务|委托|做|做下去|执行|完成)?(?:吧|一下)?[。！! ]*$',
   ).hasMatch(text.trim());
 
   static Future<String> run({
@@ -65,6 +70,13 @@ class CommissionSession {
         .where((n) => n.endsWith('.md') && !n.startsWith('停用'))
         .toList();
     String? threadId;
+    var order = id;
+    var effectiveGoal = goal;
+    var started = DateTime.now().millisecondsSinceEpoch;
+    String? candidateHtml;
+    bool htmlExpected = false;
+    Map? priorReference;
+    bool resuming = false;
     final priorRepositories = <String>{};
     var previousTargets = <String>{};
     final savedReadmes = <String, String>{};
@@ -73,6 +85,19 @@ class CommissionSession {
       if (rows.isEmpty) throw StateError('委托记录已删除');
       threadId = CommissionThread.key(rows.last);
       context.addAll(CommissionThread.history(rows));
+      final last = rows.last;
+      if (!recentContext && last['state'] != 'completed' && resumesOrder(goal)) {
+        resuming = true;
+        order = last['orderId'] as String? ?? last['id'] as String;
+        effectiveGoal = last['orderGoal'] as String? ?? last['goal'] as String;
+        started = last['orderStarted'] as int? ?? last['at'] as int? ?? started;
+        htmlExpected = last['htmlExpected'] == true;
+        priorReference = last['text_reference'] as Map?;
+        candidateHtml = last['htmlCandidate'] as String?;
+        for (final result in (last['evidence'] as List? ?? []).whereType<Map>()) {
+          if (result['artifact'] is String) candidateHtml = result['artifact'] as String;
+        }
+      }
       for (final row in rows) {
         final rowTargets = <String>{};
         for (final item in (row['evidence'] as List? ?? []).whereType<Map>()) {
@@ -126,7 +151,22 @@ class CommissionSession {
     }
     // The current directory can change between turns. Keep the transcript
     // and current goal as a stable prefix, then append the fresh catalog.
+    final requestedActions = recentContext ? <String>{} : WorkHostActions.requested(effectiveGoal);
+    // A workspace JSON can be imported or edited outside the app. Only the
+    // original user request on this installation can authorize a resumed action.
+    final authorityKey = 'work_order_authority_$order';
+    final authority = jsonEncode([threadId ?? id, effectiveGoal, started]);
+    if (requestedActions.isNotEmpty) {
+      if (resuming && await db.getSetting(authorityKey) != authority) {
+        throw StateError('请重新明确要执行的提醒或播放操作');
+      }
+      if (!resuming) await db.setSetting(authorityKey, authority);
+    }
+    final host = WorkHostActions(db, order, threadId ?? id, requestedActions, cancel);
     final catalog = <Map<String, Object?>>[
+      if (resuming) {'role': 'user', 'content': '用户要求继续之前中断的工作。原目标：$effectiveGoal。请复用已核实的回执，从未完成处继续。'},
+      if (requestedActions.isNotEmpty) {'role': 'user', 'content':
+        '原始任务的手机本地时间：${DateTime.fromMillisecondsSinceEpoch(started)}。本次执行的本地时间：${DateTime.now()}。可执行操作：${requestedActions.join("、")}。须取得宿主回执才能报告完成。'},
       if (documents.isNotEmpty)
         {
           'role': 'user',
@@ -138,7 +178,10 @@ class CommissionSession {
     final record = <String, Object?>{
       'id': id,
       'threadId': threadId ?? id,
-      if (reference != null) 'text_reference': reference.receipt,
+      if (reference != null || priorReference != null) 'text_reference': priorReference ?? reference?.receipt,
+      'orderId': order, 'orderGoal': effectiveGoal, 'orderStarted': started,
+      'htmlExpected': htmlExpected || ResearchCommission.requestsHtml(effectiveGoal),
+      if (candidateHtml != null) 'htmlCandidate': candidateHtml,
       'goal': goal,
       'at': DateTime.now().millisecondsSinceEpoch,
       'state': 'running',
@@ -189,6 +232,7 @@ class CommissionSession {
                 for (final t in ResearchCommission.tools)
                   if (previousTask != null || (t['function'] as Map)['name'] != ResearchCommission.recall) t,
                 WorkAppReader.tool,
+                if (requestedActions.isNotEmpty) host.tool,
                 if (reference != null && proposeEdit != null) WorkTextReference.editTool,
               ],
         cancellationToken: cancel,
@@ -258,20 +302,33 @@ class CommissionSession {
     }
 
     try {
+      if (resuming && priorReference != null &&
+          (reference == null || reference.digest != priorReference['sha256'])) {
+        throw StateError('请重新选择中断前的同一份文本附件，然后继续任务');
+      }
       final report = recentContext
           ? <String, Object?>{
               'mode': 'recent_work_lookup',
               'instruction': '仅根据可核实的近期交付回答；缺少细节时请说明。',
             }
           : await ResearchCommission.run(
-              goal: goal,
+              goal: effectiveGoal,
+              host: host,
+              expectedHtml: record['htmlExpected'] == true,
+              candidateHtml: candidateHtml,
+              onHtmlCandidate: (file) async {
+                record['htmlExpected'] = true;
+                if (file != null) record['htmlCandidate'] = file;
+                await save();
+                cancel.throwIfCancelled();
+              },
               context: context,
               supplement: catalog,
               workspace: workspace,
               priorRepositories: priorRepositories,
               previousTargets: previousTargets,
               reference: reference,
-              appReader: WorkAppReader(db, config, goal: goal, client: client),
+              appReader: WorkAppReader(db, config, goal: effectiveGoal, client: client),
               proposeEdit: proposeEdit,
               savedReadmes: savedReadmes,
               searchHistory: previousTask == null
@@ -375,7 +432,11 @@ class CommissionSession {
       return answer;
     } catch (e) {
       activity.finish();
-      if (!cancel.isCancelled) record['failureReason'] = workErrorReason(e);
+      if (!cancel.isCancelled) {
+        record['failureReason'] = workErrorReason(e);
+        record['failureType'] = e.runtimeType.toString();
+        if (steps.isNotEmpty) record['failureStep'] = steps.last;
+      }
       record['state'] = cancel.isCancelled ? 'stopped' : 'interrupted';
       if (!recentContext) await save();
       rethrow;

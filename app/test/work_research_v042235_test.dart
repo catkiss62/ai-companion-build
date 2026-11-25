@@ -65,6 +65,35 @@ void main() {
     }
   });
 
+  test('resume verifies the original HTML or re-delivers a missing file', () async {
+    final dir = await Directory.systemTemp.createTemp('work_resume_');
+    addTearDown(() => dir.delete(recursive: true));
+    final workspace = CommissionWorkspace(directory: dir);
+    String? candidate;
+    var deliveries = 0;
+    Future<Map<String,Object?>> resume() => ResearchCommission.run(
+      goal: '继续任务', expectedHtml: true, candidateHtml: candidate,
+      context: [], workspace: workspace, cancellation: GenerationCancellationToken(),
+      progress: (_, __) {}, plan: (_) async =>
+        (content: '完成', reasoning: '', finishReason: 'stop', toolCalls: <DeepSeekToolCall>[]),
+      onHtmlCandidate: (name) async { candidate = name; },
+      finishHtml: (_) async {
+        deliveries++;
+        return (content: '', reasoning: '', finishReason: 'stop', toolCalls: [
+          DeepSeekToolCall(id: 'page', name: ResearchCommission.deliverHtml,
+            arguments: '{"title":"按钮","html":"<button>点我</button>"}'),
+        ]);
+      },
+    );
+    await resume();
+    expect((await resume())['delivered_html'], candidate);
+    expect(deliveries, 1);
+    await workspace.remove(candidate!);
+    await resume();
+    expect(deliveries, 2);
+    expect(await workspace.list(), hasLength(1));
+  });
+
   test('freshness is per target and per turn, including history, timeout and budget exits', () async {
     for (final scenario in ['history', 'wrong', 'timeout', 'partial', 'both', 'budget', 'implicit', 'online', 'file']) {
       var turn = 0;

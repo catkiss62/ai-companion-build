@@ -141,6 +141,45 @@ internal class CommissionDocuments(private val activity: Activity) {
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "workTreeOpen" -> executor.execute {
+                try {
+                    val name = requireNotNull(call.argument<String>("name"))
+                    require(namePattern.matches(name)) { "工作文件名无效" }
+                    val location = call.argument<String>("tree")
+                    val uri = when {
+                        location == null -> {
+                            val dir = java.io.File(activity.getDir("flutter", 0), "commission_workspace")
+                            val file = java.io.File(dir, name)
+                            check(file.isFile && file.canonicalFile.parentFile == dir.canonicalFile) { "工作文件已移动或删除" }
+                            androidx.core.content.FileProvider.getUriForFile(activity, activity.packageName + ".workfiles", file)
+                        }
+                        location == DownloadWorkspace.KEY && Build.VERSION.SDK_INT >= 29 ->
+                            DownloadWorkspace(resolver, activity.packageName).documentUri(name)
+                        else -> requireNotNull(files(Uri.parse(location))[name]) { "工作文件已移动或删除" }
+                    }
+                    val mime = when {
+                        name.endsWith(".html") -> "text/html"
+                        name.endsWith(".json") -> "application/json"
+                        else -> "text/plain"
+                    }
+                    activity.runOnUiThread {
+                        try {
+                            val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            view.clipData = android.content.ClipData.newRawUri(name, uri)
+                            check(view.resolveActivity(activity.packageManager) != null) { "没有可打开此文件的应用" }
+                            activity.startActivity(Intent.createChooser(view, "用其他应用打开"))
+                            result.success(null)
+                        } catch (e: android.content.ActivityNotFoundException) {
+                            result.error("workspace_open", "没有可打开此文件的应用", null)
+                        } catch (e: Exception) {
+                            result.error("workspace_open", if (e is IllegalStateException) e.message else "系统无法打开此文件", null)
+                        }
+                    }
+                } catch (e: Exception) {
+                    activity.runOnUiThread { result.error("workspace_io", e.message, null) }
+                }
+            }
             "workTreeCurrent" -> {
                 val chosen = prefs.getString("tree", null)
                 result.success(when {

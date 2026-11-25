@@ -25,6 +25,9 @@ class DownloadWorkspaceTest {
                 work.handle("workTreeWrite", name, "第一次写入")
                 assertTrue((work.handle("workTreeList", null, null) as List<*>).contains(name))
                 assertEquals("第一次写入", reopen().handle("workTreeRead", name, null))
+                val uri = reopen().documentUri(name)
+                assertEquals("content", uri.scheme)
+                assertEquals("第一次写入", ctx.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() })
                 work.handle("workTreeWrite", name, "短")
                 assertEquals("短", reopen().handle("workTreeRead", name, null))
             } finally {

@@ -65,7 +65,7 @@ class SystemBridge(
             when (call.method) {
                 "workTreeCurrent", "workTreeDefault", "workTreeChoose", "workTreeList",
                 "workReferenceChoose", "workReferenceRead", "workReferenceForget", "workReferenceApply",
-                "workTreeRead", "workTreeWrite", "workTreeDelete" -> commissionDocuments.handle(call, result)
+                "workTreeOpen", "workTreeRead", "workTreeWrite", "workTreeDelete" -> commissionDocuments.handle(call, result)
                 "recoverPortablePreferences" -> {
                     try {
                         PortableCompanionState.recover(activity,
