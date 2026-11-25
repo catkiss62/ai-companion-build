@@ -346,6 +346,18 @@ class _WorkPanelState extends State<WorkPanel>
                   ],
                 ),
               ),
+              if (work.referenceName != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: InputChip(
+                      label: Text(work.referenceName!, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      deleteButtonTooltipMessage: '移除文件引用',
+                      onDeleted: work.busy || work.choosingReference ? null : work.removeReference,
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 3, 16, 7),
                 child: DecoratedBox(
@@ -357,6 +369,20 @@ class _WorkPanelState extends State<WorkPanel>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      IconButton(
+                        tooltip: '引用文本文件（UTF-8，最多 64 KiB，当前会话每轮重读）',
+                        color: workAccent,
+                        onPressed: work.busy || work.choosingReference ? null : () async {
+                          try {
+                            await work.chooseReference();
+                          } catch (_) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('无法选择文本文件，请重试')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.attach_file),
+                      ),
                       Expanded(
                         child: TextField(
                           controller: widget.input,
@@ -389,7 +415,7 @@ class _WorkPanelState extends State<WorkPanel>
                           disabledColor: workMuted.withValues(alpha: .4),
                           onPressed: work.busy
                               ? work.stop
-                              : value.text.trim().isEmpty
+                              : work.choosingReference || value.text.trim().isEmpty
                               ? null
                               : () {
                                   following = true;
@@ -434,6 +460,7 @@ class _WorkPanelState extends State<WorkPanel>
 String _status(Map row) =>
     row['status']?.toString() ??
     switch (row['state']) {
+      'completed' when row['researchEnd'] == 'evidence_incomplete' => '已交付 · 部分依据待核实',
       'completed' => '已完成',
       'stopped' => '已停止',
       _ => '本轮尚未交付',
@@ -477,6 +504,7 @@ class _TurnTrace extends StatelessWidget {
           Text(
             [
               if (!live) _status(row),
+              if (row['text_reference'] case {'name': final String name}) '只读引用 · $name',
               if (row['researchEnd'] == 'budget') '已到调研上限',
               if (row['researchEnd'] == 'evidence_incomplete') '部分依据待核实',
               if (rounds is int) '规划 $rounds 轮',

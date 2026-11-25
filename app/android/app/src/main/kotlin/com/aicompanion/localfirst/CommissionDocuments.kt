@@ -16,16 +16,47 @@ internal class CommissionDocuments(private val activity: Activity) {
     private val resolver = activity.contentResolver
     private val executor = Executors.newSingleThreadExecutor()
     private var picker: MethodChannel.Result? = null
+    // A grant is scoped to the current UI session. Never accept an arbitrary URI from a task file.
+    private var reference: Pair<String, Uri>? = null
+    private fun displayName(uri: Uri): String =
+        resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+            if (it.moveToFirst()) it.getString(0) else null
+        }?.take(180) ?: "文本文件"
+
+    private fun readReference(uri: Uri): Map<String, String> {
+        val bytes = resolver.openInputStream(uri)?.use { input ->
+            val out = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (true) {
+                val n = input.read(buffer)
+                if (n < 0) break
+                require(out.size() + n <= 65536) { "文件超过 64 KiB，请选择较小的文本文件" }
+                out.write(buffer, 0, n)
+            }
+            out.toByteArray()
+        } ?: error("无法打开所选文件")
+        val text = Charsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString().removePrefix("\uFEFF")
+        require(text.none { it < ' ' && it !in "\t\r\n" }) { "请选择 UTF-8 文本文件" }
+        return mapOf("name" to displayName(uri), "text" to text)
+    }
     private val namePattern = Regex("""(任务-[a-f0-9-]{36}\.json|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)""")
     private val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
     fun result(code: Int, resultCode: Int, data: Intent?): Boolean {
-        if (code != 4281) return false
+        if (code != 4281 && code != 4282) return false
         val pending = picker ?: return true
         picker = null
         val uri = data?.data
         if (resultCode != Activity.RESULT_OK || uri == null) { pending.success(null); return true }
         try {
+            if (code == 4282) {
+                require(uri.scheme == "content")
+                val key = java.util.UUID.randomUUID().toString()
+                val name = displayName(uri)
+                reference = key to uri
+                pending.success(mapOf("key" to key, "name" to name))
+                return true
+            }
             resolver.takePersistableUriPermission(uri, flags)
             prefs.edit().putString("tree", uri.toString()).apply()
             pending.success(null)
@@ -53,6 +84,40 @@ internal class CommissionDocuments(private val activity: Activity) {
         when (call.method) {
             "workTreeCurrent" -> result.success(prefs.getString("tree",null))
             "workTreeDefault" -> { prefs.edit().remove("tree").apply(); result.success(null) }
+            "workReferenceForget" -> {
+                if (reference?.first == call.argument<String>("key")) reference = null
+                result.success(null)
+            }
+            "workReferenceRead" -> {
+                val selected = reference
+                if (selected == null || selected.first != call.argument<String>("key")) {
+                    result.error("unavailable", "文件引用已失效，请重新选择", null)
+                    return
+                }
+                executor.execute {
+                    try {
+                        val value = readReference(selected.second)
+                        Handler(Looper.getMainLooper()).post { result.success(value) }
+                    } catch (e: Exception) {
+                        val message = when (e) {
+                            is java.nio.charset.CharacterCodingException -> "请选择 UTF-8 文本文件"
+                            is IllegalArgumentException -> e.message ?: "不支持此文件"
+                            else -> "无法读取引用，文件可能已删除或授权已撤销"
+                        }
+                        Handler(Looper.getMainLooper()).post { result.error("reference_read", message, null) }
+                    }
+                }
+            }
+            "workReferenceChoose" -> {
+                if (picker != null) { result.error("busy", "文件选择器已打开", null); return }
+                picker = result
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES,
+                        arrayOf("text/*", "application/json", "application/octet-stream"))
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                try { activity.startActivityForResult(intent, 4282) }
+                catch (e: Exception) { picker = null; result.error("picker", "无法打开文件选择器", null) }
+            }
             "workTreeChoose" -> {
                 if (picker != null) { result.error("busy","目录选择器已打开",null); return }
                 picker = result

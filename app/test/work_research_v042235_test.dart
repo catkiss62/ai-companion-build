@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:ai_companion_localfirst/core/agent/work_text_reference.dart';
 import 'dart:typed_data';
 import 'package:ai_companion_localfirst/core/agent/commission_history_search.dart';
 import 'package:ai_companion_localfirst/core/agent/research_commission.dart';
@@ -10,6 +12,55 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('freshness is per target and per turn, including history, timeout and budget exits', () async {
+    for (final scenario in ['history', 'wrong', 'timeout', 'partial', 'both', 'budget', 'implicit', 'file']) {
+      var turn = 0;
+      final listing = scenario == 'partial' || scenario == 'both';
+      final goal = listing ? '查清单中两个仓库目前的情况'
+          : scenario == 'implicit' ? '查最新'
+          : scenario == 'file' ? '列出文件里的最新日期'
+          : '查 Acme/One 最新情况';
+      final result = await ResearchCommission.run(
+        goal: goal, context: [], priorRepositories: {'acme/one', 'other/two'},
+        previousTargets: {'acme/one'},
+        reference: WorkTextSnapshot('list.txt', 'https://github.com/acme/One\nacme/Three'),
+        cancellation: GenerationCancellationToken(), progress: (_, __) {},
+        transport: MockClient((_) async {
+          if (scenario == 'timeout') throw TimeoutException('offline');
+          return http.Response('live README', 200);
+        }),
+        searchHistory: (_, __) async => {'matches': [{'source': 'README · acme/one', 'excerpt': 'old'}], 'thread_turns': 2},
+        plan: (_) async {
+          turn++;
+          DeepSeekToolCall read(String name) => DeepSeekToolCall(id: 'r-$turn-$name', name: ResearchCommission.read,
+              arguments: jsonEncode({'repository': name, 'use_saved': true}));
+          final calls = <DeepSeekToolCall>[];
+          if (turn == 1 || scenario == 'budget') {
+            if (['history', 'budget', 'implicit'].contains(scenario)) {
+              calls.add(DeepSeekToolCall(id: 'h$turn', name: ResearchCommission.recall, arguments: '{"query":"one"}'));
+            } else if (scenario == 'wrong') {
+              calls.add(read('other/two'));
+            } else if (scenario != 'file') {
+              calls.add(read('acme/one'));
+              if (scenario == 'both') calls.add(read('acme/three'));
+            }
+          }
+          return (content: '结束', reasoning: '', finishReason: 'stop', toolCalls: calls);
+        },
+      );
+      if (scenario == 'both' || scenario == 'file') {
+        expect(result['end'], 'planner_finished', reason: scenario);
+        if (listing) expect(result['live_readmes'], containsAll(['acme/one', 'acme/three']));
+      } else {
+        expect(result['end'], 'evidence_incomplete', reason: scenario);
+        expect(result['unverified_repositories'], [listing ? 'acme/three' : 'acme/one'], reason: scenario);
+        if (scenario == 'wrong') expect(result['live_readmes'], ['other/two']);
+        if (scenario == 'budget') expect(result['planning_rounds'], 6);
+        if (scenario == 'timeout') expect((result['evidence'] as List).first['error'], 'github_timeout');
+      }
+    }
+  });
+
   test(
     'retrieves clipped and older original text, later revisions and same-thread evidence',
     () async {

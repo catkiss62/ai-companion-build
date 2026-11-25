@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:ai_companion_localfirst/core/ai/model_profile.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:ai_companion_localfirst/core/agent/work_text_reference.dart';
 import 'package:ai_companion_localfirst/core/agent/commission_session.dart';
 import 'package:ai_companion_localfirst/core/agent/commission_thread.dart';
 import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
@@ -21,6 +23,34 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   sqfliteFfiInit();
+  test('a selected reference rereads edits; revoked and removed grants cannot reuse old bytes', () async {
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var body = '第一版', valid = true;
+    messenger.setMockMethodCallHandler(CommissionWorkspace.channel, (call) async {
+      if (call.method == 'workReferenceChoose') return {'key': 'opaque', 'name': '清单.txt'};
+      expect(call.arguments['key'], 'opaque');
+      if (call.method == 'workReferenceForget') {
+        valid = false;
+        return null;
+      }
+      if (!valid) throw PlatformException(code: 'unavailable');
+      return {'name': '清单.txt', 'text': body};
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(CommissionWorkspace.channel, null));
+    final ref = (await WorkTextReference.choose())!;
+    final before = await ref.read();
+    body = '第二版';
+    final after = await ref.read();
+    expect(after.text, '第二版');
+    expect(after.digest, isNot(before.digest));
+    expect(after.receipt.values, isNot(contains(body)));
+    valid = false;
+    await expectLater(ref.read(), throwsA(isA<PlatformException>()));
+    valid = true;
+    await ref.forget();
+    await expectLater(ref.read(), throwsA(isA<PlatformException>()));
+  });
+
   test(
     'a +475 task can be resumed twice in order without copying another thread',
     () async {
@@ -73,6 +103,7 @@ void main() {
           config: config,
           cancel: GenerationCancellationToken(),
           progress: (_) {},
+          reference: goal == '再查一个' ? WorkTextSnapshot('清单.md', 'snapshot-fixture-441') : null,
           previousTask: latest,
           onRecordCreated: (name) => latest = name,
         );
@@ -86,6 +117,11 @@ void main() {
       List messages(int n) => jsonDecode(requests[n])['messages'] as List;
       final first = messages(0), finalReply = messages(1), follow = messages(2);
       expect(requests.length, 4);
+      expect(requests.take(2).every((r) => r.contains('snapshot-fixture-441')), isTrue);
+      expect(requests.skip(2).every((r) => !r.contains('snapshot-fixture-441')), isTrue);
+      expect(rows[1]['text_reference']['name'], '清单.md');
+      expect(jsonEncode(rows), isNot(contains('snapshot-fixture-441')));
+      expect(rows.last.containsKey('text_reference'), isFalse);
       expect(finalReply.take(first.length).toList(), first);
       final catalog = first.indexWhere((m) => m['content'].contains('工作区文件索引'));
       expect(catalog, greaterThan(1));

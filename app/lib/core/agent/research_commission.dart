@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../ai/deepseek_client.dart';
 import 'commission_workspace.dart';
+import 'work_text_reference.dart';
 import '../ai/generation_cancellation.dart';
 
 typedef ResearchPlan = ({
@@ -111,6 +112,23 @@ class ResearchCommission {
 
   static final _repo = RegExp(r'^[A-Za-z0-9-]+/[A-Za-z0-9_.-]+$');
 
+  static Set<String> _mentionedRepositories(String text, {bool listOnly = false}) {
+    // In a document allow GitHub links and owner/repo list entries. Paths and
+    // unrelated URLs embedded in prose are not repository targets.
+    const id = r'([a-z0-9-]+/[a-z0-9_.-]*[a-z0-9_-])';
+    final links = RegExp(r'https?://github\.com/' + id, caseSensitive: false);
+    final bare = RegExp(
+      listOnly ? r'^\s*(?:[-*]\s+)?' + id + r'\s*$'
+          : r'(?<![a-z0-9_./:-])' + id + r'(?![a-z0-9_/.-])',
+      caseSensitive: false, multiLine: true,
+    );
+    return {
+      for (final pattern in [links, bare])
+        for (final match in pattern.allMatches(text))
+          match.group(1)!.toLowerCase().replaceFirst(RegExp(r'\.git$'), ''),
+    };
+  }
+
   static Future<Map<String, Object?>> run({
     required String goal,
     required List<Map<String, Object?>> context,
@@ -126,6 +144,8 @@ class ResearchCommission {
     Future<Map<String, Object?>> Function(String query, int? turn)?
     searchHistory,
     Set<String> priorRepositories = const {},
+    Set<String> previousTargets = const {},
+    WorkTextSnapshot? reference,
     Map<String, String> savedReadmes = const {},
     http.Client? transport,
   }) async {
@@ -136,17 +156,33 @@ class ResearchCommission {
       ...supplement,
     ];
     final evidence = <Map<String, Object?>>[];
-    final known = <String>{
-      ...priorRepositories,
-      for (final m in RegExp(
-        r'https?://github\.com/([\w-]+/[\w.-]+)',
-      ).allMatches(goal))
-        m.group(1)!.toLowerCase(),
-    };
+    final goalTargets = _mentionedRepositories(goal);
+    final repoTask = RegExp(r'github|readme|开源|仓库|项目清单|repository|repositories',
+        caseSensitive: false).hasMatch(goal);
+    final attachmentTargets = repoTask && reference != null
+        ? _mentionedRepositories(reference.text, listOnly: true)
+        : <String>{};
     final freshRequested = RegExp(
-      r'最新|重新(读|查|核)|刷新|当前版本|latest|refresh|up.to.date',
+      r'最新|重新(读|查|核)|刷新|当前|目前|现在|实时|联网核|latest|refresh|up.to.date|\bcurrent(?:ly)?\b',
       caseSensitive: false,
     ).hasMatch(goal);
+    final followupTarget = RegExp(r'它|它们|这些|这[个两几]|那[个两几]|上次|刚才|重新(查|核)|刷新|再查|再核|再看|这次|有更新吗|^(?:请|帮我)?(?:查|看|核对)?(?:下|一下)?最新(?:情况|进展|版本|的)?[呢吗？?。！!]*$').hasMatch(goal);
+    final localOnly = RegExp(r'(?:只|仅)(?:基于|根据|用|看|读)(?:这份|这个|所选)?(?:附件|文件|旧资料)|(?:不需要|不用|不要)联网').hasMatch(goal);
+    final targets = goalTargets.isNotEmpty
+        ? goalTargets
+        : attachmentTargets.isNotEmpty
+        ? attachmentTargets
+        : (repoTask || followupTarget) && previousTargets.isNotEmpty
+        ? previousTargets
+        : (repoTask || followupTarget) && priorRepositories.length == 1
+        ? priorRepositories
+        : <String>{};
+    final needsLiveRead = freshRequested && !localOnly && (targets.isNotEmpty || repoTask);
+    final known = {...priorRepositories, ...targets, ...goalTargets};
+    final liveReads = <String>{};
+    Iterable<String> missingTargets() => targets.where((r) => !liveReads.contains(r));
+    bool lacksFreshEvidence() => needsLiveRead &&
+        (liveReads.isEmpty || missingTargets().isNotEmpty);
     final seen = <String>{};
     var rounds = 0, calls = 0, pages = 0;
     final prompted = <String>{};
@@ -171,7 +207,7 @@ class ResearchCommission {
             (e) => e.containsKey('repositories'),
           );
           final missingFirst =
-              readRepositories.isEmpty &&
+              !localOnly && readRepositories.isEmpty &&
               (hasCandidates ||
                   evidence.isEmpty &&
                       RegExp(
@@ -183,11 +219,13 @@ class ResearchCommission {
               .toSet();
           final missingNamed = named.difference(readRepositories);
           final missingComparison =
-              comparing &&
+              !localOnly && comparing &&
               (named.length > 1 && missingNamed.isNotEmpty ||
                   readRepositories.length == 1 &&
                       (known.length > 1 || hasCandidates));
-          final gap = missingFirst
+          final gap = lacksFreshEvidence()
+              ? 'refresh'
+              : missingFirst
               ? 'first'
               : missingComparison
               ? 'comparison'
@@ -197,7 +235,9 @@ class ResearchCommission {
               history.add({'role': 'assistant', 'content': next.content});
             history.add({
               'role': 'user',
-              'content': missingFirst
+              'content': gap == 'refresh'
+                  ? '本轮仍缺少目标仓库的联网 README。待核实：${missingTargets().isEmpty ? "本次目标仓库" : missingTargets().join(", ")}。请按目标读取；读取失败请明确标记。'
+                  : missingFirst
                   ? '根据目标搜索或读取项目资料。若无法核实，请交付具体限制。'
                   : '目前已核实的 README：${readRepositories.join(", ")}。待对照：${missingNamed.isEmpty ? "其余入选项目" : missingNamed.join(", ")}。核对比较依据，必要时换词继续搜；资料确实不足时指出具体缺口后交付。',
             });
@@ -300,6 +340,9 @@ class ResearchCommission {
                     kind as String,
                     title,
                   );
+                  if (name == reference?.name) {
+                    throw const FormatException('所选引用文件只读，请另存报告');
+                  }
                   if (files.contains(name) && !opened.contains(name) ||
                       kind == '技能' && files.contains('停用$name')) {
                     throw const FormatException('请先核对原文或技能停用状态');
@@ -371,7 +414,10 @@ class ResearchCommission {
                   if (reading) {
                     if (body.trim().isEmpty)
                       throw const FormatException('empty_readme');
-                    if (saved == null) readmes[repo] = body;
+                    if (saved == null) {
+                      readmes[repo] = body;
+                      liveReads.add(repo);
+                    }
                     readRepositories.add(repo);
                     pages++;
                     final start = offset as int;
@@ -461,7 +507,13 @@ class ResearchCommission {
           });
         }
       }
+      if (lacksFreshEvidence()) end = 'evidence_incomplete';
       return {
+        if (needsLiveRead) ...{
+          'refresh_targets': targets.toList(),
+          'live_readmes': liveReads.toList(),
+          'unverified_repositories': missingTargets().toList(),
+        },
         'planner_summary': summary,
         'end': end,
         'planning_rounds': rounds,

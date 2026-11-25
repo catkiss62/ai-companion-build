@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import '../../core/agent/work_text_reference.dart';
 
 import '../../core/agent/commission_session.dart';
 import '../../core/agent/commission_history_search.dart';
@@ -29,9 +33,41 @@ class WorkConversation extends ChangeNotifier {
   bool _disposed = false;
   CommissionWorkspace? _workspace;
   String? _file;
+  WorkTextReference? _reference;
+  Map<String, Object?>? _turnReference;
+  String? get referenceName => _reference?.name;
+  int _viewGeneration = 0;
+  bool choosingReference = false;
+
+  Future<void> chooseReference() async {
+    if (busy || choosingReference) return;
+    final view = _viewGeneration;
+    choosingReference = true;
+    _update();
+    try {
+      final selected = await WorkTextReference.choose();
+      if (selected == null) return;
+      if (_disposed || view != _viewGeneration || busy) {
+        await selected.forget();
+        return;
+      }
+      _reference = selected;
+    } finally {
+      choosingReference = false;
+      _update();
+    }
+  }
+
+  void removeReference() {
+    final selected = _reference;
+    _reference = null;
+    if (selected != null) unawaited(selected.forget());
+    _update();
+  }
   WorkTurnDetails _details = WorkTurnDetails();
   Map<String, dynamic> get currentTurn => {
     'id': _details.executionId,
+    if (_turnReference != null) 'text_reference': _turnReference,
     'goal': goal,
     'answer': answer,
     'steps': steps,
@@ -57,6 +93,9 @@ class WorkConversation extends ChangeNotifier {
   void clear() {
     if (busy) return;
     _historySearch.clear();
+    _viewGeneration++;
+    _turnReference = null;
+    removeReference();
     _workspace = null;
     _file = null;
     turns = [];
@@ -83,14 +122,16 @@ class WorkConversation extends ChangeNotifier {
     bool lookup = false,
     CommissionWorkspace? source,
   }) async {
-    if (busy || text.trim().isEmpty) return;
+    if (busy || choosingReference || text.trim().isEmpty) return;
     final token = GenerationCancellationToken();
     _token = token;
     phase = WorkPhase.planning;
     if (goal.isNotEmpty && !lookup) {
       turns = [...turns, currentTurn];
     }
+    _turnReference = null;
     if (lookup) {
+      removeReference();
       turns = [];
       _file = null;
       _workspace = null;
@@ -106,7 +147,11 @@ class WorkConversation extends ChangeNotifier {
           source ?? _workspace ?? await CommissionWorkspace.open();
       token.throwIfCancelled();
       _workspace = workspace;
+      final snapshot = await _reference?.read();
+      token.throwIfCancelled();
+      _turnReference = snapshot?.receipt;
       answer = await CommissionSession.run(
+        reference: snapshot,
         workspace: workspace,
         goal: goal,
         client: _client,
@@ -134,9 +179,9 @@ class WorkConversation extends ChangeNotifier {
           _update();
         },
       );
-      status = '已完成';
+      status = _details.researchEnd == 'evidence_incomplete' ? '已交付 · 部分依据待核实' : '已完成';
     } catch (e) {
-      status = token.isCancelled ? '已停止' : '工作未完成 · $e';
+      status = token.isCancelled ? '已停止' : '工作未完成 · ${e is PlatformException ? e.message : e}';
     } finally {
       _details.finish();
       _token = null;
@@ -150,6 +195,7 @@ class WorkConversation extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    removeReference();
     _historySearch.clear();
     stop();
     _client.close();

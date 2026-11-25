@@ -16,6 +16,7 @@ import '../storage/secure_config.dart';
 import 'agent_native_tool_accumulator.dart';
 import 'commission_workspace.dart';
 import 'research_commission.dart';
+import 'work_text_reference.dart';
 
 enum CommissionPhase { planning, tool, composing }
 
@@ -38,6 +39,7 @@ class CommissionSession {
     WorkTurnDetails? details,
     void Function()? onDetails,
     String? previousTask,
+    WorkTextSnapshot? reference,
     CommissionHistorySearch? historySearch,
     bool recentContext = false,
     bool Function()? chatBusy,
@@ -61,6 +63,7 @@ class CommissionSession {
         .toList();
     String? threadId;
     final priorRepositories = <String>{};
+    var previousTargets = <String>{};
     final savedReadmes = <String, String>{};
     if (previousTask != null) {
       final rows = await workspace.conversation(previousTask);
@@ -68,6 +71,7 @@ class CommissionSession {
       threadId = CommissionThread.key(rows.last);
       context.addAll(CommissionThread.history(rows));
       for (final row in rows) {
+        final rowTargets = <String>{};
         for (final item in (row['evidence'] as List? ?? []).whereType<Map>()) {
           final repo = item['repository'];
           final excerpt = item['readme_excerpt'];
@@ -75,6 +79,7 @@ class CommissionSession {
               excerpt is String &&
               (item['offset'] ?? 0) == 0) {
             final key = repo.toLowerCase();
+            rowTargets.add(key);
             savedReadmes.remove(key);
             if (item['next_offset'] == null &&
                 item['limit'] == null &&
@@ -92,6 +97,12 @@ class CommissionSession {
             if (e['repository'] case final String repo)
               priorRepositories.add(repo.toLowerCase());
           }
+        }
+        final requested = (row['refresh_targets'] as List? ?? []).whereType<String>().toSet();
+        if (requested.isNotEmpty) {
+          previousTargets = requested;
+        } else if (rowTargets.isNotEmpty) {
+          previousTargets = rowTargets;
         }
       }
       if (rows.last['state'] != 'completed' && rows.last['evidence'] != null) {
@@ -119,10 +130,12 @@ class CommissionSession {
           'content':
               '工作区文件索引（需要时用工具读取）：${jsonEncode(documents.take(160).toList())}',
         },
+      if (reference != null) reference.message,
     ];
     final record = <String, Object?>{
       'id': id,
       'threadId': threadId ?? id,
+      if (reference != null) 'text_reference': reference.receipt,
       'goal': goal,
       'at': DateTime.now().millisecondsSinceEpoch,
       'state': 'running',
@@ -251,6 +264,8 @@ class CommissionSession {
               supplement: catalog,
               workspace: workspace,
               priorRepositories: priorRepositories,
+              previousTargets: previousTargets,
+              reference: reference,
               savedReadmes: savedReadmes,
               searchHistory: previousTask == null
                   ? null
@@ -291,6 +306,11 @@ class CommissionSession {
             );
       cancel.throwIfCancelled();
       activity.researchEnd = report['end'] as String?;
+      if (report.containsKey('refresh_targets')) {
+        record['refresh_targets'] = report['refresh_targets'];
+        record['live_readmes'] = report['live_readmes'];
+        record['unverified_repositories'] = report['unverified_repositories'];
+      }
       if (report['end'] == 'budget') reportStep('已到调研上限，整理已有依据与缺口');
       if (report['end'] == 'evidence_incomplete') reportStep('部分依据未核实，整理已有资料');
       onPhase?.call(CommissionPhase.composing);
@@ -300,6 +320,8 @@ class CommissionSession {
         ...context,
         {'role': 'user', 'content': goal},
         ...catalog,
+        if (report['end'] == 'evidence_incomplete')
+          {'role': 'user', 'content': '逐项标明本轮已读及未取得的依据。旧资料只能作为历史信息，README 未涉及的问题请说明仍待核实。'},
         {'role': 'user', 'content': '本次调研数据：${jsonEncode(report)}'},
       ];
       final provider = await config.readChatProvider();
@@ -323,6 +345,12 @@ class CommissionSession {
         answer = (await request(messages, finalAnswer: true)).content.trim();
       }
       if (answer.isEmpty) throw StateError('未收到正文');
+      if (report['end'] == 'evidence_incomplete' && report.containsKey('unverified_repositories')) {
+        final missing = (report['unverified_repositories'] as List).whereType<String>().join('、');
+        if (missing.isNotEmpty || (report['live_readmes'] as List).isEmpty) {
+          answer += '\n\n本轮未取得最新 README 的仓库：${missing.isEmpty ? "目标仓库尚未核实" : missing}。';
+        }
+      }
       cancel.throwIfCancelled();
       record.addAll({
         'state': 'completed',
