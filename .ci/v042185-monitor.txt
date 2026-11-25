@@ -1,7 +1,7 @@
 status=success
-run_id=45556409919
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45556409919
-head_sha=60b0d84058108c7bca26d90ffc4748f3558e4beb
+run_id=45589160858
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45589160858
+head_sha=51ab6562d3fb281f58fb8799971309d96a03077a
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-1351b01910446a4f993617f231f353c527dd6e27459ccd882b40c3189bbc94df  AI-Companion-v0.42.239-483-Work-Mode-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e42d9a2faab3f282198a
+bba473c1cb5ee752705e953da929fd1bdfda1638830d5d74674ba981d0bd66e9  AI-Companion-v0.42.240-484-Work-Mode-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-704d7d0bc5f8d8abf3ae
