@@ -44,6 +44,7 @@ class WorkTurnFooter extends StatelessWidget {
         ? DateTime.fromMillisecondsSinceEpoch(end)
         : null;
     final elapsed = row['elapsedMs'];
+    final answer = row['answer'];
     const small = TextStyle(fontSize: 12, color: workMuted);
     Widget entry(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -121,6 +122,8 @@ class WorkTurnFooter extends StatelessWidget {
               '${clock.hour.toString().padLeft(2, "0")}:${clock.minute.toString().padLeft(2, "0")}',
               style: small,
             ),
+          if (!live && answer is String && answer.isNotEmpty)
+            WorkCopyButton('正文', answer),
         ],
       ),
     );

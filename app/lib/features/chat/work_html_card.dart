@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'work_markdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -34,10 +35,12 @@ class _WorkHtmlCardState extends State<WorkHtmlCard> {
           if (!snap.hasData) return const LinearProgressIndicator();
           final html = snap.requireData;
           return Column(children: [
-            if (Platform.isAndroid)
-              Row(children: [
+            Wrap(alignment: WrapAlignment.center, children: [
+              if (Platform.isAndroid)
                 TextButton(onPressed: () => setState(() => source = !source),
                   child: Text(source ? '预览' : '源码')),
+              WorkCopyButton('源码', html),
+              if (Platform.isAndroid)
                 TextButton.icon(icon: const Icon(Icons.fullscreen), label: const Text('全屏'),
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => Scaffold(appBar: AppBar(title: Text(widget.title)),

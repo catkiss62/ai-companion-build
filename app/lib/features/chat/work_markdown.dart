@@ -179,6 +179,36 @@ class _WorkMarkdownState extends State<WorkMarkdown>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: blocks);
 }
 
+class WorkCopyButton extends StatelessWidget {
+  const WorkCopyButton(this.label, this.text, {super.key});
+  final String label;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: '复制$label',
+    icon: const Icon(Icons.copy_outlined),
+    iconSize: 17,
+    color: workMuted,
+    visualDensity: VisualDensity.compact,
+    onPressed: () async {
+      String notice;
+      try {
+        await Clipboard.setData(ClipboardData(text: text));
+        notice = '$label已复制';
+      } on PlatformException {
+        notice = '复制失败，请重试';
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(notice),
+              duration: const Duration(seconds: 2)));
+      }
+    },
+  );
+}
+
 class _CodeBlock extends MarkdownElementBuilder {
   @override
   Widget visitElementAfterWithContext(
@@ -207,18 +237,7 @@ class _CodeBlock extends MarkdownElementBuilder {
                   style: const TextStyle(color: workMuted, fontSize: 12),
                 ),
               ),
-              IconButton(
-                tooltip: '复制代码',
-                iconSize: 17,
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: value));
-                  if (context.mounted)
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('代码已复制')));
-                },
-                icon: const Icon(Icons.copy_outlined, color: workMuted),
-              ),
+              WorkCopyButton('代码', value),
             ],
           ),
         ),

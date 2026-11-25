@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:ai_companion_localfirst/features/chat/work_html_card.dart';
 
 import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -84,6 +85,30 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('copy answer and saved HTML independently', (tester) async {
+    const answer = '## 说明\n正文含代码 `ok`';
+    const html = '<style>p{color:red}</style>\n<p>小鲸鱼</p><script>let n=1;</script>';
+    final copied = <String>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied.add(call.arguments['text'] as String);
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Column(children: [
+      const WorkTurnFooter({'answer': answer}, live: false),
+      WorkHtmlCard(title: '测试作品', load: () async => html),
+    ]))));
+    await tester.tap(find.byTooltip('复制正文'));
+    await tester.pump();
+    expect(copied, [answer]);
+    await tester.tap(find.text('测试作品'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('复制源码'));
+    await tester.pump();
+    expect(copied, [answer, html]);
+  });
 
   testWidgets('reopening a saved task exposes only recorded tools and usage', (
     tester,

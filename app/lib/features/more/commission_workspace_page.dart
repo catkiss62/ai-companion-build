@@ -1,3 +1,4 @@
+import '../chat/work_markdown.dart' show WorkCopyButton;
 import '../../core/agent/commission_thread.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -89,6 +90,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
           ),
         ),
         actions: [
+          if (html) WorkCopyButton('源码', raw),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
