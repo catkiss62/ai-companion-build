@@ -188,7 +188,7 @@ void main() {
     await tester.tap(find.text('轨迹'));
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('github_timeout', findRichText: true),
+      find.textContaining('请求超时', findRichText: true),
       findsWidgets,
     );
     expect(find.textContaining('规划 2 轮'), findsOneWidget);

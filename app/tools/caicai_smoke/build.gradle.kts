@@ -11,7 +11,7 @@ val syncImportSources = tasks.register<Sync>("syncImportSources") {
         include("NativeMemoryGalaxyActivity.kt", "MemoryGalaxyFiles.kt", "PortableCompanionState.kt")
         include("CalendarReminderSchedule.kt", "CalendarReminderRuntime.kt", "CalendarReminderCard.kt", "CalendarReminderCardHost.kt")
         include("CreativeWebSandbox.kt", "PlaybackSessionRegistry.kt")
-        include("OverlayHistoryRefreshState.kt")
+        include("OverlayHistoryRefreshState.kt", "DownloadWorkspace.kt")
     }
     into(layout.buildDirectory.dir("generated/import-sources"))
 }

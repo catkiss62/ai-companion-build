@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import '../../core/agent/work_error.dart';
 import '../../core/agent/work_text_reference.dart';
 
 import '../../core/agent/commission_session.dart';
@@ -103,7 +103,9 @@ class WorkConversation extends ChangeNotifier {
     _update();
   }
   WorkTurnDetails _details = WorkTurnDetails();
+  String? _failure;
   Map<String, dynamic> get currentTurn => {
+    if (_failure != null) 'failureReason': _failure,
     'id': _details.executionId,
     if (_turnReference != null) 'text_reference': _turnReference,
     'goal': goal,
@@ -147,6 +149,7 @@ class WorkConversation extends ChangeNotifier {
     goal = '';
     answer = '';
     status = '';
+    _failure = null;
     _update();
   }
 
@@ -187,11 +190,17 @@ class WorkConversation extends ChangeNotifier {
     goal = text.trim();
     answer = '';
     status = '正在规划';
+    _failure = null;
     _update();
     try {
       final workspace =
-          source ?? _workspace ?? await CommissionWorkspace.open();
+          source ?? await CommissionWorkspace.open();
       token.throwIfCancelled();
+      if (_workspace != null && !_workspace!.sameLocation(workspace)) {
+        turns = [];
+        _file = null;
+        _historySearch.clear();
+      }
       _workspace = workspace;
       final snapshot = await _reference?.read();
       token.throwIfCancelled();
@@ -233,7 +242,8 @@ class WorkConversation extends ChangeNotifier {
       }
       status = _details.researchEnd == 'evidence_incomplete' ? '已交付 · 部分依据待核实' : '已完成';
     } catch (e) {
-      status = token.isCancelled ? '已停止' : '工作未完成 · ${e is PlatformException ? e.message : e}';
+      _failure = token.isCancelled ? null : workErrorReason(e);
+      status = token.isCancelled ? '已停止' : '工作未完成 · $_failure';
     } finally {
       _details.finish();
       _token = null;

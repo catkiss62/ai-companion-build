@@ -1,4 +1,5 @@
 import 'commission_thread.dart';
+import 'work_error.dart';
 import 'commission_history_search.dart';
 import 'work_turn_details.dart';
 import 'dart:convert';
@@ -361,8 +362,9 @@ class CommissionSession {
       activity.finish();
       if (!recentContext) await save();
       return answer;
-    } catch (_) {
+    } catch (e) {
       activity.finish();
+      if (!cancel.isCancelled) record['failureReason'] = workErrorReason(e);
       record['state'] = cancel.isCancelled ? 'stopped' : 'interrupted';
       if (!recentContext) await save();
       rethrow;

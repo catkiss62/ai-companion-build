@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/agent/commission_workspace.dart';
 import '../../core/agent/workspace_archive.dart';
+import '../../core/agent/work_error.dart';
 
 class CommissionWorkspacePage extends StatefulWidget {
   const CommissionWorkspacePage({super.key, this.selectTask = false});
@@ -18,6 +19,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
   final labels = <String, String>{};
   final latestAt = <String, int>{};
   bool busy = true;
+  bool hasPrivateFiles = false;
   String? error;
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       await action();
       if (!mounted) return;
       store = await CommissionWorkspace.open();
+      hasPrivateFiles = store!.tree != null && await CommissionWorkspace.hasPrivateFiles();
       files = (await store!.list()).reversed.toList();
       labels.clear();
       latestAt.clear();
@@ -49,7 +52,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
         files.removeWhere(older.contains);
       }
     } catch (e) {
-      error = e.toString();
+      error = workErrorReason(e, fallback: '工作区操作失败');
     }
     if (mounted) setState(() => busy = false);
   }
@@ -143,7 +146,10 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
     length: 3,
     child: Scaffold(
       appBar: AppBar(
-        title: const Text('工作区'),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('工作区'),
+          if (store != null) Text(store!.locationLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+        ]),
         bottom: const TabBar(
           tabs: [
             Tab(text: '对话'),
@@ -156,6 +162,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
             enabled: !busy,
             onSelected: (v) => run(() async {
               if (v == 'choose') await CommissionWorkspace.choose();
+              if (v == 'private') await CommissionWorkspace.useDefault(private: true);
               if (v == 'default') await CommissionWorkspace.useDefault();
               if (v == 'export') await WorkspaceArchive.export(store!);
               if (v == 'import') {
@@ -166,11 +173,12 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
                   ).showSnackBar(SnackBar(content: Text(msg)));
               }
             }),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'choose', child: Text('选择手机文件夹')),
-              PopupMenuItem(value: 'default', child: Text('打开默认工作区')),
-              PopupMenuItem(value: 'export', child: Text('导出工作区')),
-              PopupMenuItem(value: 'import', child: Text('合并导入工作区')),
+            itemBuilder: (_) => [
+              if (hasPrivateFiles) const PopupMenuItem(value: 'private', child: Text('打开旧版内部工作区')),
+              const PopupMenuItem(value: 'choose', child: Text('选择手机文件夹')),
+              const PopupMenuItem(value: 'default', child: Text('打开默认工作区')),
+              const PopupMenuItem(value: 'export', child: Text('导出工作区')),
+              const PopupMenuItem(value: 'import', child: Text('合并导入工作区')),
             ],
           ),
         ],
@@ -200,7 +208,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
   Widget group(Iterable<String> entries, String empty) => ListView(
     children: [
       if (error != null)
-        ListTile(title: Text(error!), onTap: () => run(() async {})),
+        ListTile(title: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)), onTap: () => run(() async {})),
       if (entries.isEmpty && error == null) ListTile(title: Text(empty)),
       for (final name in entries)
         ListTile(

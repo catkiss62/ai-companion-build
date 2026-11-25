@@ -32,9 +32,28 @@ class CommissionWorkspace {
     );
   }
 
+  bool sameLocation(CommissionWorkspace other) =>
+      tree == other.tree && directory?.path == other.directory?.path;
+
+  String get locationLabel {
+    if (tree == 'workspace:downloads') return '下载 / 小鲸鱼工作区';
+    if (tree == null) return 'App 内部工作区';
+    final uri = Uri.tryParse(tree!);
+    final parts = uri?.pathSegments;
+    return parts == null || parts.isEmpty ? '自选手机文件夹' : parts.last;
+  }
+
+  static Future<bool> hasPrivateFiles() async {
+    final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/commission_workspace');
+    if (!await dir.exists()) return false;
+    return dir.list(followLinks: false).any(
+      (entry) => entry is File && names.hasMatch(entry.uri.pathSegments.last),
+    );
+  }
+
   static Future<void> choose() => channel.invokeMethod<void>('workTreeChoose');
-  static Future<void> useDefault() =>
-      channel.invokeMethod<void>('workTreeDefault');
+  static Future<void> useDefault({bool private = false}) =>
+      channel.invokeMethod<void>('workTreeDefault', {'private': private});
   Future<List<String>> list() async {
     final values = directory == null
         ? await channel.invokeListMethod<String>('workTreeList', {

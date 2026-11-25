@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+import '../../core/agent/work_error.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'work_markdown.dart';
@@ -314,7 +314,7 @@ class _WorkPanelState extends State<WorkPanel>
                                       onPressed: () => tabs.animateTo(1),
                                       child: live
                                           ? WorkActivity(_status(row))
-                                          : Text(_status(row)),
+                                          : Text(_status(row), style: _failureStyle(row)),
                                     ),
                                   ),
                                 for (final (index, item) in _receipts(row).indexed)
@@ -373,9 +373,10 @@ class _WorkPanelState extends State<WorkPanel>
                     ));
                     if (accepted != true || !context.mounted) return;
                     String message;
+                    bool failed = false;
                     try { await work.applyDraft(draft, base); message = '已写回并核对原文件'; }
-                    catch (e) { message = e is PlatformException ? (e.message ?? '写回失败') : e.toString(); }
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                    catch (e) { failed = true; message = workErrorReason(e, fallback: '写回失败'); }
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message, style: failed ? const TextStyle(color: _workErrorColor) : null)));
                   },
                 ),
               if (work.referenceName != null)
@@ -489,12 +490,18 @@ class _WorkPanelState extends State<WorkPanel>
   }
 }
 
+const _workErrorColor = Color(0xffffa8a4);
+TextStyle? _failureStyle(Map row) => row['failureReason'] != null || row['state'] == 'interrupted'
+    ? const TextStyle(color: _workErrorColor) : null;
+
 String _status(Map row) =>
     row['status']?.toString() ??
+    (row['failureReason'] != null ? '工作未完成 · ${row['failureReason']}' : null) ??
     switch (row['state']) {
       'completed' when row['researchEnd'] == 'evidence_incomplete' => '已交付 · 部分依据待核实',
       'completed' => '已完成',
       'stopped' => '已停止',
+      'interrupted' => '工作已中断',
       _ => '本轮尚未交付',
     };
 
@@ -543,7 +550,7 @@ class _TurnTrace extends StatelessWidget {
               if (receipts.isNotEmpty || rounds != null)
                 '工具 ${receipts.length} 次',
             ].join('  ·  '),
-            style: const TextStyle(color: workMuted, fontSize: 12),
+            style: TextStyle(color: _failureStyle(row)?.color ?? workMuted, fontSize: 12),
           ),
           if (live) WorkActivity(_status(row)),
           if (receipts.isEmpty)
@@ -597,7 +604,7 @@ class _Receipt extends StatelessWidget {
     };
     final target = item['target'] ?? item['query'] ?? item['repository'];
     final result =
-        item['error'] ??
+        (item['error'] != null ? workErrorReason(item['error']!, fallback: '工具执行失败') : null) ??
         item['display'] ??
         item['saved'] ??
         item['file'] ??
@@ -630,7 +637,7 @@ class _Receipt extends StatelessWidget {
                 if (target != null && target != '') target,
                 result,
               ].join(' · '),
-              style: const TextStyle(color: workInk, fontSize: 13, height: 1.5),
+              style: TextStyle(color: item['error'] != null ? _workErrorColor : workInk, fontSize: 13, height: 1.5),
             ),
           ),
         ],

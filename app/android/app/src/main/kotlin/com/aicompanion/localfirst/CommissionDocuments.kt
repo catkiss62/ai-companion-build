@@ -6,6 +6,7 @@ import android.system.Os
 import android.system.OsConstants
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import io.flutter.plugin.common.MethodCall
@@ -140,8 +141,15 @@ internal class CommissionDocuments(private val activity: Activity) {
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "workTreeCurrent" -> result.success(prefs.getString("tree",null))
-            "workTreeDefault" -> { prefs.edit().remove("tree").apply(); result.success(null) }
+            "workTreeCurrent" -> {
+                val chosen = prefs.getString("tree", null)
+                result.success(when {
+                    chosen != null -> chosen
+                    Build.VERSION.SDK_INT >= 29 && !prefs.getBoolean("private", false) -> DownloadWorkspace.KEY
+                    else -> null
+                })
+            }
+            "workTreeDefault" -> { prefs.edit().remove("tree").putBoolean("private", call.argument<Boolean>("private") == true).apply(); result.success(null) }
             "workReferenceForget" -> {
                 if (reference?.first == call.argument<String>("key")) reference = null
                 result.success(null)
@@ -206,7 +214,15 @@ internal class CommissionDocuments(private val activity: Activity) {
             }
             else -> executor.execute {
                 try {
-                    val tree = Uri.parse(requireNotNull(call.argument<String>("tree")))
+                    val location = requireNotNull(call.argument<String>("tree"))
+                    if (location == DownloadWorkspace.KEY && Build.VERSION.SDK_INT >= 29) {
+                        val name = call.argument<String>("name")
+                        if (call.method != "workTreeList") require(name != null && namePattern.matches(name)) { "工作文件名无效" }
+                        val value = DownloadWorkspace(resolver, activity.packageName).handle(call.method, name, call.argument<String>("text"))
+                        Handler(Looper.getMainLooper()).post { result.success(value) }
+                        return@execute
+                    }
+                    val tree = Uri.parse(location)
                     val rows = files(tree)
                     val value: Any? = if (call.method == "workTreeList") rows.keys.toList() else {
                         val name = requireNotNull(call.argument<String>("name"))
