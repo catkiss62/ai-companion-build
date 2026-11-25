@@ -1,10 +1,7 @@
-status=failure
-build_result=skipped
-run_id=45691856257
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45691856257
-head_sha=b0118bbf7a5e0360c993537f8c0d3164c0a0ed12
-
-=== failed or cancelled job logs ===
-Unable to enumerate job logs; raw API response follows.
-unexpected end of JSON input
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4331b64e04db7ee30e23
+status=success
+run_id=45693102519
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45693102519
+head_sha=d75f5a62244d6439a8f0c996396859fac9ae9312
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+4a5ed2f4223146260763c9360c828c3fc3052f80c5aefbd22a953576144abc9f  AI-Companion-v0.42.246-490-Work-Mode-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-45e86e6de59524e13c8a
