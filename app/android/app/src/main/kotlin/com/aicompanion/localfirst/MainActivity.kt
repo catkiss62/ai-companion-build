@@ -10,7 +10,6 @@ class MainActivity : FlutterActivity() {
     private var wordSliceHost: WordSliceHost? = null
     private var reminderCardHost: CalendarReminderCardHost? = null
     private val reminderChanged: () -> Unit = { reminderCardHost?.refresh() }
-    private var textActions: CompanionTextActions? = null
     private var bridge: SystemBridge? = null
     private var ttsBridge: NativeTtsBridge? = null
     private var emotionSoundBridge: EmotionSoundBridge? = null
@@ -43,14 +42,8 @@ class MainActivity : FlutterActivity() {
         return super.dispatchTouchEvent(event)
     }
 
-    override fun onActionModeStarted(mode: android.view.ActionMode) {
-        super.onActionModeStarted(mode)
-        CompanionTextActions.orderNative(mode)
-    }
-
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        textActions = CompanionTextActions.install(this, flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ai_companion/whale_ar")
             .setMethodCallHandler { call, result ->
                 if (call.method != "open") {
@@ -211,8 +204,6 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
-        textActions?.dispose()
-        textActions = null
         wordSliceHost?.dispose()
         wordSliceHost = null
         CompanionRuntimeState.setImmersiveChatPageVisible(false)
