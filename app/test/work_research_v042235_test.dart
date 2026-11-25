@@ -13,12 +13,13 @@ import 'package:http/testing.dart';
 
 void main() {
   test('freshness is per target and per turn, including history, timeout and budget exits', () async {
-    for (final scenario in ['history', 'wrong', 'timeout', 'partial', 'both', 'budget', 'implicit', 'file']) {
+    for (final scenario in ['history', 'wrong', 'timeout', 'partial', 'both', 'budget', 'implicit', 'online', 'file']) {
       var turn = 0;
       final listing = scenario == 'partial' || scenario == 'both';
       final goal = listing ? '查清单中两个仓库目前的情况'
           : scenario == 'implicit' ? '查最新'
-          : scenario == 'file' ? '列出文件里的最新日期'
+          : scenario == 'online' ? '联网重读 Acme/One 的说明'
+          : scenario == 'file' ? '再查一下文件里的最新日期'
           : '查 Acme/One 最新情况';
       final result = await ResearchCommission.run(
         goal: goal, context: [], priorRepositories: {'acme/one', 'other/two'},
@@ -36,7 +37,7 @@ void main() {
               arguments: jsonEncode({'repository': name, 'use_saved': true}));
           final calls = <DeepSeekToolCall>[];
           if (turn == 1 || scenario == 'budget') {
-            if (['history', 'budget', 'implicit'].contains(scenario)) {
+            if (['history', 'budget', 'implicit', 'online'].contains(scenario)) {
               calls.add(DeepSeekToolCall(id: 'h$turn', name: ResearchCommission.recall, arguments: '{"query":"one"}'));
             } else if (scenario == 'wrong') {
               calls.add(read('other/two'));

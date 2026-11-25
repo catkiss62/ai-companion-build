@@ -163,18 +163,22 @@ class ResearchCommission {
         ? _mentionedRepositories(reference.text, listOnly: true)
         : <String>{};
     final freshRequested = RegExp(
-      r'最新|重新(读|查|核)|刷新|当前|目前|现在|实时|联网核|latest|refresh|up.to.date|\bcurrent(?:ly)?\b',
+      r'最新|重新(?:读|查|核)|重读|刷新|当前|目前|现在|实时|联网|在线(?:查|核|读|看)|latest|refresh|fetch again|up.to.date|\bcurrent(?:ly)?\b',
       caseSensitive: false,
     ).hasMatch(goal);
-    final followupTarget = RegExp(r'它|它们|这些|这[个两几]|那[个两几]|上次|刚才|重新(查|核)|刷新|再查|再核|再看|这次|有更新吗|^(?:请|帮我)?(?:查|看|核对)?(?:下|一下)?最新(?:情况|进展|版本|的)?[呢吗？?。！!]*$').hasMatch(goal);
+    final followupTarget = RegExp(r'它|它们|这些|这[个两几]|那[个两几]|上次|刚才|联网再|重新(读|查|核)|重读|刷新|再查|再核|再看|这次|有更新吗|^(?:请|帮我)?(?:查|看|核对)?(?:下|一下)?最新(?:情况|进展|版本|的)?[呢吗？?。！!]*$').hasMatch(goal);
     final localOnly = RegExp(r'(?:只|仅)(?:基于|根据|用|看|读)(?:这份|这个|所选)?(?:附件|文件|旧资料)|(?:不需要|不用|不要)联网').hasMatch(goal);
+    final localRefresh = reference != null && !repoTask &&
+        RegExp(r'文件|附件|这份文本|这份清单').hasMatch(goal);
+    final usePrior = !localRefresh && (followupTarget ||
+        RegExp(r'^(?:请|帮我)?(?:核对|查|看|读|检查)?(?:一下|下)?(?:最新|当前)\s*(?:readme|仓库)[呢吗？?。！!]*$', caseSensitive: false).hasMatch(goal));
     final targets = goalTargets.isNotEmpty
         ? goalTargets
         : attachmentTargets.isNotEmpty
         ? attachmentTargets
-        : (repoTask || followupTarget) && previousTargets.isNotEmpty
+        : usePrior && previousTargets.isNotEmpty
         ? previousTargets
-        : (repoTask || followupTarget) && priorRepositories.length == 1
+        : usePrior && priorRepositories.length == 1
         ? priorRepositories
         : <String>{};
     final needsLiveRead = freshRequested && !localOnly && (targets.isNotEmpty || repoTask);
@@ -291,7 +295,7 @@ class ResearchCommission {
                         searchHistory(query.trim(), turn as int?),
                         cancellation,
                       );
-                if (!freshRequested) {
+                if (!needsLiveRead) {
                   for (final match
                       in (result['matches'] as List? ?? []).whereType<Map>()) {
                     final source = match['source'], excerpt = match['excerpt'];
@@ -379,7 +383,7 @@ class ResearchCommission {
                     reading &&
                         args['use_saved'] == true &&
                         offset == 0 &&
-                        !freshRequested &&
+                        !needsLiveRead &&
                         !readmes.containsKey(repo)
                     ? savedReadmes[repo]
                     : null;
