@@ -72,7 +72,7 @@ class WorkQuizBrowserTest {
                     val c=(0 until cs.length()).map{cs.getJSONObject(it)}.firstOrNull{it.getString("name").contains(name)}
                     assertNotNull("Missing control: "+name+" "+cs,c)
                     val key=state.getString("key")
-                    assertEquals("ok",call("workPageAct",mapOf("key" to key,"id" to c!!.getInt("id"))))
+                    assertEquals("ok",call("workPageAct",mapOf("key" to key,"control" to c!!.getInt("id"))))
                     Thread.sleep(700)
                     state=JSONObject(call("workPageRead",mapOf("previous" to key)))
                 }

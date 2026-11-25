@@ -91,7 +91,7 @@
       for(const c of items) if(!selected(c.e) && c.e.isConnected)c.e.click();
       return 'ok';
     }
-    const item=controls[arg.id]; if(!item) return 'miss';
+    const item=controls[arg.control]; if(!item) return 'miss';
     if(item.kind==='link') return item.aux;
     if(item.kind==='canvas') {item.e.scrollIntoView({block:'center'});return 'look';}
     if(item.kind==='option'){

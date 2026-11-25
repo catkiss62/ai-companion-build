@@ -52,7 +52,9 @@ void main() {
     messenger.setMockMethodCallHandler(CommissionWorkspace.channel,(call) async {
       switch(call.method){
         case 'workPageOpen': case 'workPageRead': return state;
-        case 'workPageAct': actions++;return 'ok';
+        case 'workPageAct':
+          expect(call.arguments['id'],id);expect(call.arguments['control'],0);
+          actions++;return 'ok';
         case 'workPageFrame':return png;
         case 'workQuizClose':closed=true;return null;
         default:throw StateError(call.method);

@@ -226,7 +226,10 @@ class WorkQuiz {
         final validPoint=!pick && (looked || restoring) && point is List && point.length==2 && point.every((v)=>v is num && v>=0 && v<1);
         final safeAction=<String,Object?>{if(validId)'id':ix,if(!validId && validMany)'many':many,if(!validId && !validMany && validPoint)'point':point};
         if(safeAction.isEmpty){stagnant++;attempts.add('无效的控件编号');continue;}
-        final applied=await call('workPageAct',{'key':key,...safeAction});
+        final applied=await call('workPageAct',{'key':key,
+          if(safeAction.containsKey('id')) 'control':ix,
+          if(safeAction.containsKey('many')) 'many':many,
+          if(safeAction.containsKey('point')) 'point':point});
         await cancelWithToken(Future<void>.delayed(const Duration(milliseconds:650)),cancel);
         final next=jsonDecode(await call('workPageRead',{'previous':key})) as Map;
         if(next['key']==key){
