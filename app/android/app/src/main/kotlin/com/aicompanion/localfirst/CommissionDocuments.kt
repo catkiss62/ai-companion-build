@@ -98,7 +98,7 @@ internal class CommissionDocuments(private val activity: Activity) {
         check(readReference(selected.second)["text"] == text) { "无法核实提供方保存的最终内容，请检查文件" }
     }
 
-    private val namePattern = Regex("""(任务-[a-f0-9-]{36}\.json|作品-[\u3400-\u9fffA-Za-z0-9 _（）-]{1,75}\.html|截图-[a-f0-9-]{36}\.png|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)""")
+    private val namePattern = Regex("""((?:任务|会话)-[a-f0-9-]{36}\.json|作品-[\u3400-\u9fffA-Za-z0-9 _（）-]{1,75}\.html|截图-[a-f0-9-]{36}\.png|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)""")
     private val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
     fun result(code: Int, resultCode: Int, data: Intent?): Boolean {
@@ -267,12 +267,13 @@ internal class CommissionDocuments(private val activity: Activity) {
                     val value: Any? = if (call.method == "workTreeList") rows.keys.toList() else {
                         val name = requireNotNull(call.argument<String>("name"))
                         require(namePattern.matches(name))
+                        val limit = if(name.startsWith("会话-")) 8*1024*1024 else 262144
                         val uri = rows[name]
                         when (call.method) {
                             "workTreeRead" -> resolver.openInputStream(requireNotNull(uri))!!.use { input ->
                                 val out = java.io.ByteArrayOutputStream()
                                 val b = ByteArray(8192)
-                                while (true) { val n=input.read(b); if(n<0)break; require(out.size()+n<=262144); out.write(b,0,n) }
+                                while (true) { val n=input.read(b); if(n<0)break; require(out.size()+n<=limit); out.write(b,0,n) }
                                 if (name.endsWith(".png")) android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP) else out.toString("UTF-8")
                             }
                             "workTreeCreate" -> {
@@ -291,7 +292,7 @@ internal class CommissionDocuments(private val activity: Activity) {
                             "workTreeWrite" -> {
                                 val content = requireNotNull(call.argument<String>("text"))
                                 val bytes = if (name.endsWith(".png")) android.util.Base64.decode(content,android.util.Base64.DEFAULT) else content.toByteArray(Charsets.UTF_8)
-                                require(bytes.size<=262144)
+                                require(bytes.size<=limit)
                                 val dest=uri ?: DocumentsContract.createDocument(resolver,DocumentsContract.buildDocumentUriUsingTree(tree,DocumentsContract.getTreeDocumentId(tree)),
                                     when { name.endsWith(".png") -> "image/png"; name.endsWith(".md") -> "text/markdown"; name.endsWith(".html") -> "text/html"; else -> "application/json" },name) ?: error("创建失败")
                                 resolver.openOutputStream(dest,"wt")!!.use { it.write(bytes) }

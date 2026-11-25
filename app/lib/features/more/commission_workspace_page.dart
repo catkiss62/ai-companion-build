@@ -42,11 +42,12 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       latestAt.clear();
       final threads = await store!.conversations();
       for (final rows in threads.values) {
-        final latest = '任务-${rows.last['id']}.json';
+        final bundle='会话-${CommissionThread.key(rows.first)}.json';
+        final latest=files.contains(bundle) ? bundle : "任务-${rows.last['id']}.json";
         labels[latest] = rows.first['goal'] as String;
         latestAt[latest] = rows.last['at'] as int? ?? 0;
         final older = rows
-            .take(rows.length - 1)
+            .where((r)=>"任务-${r['id']}.json"!=latest)
             .map((r) => '任务-${r['id']}.json')
             .toSet();
         files.removeWhere(older.contains);
@@ -133,7 +134,8 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
     if (yes != true) return;
     if (name.endsWith('.json') && labels.containsKey(name)) {
       final turns = await store!.conversation(name);
-      final names = turns.map((r) => '任务-${r['id']}.json').toList();
+      final existing=(await store!.list()).toSet();
+      final names = {...turns.map((r) => '任务-${r['id']}.json'),name}.where(existing.contains).toList();
       if (names.any(CommissionWorkspace.writingTasks.contains))
         throw StateError('请先停止正在执行的任务');
       for (final entry in names) {

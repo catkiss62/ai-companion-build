@@ -1,7 +1,6 @@
 import 'dart:async';
 import '../../core/agent/work_quiz.dart';
 import '../../core/agent/work_image_reference.dart';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import '../../core/agent/work_error.dart';
@@ -78,11 +77,12 @@ class WorkConversation extends ChangeNotifier {
         'state': 'done', 'display': '已写回并重新读取核对'});
       if (workspace != null && file != null) {
         try {
-          final row = jsonDecode(await workspace.read(file)) as Map;
-          if (row['id'] == _details.executionId) {
+          final turns = await workspace.conversation(file);
+          final row = turns.where((r)=>r['id']==_details.executionId).firstOrNull;
+          if (row != null) {
             row['receipts'] = _details.receipts;
             row['applied_file'] = base.name;
-            await workspace.write(file, jsonEncode(row));
+            await workspace.mergeTurns("会话-${row['threadId'] ?? row['id']}.json", [row]);
           }
         } catch (_) {
           status = '文件已写回，工作记录未能更新';

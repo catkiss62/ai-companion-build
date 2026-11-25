@@ -410,7 +410,7 @@ void main() {
       final record = jsonDecode(
         await workspace.read((await workspace.list()).single),
       );
-      expect(record['state'], 'stopped');
+      expect((record['turns'] as List).last['state'], 'stopped');
     },
   );
 

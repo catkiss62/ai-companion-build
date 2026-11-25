@@ -23,6 +23,9 @@ String workErrorReason(Object error, {String fallback = '暂时无法确定中�
   if (error is HttpException) return '网络请求中断';
   if (RegExp(r'(^|[^a-z])(timeout|timed out)([^a-z]|$)').hasMatch(transport)) return '请求超时';
   if (message != null && _chineseMessage.hasMatch(message)) return message;
+  if(error is PlatformException && RegExp(r'^(?:page_|quiz_)').hasMatch(error.code)) {
+    return '网页操作未能完成（${error.code}）';
+  }
   if (error is PlatformException || error is FileSystemException) {
     return '无法访问文件，请检查保存位置和读写权限';
   }

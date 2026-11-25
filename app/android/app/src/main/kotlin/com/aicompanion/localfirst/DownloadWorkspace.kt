@@ -42,14 +42,14 @@ internal class DownloadWorkspace(private val resolver: ContentResolver, private 
     fun documentUri(name: String): Uri =
         requireNotNull(rows(name)[name]) { "工作文件已移动或删除" }
 
-    private fun read(uri: Uri): ByteArray {
+    private fun read(uri: Uri, limit: Int): ByteArray {
         return resolver.openInputStream(uri)?.use { input ->
             val out = ByteArrayOutputStream()
             val buffer = ByteArray(8192)
             while (true) {
                 val n = input.read(buffer)
                 if (n < 0) break
-                require(out.size() + n <= LIMIT) { "工作文件超过 256 KiB" }
+                require(out.size() + n <= limit) { "工作文件超过大小限制" }
                 out.write(buffer, 0, n)
             }
             out.toByteArray()
@@ -90,19 +90,20 @@ internal class DownloadWorkspace(private val resolver: ContentResolver, private 
     fun handle(method: String, name: String?, text: String?): Any? {
         if (method == "workTreeList") return rows(null).keys.toList()
         requireNotNull(name)
+        val limit = if(name.startsWith("会话-")) 8*1024*1024 else LIMIT
         val uri = rows(name)[name]
         when (method) {
             "workTreeRead" -> {
-                val bytes = read(requireNotNull(uri) { "工作文件已移动或删除" })
+                val bytes = read(requireNotNull(uri) { "工作文件已移动或删除" },limit)
                 return if (name.endsWith(".png")) android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP) else bytes.toString(Charsets.UTF_8)
             }
             "workTreeWrite", "workTreeCreate" -> {
                 if (method == "workTreeCreate" && uri != null) return false
                 val value = requireNotNull(text)
                 val bytes = if (name.endsWith(".png")) android.util.Base64.decode(value, android.util.Base64.DEFAULT) else value.toByteArray(Charsets.UTF_8)
-                require(bytes.size <= LIMIT) { "工作文件超过 256 KiB" }
+                require(bytes.size <= limit) { "工作文件超过大小限制" }
                 if (uri == null) create(name, bytes) else {
-                    val original = read(uri)
+                    val original = read(uri,limit)
                     if (!original.contentEquals(bytes)) {
                         try { write(uri, bytes) } catch (e: Exception) {
                             write(uri, original)

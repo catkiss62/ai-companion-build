@@ -54,12 +54,14 @@ class WorkQuizBrowserTest {
         ActivityScenario.launch(ReminderCardSmokeActivity::class.java).use { scenario ->
             lateinit var browser:WorkQuizBrowser
             scenario.onActivity { browser=WorkQuizBrowser(it){ p ->
-                if(p=="/zh-cn/dere-type/") WebResourceResponse("text/html","utf-8",html.byteInputStream())
+                if(p=="/fortune/") WebResourceResponse("text/html","utf-8","<main><h1>Choose a reading</h1><button>Draw</button></main>".byteInputStream())
+                else if(p=="/zh-cn/dere-type/") WebResourceResponse("text/html","utf-8",html.byteInputStream())
                 else WebResourceResponse("text/plain","utf-8","".byteInputStream())
             } }
+            var currentId="public"
             fun call(method:String,params:Map<String,Any> = emptyMap()):String {
                 val f=CompletableFuture<String>()
-                scenario.onActivity { browser.handle(method,params+("id" to "public"),object:WorkQuizBrowser.Reply{
+                scenario.onActivity { browser.handle(method,params+("id" to currentId),object:WorkQuizBrowser.Reply{
                     override fun success(value:String?){ f.complete(value ?: "") }
                     override fun error(code:String,message:String){ f.completeExceptionally(AssertionError(message)) }
                 }) }
@@ -81,6 +83,14 @@ class WorkQuizBrowserTest {
                     repeat(35){
                         assertTrue("Repeated "+state.optString("position"),qs.add(state.getString("question")))
                         act("比较同意")
+                        if(it==1){
+                            val atThird=state.getString("key")
+                            val frame=Base64.decode(call("workPageFrame"),Base64.DEFAULT)
+                            val preview=BitmapFactory.decodeByteArray(frame,0,frame.size)
+                            assertNotNull(preview)
+                            preview.recycle()
+                            assertEquals(atThird,JSONObject(call("workPageRead")).getString("key"))
+                        }
                     }
                     if(state.optString("title","").isEmpty()) act("结果")
                 }else{ act("Yes");act("Submit") }
@@ -91,6 +101,10 @@ class WorkQuizBrowserTest {
                 assertNotNull(image)
                 assertTrue("Result should extend below a viewport or be the portrait result card", image.height>image.width)
                 image.recycle()
+                call("workQuizClose")
+                currentId="another-work-order"
+                val next=JSONObject(call("workPageOpen",mapOf("url" to "https://zodiacgalore.com/fortune/")))
+                assertTrue(next.getString("excerpt").contains("Choose a reading"))
             }finally{call("workQuizClose")}
         }
     }

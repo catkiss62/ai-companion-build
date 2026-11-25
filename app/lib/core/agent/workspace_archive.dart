@@ -60,28 +60,28 @@ class WorkspaceArchive {
           CommissionWorkspace.validate(item.name);
           total += item.size;
           if (!item.isFile ||
-              item.size > CommissionWorkspace.maxBytes ||
+              item.size > CommissionWorkspace.limit(item.name) ||
               total > 32 * 1024 * 1024 ||
               imported.containsKey(item.name))
             throw const FormatException('无效工作区条目');
           final body = item.name.endsWith('.png') ? base64Encode(item.content) : utf8.decode(item.content);
           if (item.name.endsWith('.json')) {
-            final data = jsonDecode(body);
-            if (data is! Map ||
-                data['goal'] is! String ||
-                data['at'] is! int ||
-                '任务-${data['id']}.json' != item.name)
-              throw const FormatException('无效任务记录');
+            CommissionWorkspace.decodeRecords(item.name,body);
           }
           imported[item.name] = body;
         }
         final existing = (await workspace.list()).toSet();
-        for (final entry in imported.entries.where(
-          (e) => !existing.contains(e.key),
-        )) {
-          await workspace.write(entry.key, entry.value);
+        var count=0;
+        for(final entry in imported.entries){
+          if(entry.key.startsWith('会话-')){
+            await workspace.mergeTurns(entry.key,CommissionWorkspace.decodeRecords(entry.key,entry.value),keepExisting:true);
+            count++;
+          }else if(!existing.contains(entry.key)){
+            await workspace.write(entry.key,entry.value);
+            count++;
+          }
         }
-        return '已导入 ${imported.keys.where((k) => !existing.contains(k)).length} 项，已有同名文件保留';
+        return '已导入或合并 $count 项，已有内容保留';
       } finally {
         await source.close();
       }

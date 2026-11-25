@@ -112,8 +112,10 @@ internal class WorkPublicPage(private val view: WebView, val host: String,
     fun close(){
         active=false
         pending?.error("page_closed","网页任务已结束"); pending=null
-        client.dispatcher.cancelAll()
-        client.connectionPool.evictAll()
+        Thread({
+            client.dispatcher.cancelAll()
+            client.connectionPool.evictAll()
+        }, "WorkPageClose").start()
     }
     private fun eval(command:String,arg:JSONObject, callback:(Any?)->Unit){
         if(!active)return

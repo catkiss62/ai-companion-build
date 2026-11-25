@@ -71,7 +71,7 @@ class CommissionSession {
     final id = const Uuid().v7();
     final activity = details ?? WorkTurnDetails();
     activity.executionId = id;
-    final name = '任务-$id.json';
+    var inheritedTurns=<Map<String,dynamic>>[];
     final files = await workspace.list();
     final context = <Map<String, Object?>>[];
     final documents = files
@@ -96,6 +96,7 @@ class CommissionSession {
     if (previousTask != null) {
       final rows = await workspace.conversation(previousTask);
       if (rows.isEmpty) throw StateError('委托记录已删除');
+      inheritedTurns=rows;
       threadId = CommissionThread.key(rows.last);
       context.addAll(CommissionThread.history(rows));
       final last = rows.last;
@@ -215,13 +216,16 @@ class CommissionSession {
       'at': DateTime.now().millisecondsSinceEpoch,
       'state': 'running',
     };
-    Future<void> save() =>
-        workspace.write(name, jsonEncode({...record, ...activity.snapshot()}));
+    final name='会话-${threadId ?? id}.json';
+    Future<void> save() async {
+      await workspace.mergeTurns(name,[...inheritedTurns,{...record,...activity.snapshot()}]);
+      inheritedTurns=[];
+    }
     cancel.throwIfCancelled();
     if (!recentContext) {
-      await save();
-      CommissionWorkspace.writingTasks.add(name);
-      onRecordCreated?.call(name);
+      if(!CommissionWorkspace.writingTasks.add(name)) throw StateError('这个工作窗口正在执行另一轮任务');
+      try {await save();onRecordCreated?.call(name);}
+      catch(_){CommissionWorkspace.writingTasks.remove(name);rethrow;}
     }
     Future<ResearchPlan> streamRequest(
       List<Map<String, Object?>> messages, {
@@ -354,6 +358,14 @@ class CommissionSession {
           } else {
             quizResult = await WorkQuiz.run(uri:quiz,order:order,id:id,goal:effectiveGoal,
               workspace:workspace,cancel:cancel,answers:quizChoices,save:save,progress:reportStep,
+              onPhoto:(photo) async {
+                final receipt=activity.receipts.last;
+                final photos=receipt.putIfAbsent('photos',()=> <Map<String,Object?>>[]) as List;
+                photos.add(photo);
+                receipt.addAll(photo);
+                await save();
+                onDetails?.call();
+              },
               vision:(bytes)=>WorkImageReference('网页画面.png',bytes).observe(db:db,config:config,endpoint:endpoint,
                 model:model,cancel:cancel,goal:'读取独立网页截图，描述当前题目、可点击选项及其中心点相对全图的横纵百分比。'),
               ask:(messages) async => (await request([messages.first, if(imageMessage!=null) imageMessage, ...messages.skip(1)],finalAnswer:true)).content);
@@ -500,7 +512,7 @@ class CommissionSession {
       if (!recentContext) await save();
       rethrow;
     } finally {
-      CommissionWorkspace.writingTasks.remove(name);
+      if(!recentContext) CommissionWorkspace.writingTasks.remove(name);
     }
   }
 

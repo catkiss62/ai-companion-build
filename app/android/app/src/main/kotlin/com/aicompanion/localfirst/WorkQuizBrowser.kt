@@ -44,23 +44,30 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
     private val quizPath = Regex("/quizzes/[a-z0-9-]{1,80}/")
 
     fun close() {
-        publicPage?.close()
+        val page = publicPage
+        val view = browser
+        val request = captureRequest
+        val presentation = window
+        val display = screen
+        val frames = reader
+        owner = null
         publicPage = null
-        browser?.let {
-            (it.parent as? ViewGroup)?.removeView(it)
-            it.stopLoading()
-            it.destroy()
-        }
-        captureRequest?.error("quiz_closed","答题页面已关闭")
+        browser = null
         captureRequest = null
-        window?.dismiss()
-        screen?.release()
-        reader?.close()
         window = null
         screen = null
         reader = null
-        browser = null
-        owner = null
+        fun release(block: () -> Unit) {
+            try { block() } catch (e: Exception) { android.util.Log.w("WorkQuiz", "网页资源释放失败", e) }
+        }
+        release { page?.close() }
+        release { request?.error("quiz_closed","答题页面已关闭") }
+        release { (view?.parent as? ViewGroup)?.removeView(view) }
+        release { view?.stopLoading() }
+        release { view?.destroy() }
+        release { presentation?.dismiss() }
+        release { display?.release() }
+        release { frames?.close() }
     }
 
     interface Reply {

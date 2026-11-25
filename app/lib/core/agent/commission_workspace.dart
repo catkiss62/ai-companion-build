@@ -2,6 +2,7 @@ import 'commission_thread.dart';
 import '../creative/creative_contract.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -13,8 +14,10 @@ class CommissionWorkspace {
   static const channel = MethodChannel('ai_companion/system');
   static final Set<String> writingTasks = {};
   static const maxBytes = 256 * 1024;
+  static int limit(String name) => name.startsWith('会话-') ? 8 * 1024 * 1024 : maxBytes;
+  static final _writes = <String, Future<void>>{};
   static final names = RegExp(
-    r'^(任务-[a-f0-9-]{36}\.json|作品-[\u3400-\u9fffA-Za-z0-9 _（）-]{1,75}\.html|截图-[a-f0-9-]{36}\.png|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)$',
+    r'^((?:会话|任务)-[a-f0-9-]{36}\.json|作品-[\u3400-\u9fffA-Za-z0-9 _（）-]{1,75}\.html|截图-[a-f0-9-]{36}\.png|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)$',
   );
   static void validate(String name) {
     if (!names.hasMatch(name)) throw const FormatException('无效工作文件名');
@@ -24,7 +27,11 @@ class CommissionWorkspace {
     final tree = Platform.isAndroid
         ? await channel.invokeMethod<String>('workTreeCurrent')
         : null;
-    if (tree != null) return CommissionWorkspace(tree: tree);
+    if (tree != null) {
+      final workspace = CommissionWorkspace(tree:tree);
+      await workspace._recoverWrites();
+      return workspace;
+    }
     return CommissionWorkspace(
       directory: await Directory(
         '${(await getApplicationDocumentsDirectory()).path}/commission_workspace',
@@ -76,7 +83,7 @@ class CommissionWorkspace {
         'name': name,
       }))!;
     final file = File('${directory!.path}/$name');
-    if (await file.length() > maxBytes) throw const FormatException('文件过大');
+    if (await file.length() > limit(name)) throw const FormatException('文件过大');
     return name.endsWith('.png') ? base64Encode(await file.readAsBytes()) : file.readAsString();
   }
 
@@ -125,7 +132,7 @@ class CommissionWorkspace {
   Future<void> write(String name, String content) async {
     validate(name);
     final bytes = name.endsWith('.png') ? base64Decode(content) : utf8.encode(content);
-    if (bytes.length > maxBytes)
+    if (bytes.length > limit(name))
       throw const FormatException('文件过大');
     if (directory == null) {
       await channel.invokeMethod<void>('workTreeWrite', {
@@ -163,54 +170,113 @@ class CommissionWorkspace {
     }
   }
 
-  Future<Map<String, List<Map<String, dynamic>>>> conversations() async {
-    final threads = <String, List<Map<String, dynamic>>>{};
-    for (final name in (await list()).where((s) => s.startsWith('任务-'))) {
-      try {
-        final row = jsonDecode(await read(name));
-        if (row is! Map<String, dynamic> ||
-            row['id'] is! String ||
-            row['goal'] is! String ||
-            '任务-${row['id']}.json' != name)
-          continue;
-        threads.putIfAbsent(CommissionThread.key(row), () => []).add(row);
-      } on FormatException {
-        continue;
-      }
+  static List<Map<String,dynamic>> decodeRecords(String name,String raw) {
+    final data=jsonDecode(raw);
+    if(data is! Map<String,dynamic>) throw const FormatException('无效工作记录');
+    if(name.startsWith('任务-')){
+      final id=data['id'] ?? name.substring(3,name.length-5);
+      if('任务-$id.json'!=name || data['goal'] is! String) throw const FormatException('无效任务记录');
+      return [{...data,'id':id}];
     }
-    // Task names are UUIDv7, so listing order is also creation order.
-    return threads;
+    final thread=data['threadId'];
+    final turns=data['turns'];
+    if(data['version']!=1 || '会话-$thread.json'!=name || turns is! List || turns.isEmpty) {
+      throw const FormatException('无法读取这份工作会话');
+    }
+    final seen=<String>{};
+    return turns.map((r){
+      if(r is! Map<String,dynamic> || r['id'] is! String || !names.hasMatch("任务-${r['id']}.json") ||
+          r['goal'] is! String || CommissionThread.key(r)!=thread || !seen.add(r['id'] as String)){
+        throw const FormatException('无效会话轮次');
+      }
+      return r;
+    }).toList();
   }
 
-  Future<List<Map<String, dynamic>>> conversation(String name) async {
+  Future<void> _serialized(String name,Future<void> Function() action) async {
+    final key='${directory?.path ?? tree}/$name';
+    final prior=_writes[key];
+    final next=(prior ?? Future<void>.value()).then((_)=>action(),onError:(Object _,StackTrace __)=>action());
+    _writes[key]=next;
+    try {await next;} finally {if(identical(_writes[key],next)) _writes.remove(key);}
+  }
+
+  Future<Directory> _journal() async {
+    final path=(await getApplicationSupportDirectory()).path;
+    return Directory('$path/work_write_recovery/${sha256.convert(utf8.encode(tree!))}');
+  }
+
+  Future<void> _recoverWrites() async {
+    final dir=await _journal();
+    if(!await dir.exists())return;
+    await for(final f in dir.list()){
+      final name=f.uri.pathSegments.last;
+      if(f is! File || !name.startsWith('会话-') || !names.hasMatch(name))continue;
+      await _serialized(name,() async {
+        if(!await f.exists())return;
+        final raw=await f.readAsString();
+        decodeRecords(name,raw);
+        await write(name,raw);
+        await f.delete();
+      });
+    }
+  }
+
+  Future<void> mergeTurns(String name,Iterable<Map<String,dynamic>> incoming,{bool keepExisting=false}) =>
+      _serialized(name,() async {
+        final thread=name.substring(3,name.length-5);
+        final byId=<String,Map<String,dynamic>>{};
+        final journal=tree==null ? null : await _journal();
+        final pending=journal==null ? null : File('${journal.path}/$name');
+        final fromJournal=pending!=null && await pending.exists();
+        if(fromJournal || (await list()).contains(name)){
+          final original=fromJournal ? await pending!.readAsString() : await read(name);
+          for(final row in decodeRecords(name,original)){byId[row['id'] as String]=row;}
+        }
+        for(final row in incoming){
+          final id=row['id'] as String;
+          if(CommissionThread.key(row)!=thread) throw const FormatException('会话编号不一致');
+          if(!keepExisting || !byId.containsKey(id)) byId[id]=row;
+        }
+        final turns=byId.values.toList()..sort((a,b)=>(a['id'] as String).compareTo(b['id'] as String));
+        final raw=jsonEncode({'version':1,'threadId':thread,'turns':turns});
+        if(utf8.encode(raw).length>limit(name)) throw const FormatException('会话文件已达 8 MiB，请新开工作窗口');
+        if(journal!=null && pending!=null){
+          await journal.create(recursive:true);
+          final temp=File('${pending.path}.tmp');
+          await temp.writeAsString(raw,flush:true);
+          await temp.rename(pending.path);
+        }
+        await write(name,raw);
+        await pending?.delete();
+      });
+
+  Future<Map<String, List<Map<String, dynamic>>>> conversations() async {
+    final threads=<String,Map<String,Map<String,dynamic>>>{};
+    final files=await list();
+    for(final name in [...files.where((s)=>s.startsWith('任务-')),...files.where((s)=>s.startsWith('会话-'))]){
+      try {
+        for(final row in decodeRecords(name,await read(name))){
+          (threads[CommissionThread.key(row)]??={})[row['id'] as String]=row;
+        }
+      } on FormatException {continue;}
+    }
+    return threads.map((k,v)=>MapEntry(k,v.values.toList()..sort((a,b)=>(a['id'] as String).compareTo(b['id'] as String))));
+  }
+
+  Future<List<Map<String,dynamic>>> conversation(String name) async {
     validate(name);
-    final threads = await conversations();
-    for (final rows in threads.values) {
-      if (rows.any((row) => '任务-${row['id']}.json' == name)) return rows;
+    final threads=await conversations();
+    for(final e in threads.entries){
+      if('会话-${e.key}.json'==name || e.value.any((r)=>"任务-${r['id']}.json"==name))return e.value;
     }
     throw const FormatException('工作记录已删除或无法读取');
   }
 
-  // Only compact summaries enter ordinary follow-up handling. Full reports
-  // are retrieved explicitly and old completed turns never enter memory jobs.
   Future<List<Map<String, dynamic>>> recent({DateTime? now}) async {
-    final cutoff = (now ?? DateTime.now())
-        .subtract(const Duration(hours: 48))
-        .millisecondsSinceEpoch;
-    final rows = <Map<String, dynamic>>[];
-    for (final name in (await list()).where((s) => s.startsWith('任务-'))) {
-      final Object? row;
-      try {
-        row = jsonDecode(await read(name));
-      } on FormatException {
-        continue;
-      }
-      if (row is Map<String, dynamic> &&
-          row['state'] == 'completed' &&
-          row['at'] is int &&
-          row['at'] >= cutoff)
-        rows.add(row);
-    }
+    final cutoff=(now ?? DateTime.now()).subtract(const Duration(hours:48)).millisecondsSinceEpoch;
+    final rows=(await conversations()).values.expand((g)=>g)
+        .where((r)=>r['state']=='completed' && r['at'] is int && r['at']>=cutoff).toList();
     rows.sort((a, b) => (b['at'] as int).compareTo(a['at'] as int));
     return rows.take(3).toList();
   }

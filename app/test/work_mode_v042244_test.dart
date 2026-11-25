@@ -69,4 +69,67 @@ void main() {
     expect(await File('${dir.path}/${result['screenshot']}').exists(),isTrue);
   });
 
+  test('two confirmed answers on a 35-question site survive a close failure, and another goal can finish on an intermediate page', () async {
+    final dir=await Directory.systemTemp.createTemp();
+    addTearDown(()=>dir.delete(recursive:true));
+    final workspace=CommissionWorkspace(directory:dir);
+    const id='269254ed-86bc-4613-bffa-142a78ea5755';
+    const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+i1JkAAAAASUVORK5CYII=';
+    var answered=0, captures=0, closed=0;
+    final messenger=TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(CommissionWorkspace.channel,(call) async {
+      switch(call.method){
+        case 'workPageOpen': answered=0;
+          continue read;
+        read: case 'workPageRead':
+          return jsonEncode({'key':'q$answered','position':'第 ${answered+1} / 35 题',
+            'question':'题目 ${answered+1}','controls':[{'name':'比较同意','kind':'button'}]});
+        case 'workPageAct': answered++;return 'ok';
+        case 'workPageFrame': captures++;return png;
+        case 'workQuizClose': closed++;throw PlatformException(code:'cleanup');
+        default:throw StateError(call.method);
+      }
+    });
+    addTearDown(()=>messenger.setMockMethodCallHandler(CommissionWorkspace.channel,null));
+    Future<Map<String,Object?>> run(String goal,String model,{required int expected}) async {
+      final choices=<Map>[];
+      final result=await WorkQuiz.run(uri:Uri.parse('https://example.org/quiz'),order:id,id:id,goal:goal,
+        workspace:workspace,cancel:GenerationCancellationToken(),answers:choices,save:() async{},
+        ask:(_) async=>model,vision:(_) async=>'可读',progress:(_){},
+        onPhoto:(receipt) async {
+          expect(await WorkQuiz.image(workspace,receipt['screenshot'] as String,receipt['digest'] as String),isNotEmpty);
+          expect(answered,expected);
+        });
+      expect(result.containsKey('error'),isFalse);
+      expect(choices.length,expected);
+      return result;
+    }
+    final first=await run('你做两道做个测试（只需要做两道），然后顺便在测试页面随便截个屏做个测试','{"id":0}',expected:2);
+    expect(first['questions'],2);
+    expect(first['position'],'第 3 / 35 题');
+    expect((first['answers'] as List).map((r)=>r['choice']),['比较同意','比较同意']);
+    expect(first['screenshot'],isNotNull);
+    final next=await run('看看题目的形式，告诉我就可以了','{"finish":"已看到题型","capture":true}',expected:0);
+    expect(next['summary'],'已看到题型');
+    expect(closed,2);
+    expect(captures,2);
+  });
+
+  test('thread merges preserve siblings, older imports, and concurrent saves', () async {
+    final dir=await Directory.systemTemp.createTemp();
+    addTearDown(()=>dir.delete(recursive:true));
+    final ws=CommissionWorkspace(directory:dir);
+    String id(int i)=>'00000000-0000-0000-0000-${i.toString().padLeft(12,"0")}';
+    final thread=id(1), name='会话-${id(1)}.json';
+    Map<String,dynamic> turn(int i)=>{'threadId':thread,'id':id(i),'goal':'问题$i','state':'completed'};
+    await ws.write('任务-$thread.json',jsonEncode(turn(1)));
+    await Future.wait([ws.mergeTurns(name,[turn(1),turn(2)]),ws.mergeTurns(name,[turn(3)])]);
+    await ws.mergeTurns(name,[{...turn(2),'goal':'旧的备份'},turn(4)],keepExisting:true);
+    expect(await ws.list(),hasLength(2));
+    final rows=await ws.conversation('任务-${id(2)}.json');
+    expect(rows.map((r)=>r['goal']),['问题1','问题2','问题3','问题4']);
+    await ws.remove(name);
+    expect((await ws.conversation('任务-$thread.json')).length,1);
+  });
+
 }
