@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'work_markdown.dart';
+import 'work_html_card.dart';
 import 'work_turn_footer.dart';
 import 'work_conversation.dart';
 
@@ -316,6 +317,11 @@ class _WorkPanelState extends State<WorkPanel>
                                           : Text(_status(row)),
                                     ),
                                   ),
+                                for (final (index, item) in _receipts(row).indexed)
+                                  if (item['artifact'] is String)
+                                    WorkHtmlCard(key: ValueKey("${row['id']}/${item['artifact']}/$index"),
+                                      title: item['title']?.toString() ?? 'HTML 作品',
+                                      load: () => work.readHtml(item['artifact'] as String)),
                                 for (final file in saved)
                                   Align(
                                     alignment: Alignment.centerLeft,
@@ -581,6 +587,7 @@ class _Receipt extends StatelessWidget {
       'work_file_applied' => '用户确认写回',
       'work_app_read' => '读取 App 资料',
       'work_propose_text_edit' => '生成文件修改稿',
+      'work_deliver_html' => '交付 HTML 作品',
       'workspace_save' => '保存文档',
       'workspace_read' => '读取文档',
       'github_search_repositories' => '搜索 GitHub',

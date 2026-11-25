@@ -97,7 +97,7 @@ internal class CommissionDocuments(private val activity: Activity) {
         check(readReference(selected.second)["text"] == text) { "无法核实提供方保存的最终内容，请检查文件" }
     }
 
-    private val namePattern = Regex("""(任务-[a-f0-9-]{36}\.json|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)""")
+    private val namePattern = Regex("""(任务-[a-f0-9-]{36}\.json|作品-[a-f0-9]{64}\.html|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)""")
     private val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
     fun result(code: Int, resultCode: Int, data: Intent?): Boolean {
@@ -223,7 +223,7 @@ internal class CommissionDocuments(private val activity: Activity) {
                                 val bytes=requireNotNull(call.argument<String>("text")).toByteArray(Charsets.UTF_8)
                                 require(bytes.size<=262144)
                                 val dest=uri ?: DocumentsContract.createDocument(resolver,DocumentsContract.buildDocumentUriUsingTree(tree,DocumentsContract.getTreeDocumentId(tree)),
-                                    if(name.endsWith(".md")) "text/markdown" else "application/json",name) ?: error("创建失败")
+                                    when { name.endsWith(".md") -> "text/markdown"; name.endsWith(".html") -> "text/html"; else -> "application/json" },name) ?: error("创建失败")
                                 resolver.openOutputStream(dest,"wt")!!.use { it.write(bytes) }
                                 null
                             }

@@ -7,6 +7,8 @@ import '../ai/deepseek_client.dart';
 import 'commission_workspace.dart';
 import 'work_text_reference.dart';
 import 'work_app_reader.dart';
+import '../creative/creative_contract.dart';
+import '../creative/creative_workspace.dart';
 import '../ai/generation_cancellation.dart';
 
 typedef ResearchPlan = ({
@@ -28,7 +30,8 @@ class ResearchCommission {
       '追问旧决定、被裁剪原文或先前调研依据时，如工具表含 work_history_search，可用它 从当前工作会话查原文，结合轮次与后续修订。'
       '比较项目时逐个核对所问条件；README 有后文时可继续读取。搜索摘要用于筛选。交付说明各结论的依据，无法取得的材料标为待核实。'
       '可以说明未能核实的部分。有足够证据、需要用户澄清或遇到无法解决的限制时结束。'
-      '需要 App 内资料时用 work_app_read 查可见原图、作品正文、游戏状态；目录和说明只能用于定位。修改稿只有用户预览写回后才会生效。'
+      '需要 App 内资料时用 work_app_read 按需查相册、作品、游戏、查手机、规则、记忆和聊天档案，详情见 help；目录和说明只能用于定位。修改稿只有用户预览写回后才会生效。'
+      '用户要可预览页面或交互作品时，用 work_deliver_html 保存真实 HTML，可以按所选文本制作。页面在离线环境运行。'
       '交付时用自然中文，按实际工具回执给出可核实的链接或文件名，说明未执行、限流或未读正文。区分通用建议和本机核实结果。';
 
   static Map<String, Object?> _tool(
@@ -51,6 +54,15 @@ class ResearchCommission {
     },
   };
   static final tools = [
+    {
+      'type': 'function', 'function': {
+        'name': 'work_deliver_html', 'description': '交付本地可交互作品。提供 HTML，可另附 CSS 和 JavaScript。',
+        'parameters': {'type': 'object', 'properties': {
+          'title': {'type': 'string'}, 'html': {'type': 'string'},
+          'css': {'type': 'string'}, 'script': {'type': 'string'},
+        }, 'required': ['title','html'], 'additionalProperties': false},
+      },
+    },
     _tool('workspace_read', '按清单中的准确名称读取报告或已启用的技能', 'name'),
     {
       'type': 'function',
@@ -287,7 +299,23 @@ class ResearchCommission {
               target is String ? _clip(target, 256) : '',
             );
             try {
-              if (call.name == WorkAppReader.name && appReader != null && args is Map) {
+              if (call.name == 'work_deliver_html' && args is Map && workspace != null) {
+                final title = args['title'], html = args['html'];
+                if (title is! String || title.trim().isEmpty || title.length > 100 ||
+                    html is! String || !RegExp(r'<[a-zA-Z][^>]*>').hasMatch(html) ||
+                    args['css'] != null && args['css'] is! String ||
+                    args['script'] != null && args['script'] is! String) {
+                  throw const FormatException('需要标题和 HTML 正文');
+                }
+                final page = CreativeWorkspace.assemble({'files': {
+                  'index.html': html, if (args['css'] != null) 'style.css': args['css'],
+                  if (args['script'] != null) 'script.js': args['script'],
+                }});
+                final name = '作品-${CreativeContract.hash(page)}.html';
+                await workspace.write(name, page);
+                await workspace.readHtml(name);
+                result = {'artifact': name, 'title': title.trim(), 'display': '已保存可预览作品'};
+              } else if (call.name == WorkAppReader.name && appReader != null && args is Map) {
                 try {
                   result = await appReader.read(args, cancellation);
                   cancellation.throwIfCancelled();
@@ -505,7 +533,7 @@ class ResearchCommission {
               result = {'error': 'github_timeout'};
             } catch (_) {
               cancellation.throwIfCancelled();
-              result = {'error': 'github_unavailable'};
+              result = {'error': call.name == 'work_deliver_html' ? '作品文件保存或校验失败' : 'github_unavailable'};
             }
             if (call.name == WorkAppReader.name && args is Map) {
               final key = '${args['section']} ${args['id'] ?? ''}'.trim();
@@ -533,13 +561,15 @@ class ResearchCommission {
                   ? '已保存 ${result['saved']}'
                   : result['file'] != null
                   ? '已读取 ${result['file']}'
-                  : call.name == recall
+                  : call.name == recall && result['matches'] is List
                   ? '找到 ${(result['matches'] as List).length} 段工作原文'
                   : result['source'] != null && call.name == read
                   ? '已沿用本会话读过的 ${result['repository']} README'
                   : call.name == read
                   ? '已读取 ${result['repository']} 的 README'
-                  : '找到 ${(result['repositories'] as List).length} 个候选项目',
+                  : call.name == search && result['repositories'] is List
+                  ? '找到 ${(result['repositories'] as List).length} 个候选项目'
+                  : '工具已返回结果',
               !result.containsKey('error'),
             );
           }

@@ -1,4 +1,5 @@
 import 'commission_thread.dart';
+import '../creative/creative_contract.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -13,7 +14,7 @@ class CommissionWorkspace {
   static final Set<String> writingTasks = {};
   static const maxBytes = 256 * 1024;
   static final names = RegExp(
-    r'^(任务-[a-f0-9-]{36}\.json|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)$',
+    r'^(任务-[a-f0-9-]{36}\.json|作品-[a-f0-9]{64}\.html|(?:报告|技能|停用技能)-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md)$',
   );
   static void validate(String name) {
     if (!names.hasMatch(name)) throw const FormatException('无效工作文件名');
@@ -58,6 +59,17 @@ class CommissionWorkspace {
     final file = File('${directory!.path}/$name');
     if (await file.length() > maxBytes) throw const FormatException('文件过大');
     return file.readAsString();
+  }
+
+  Future<String> readHtml(String name) async {
+    if (!name.startsWith('作品-') || !name.endsWith('.html')) {
+      throw const FormatException('无效的作品文件');
+    }
+    final html = await read(name);
+    if (name != '作品-${CreativeContract.hash(html)}.html') {
+      throw const FormatException('作品文件内容已变化');
+    }
+    return html;
   }
 
   Future<void> write(String name, String content) async {

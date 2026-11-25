@@ -58,7 +58,8 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       Navigator.pop(context, name);
       return;
     }
-    final raw = await store!.read(name);
+    final html = name.endsWith('.html');
+    final raw = html ? await store!.readHtml(name) : await store!.read(name);
     final task = name.endsWith('.json');
     final row = task && labels.containsKey(name)
         ? jsonDecode(raw) as Map
@@ -77,7 +78,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
         content: SizedBox(
           width: 480,
           child: SingleChildScrollView(
-            child: task
+            child: task || html
                 ? SelectableText(initial)
                 : TextFormField(
                     initialValue: raw,
@@ -92,7 +93,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
           ),
-          if (!task)
+          if (!task && !html)
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'save'),
               child: const Text('保存'),

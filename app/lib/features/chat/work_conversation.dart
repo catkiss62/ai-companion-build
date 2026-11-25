@@ -112,6 +112,12 @@ class WorkConversation extends ChangeNotifier {
     'status': status,
     ..._details.snapshot(),
   };
+  Future<String> readHtml(String name) async {
+    final workspace = _workspace;
+    if (workspace == null) throw StateError('工作区不可用');
+    return workspace.readHtml(name);
+  }
+
   Future<String> readDocument(String name) async {
     final workspace = _workspace;
     if (workspace == null || !name.endsWith('.md')) throw StateError('文件不可用');

@@ -22,7 +22,7 @@ class WorkTurnDetails {
   void finishTool(Map<String, Object?> result) {
     final receipt = receipts.last;
     receipt['state'] = result.containsKey('error') ? 'failed' : 'done';
-    for (final key in ['error', 'saved', 'file', 'repository', 'display']) {
+    for (final key in ['error', 'saved', 'file', 'repository', 'display', 'artifact', 'title']) {
       if (result[key] is String) receipt[key] = result[key];
     }
     if (result['matches'] case final List excerpts)

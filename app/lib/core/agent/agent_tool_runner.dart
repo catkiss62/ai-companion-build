@@ -85,6 +85,21 @@ class AgentToolRunner {
   final Map<String, String> _cedarGameListsByScope = <String, String>{};
   final Map<String, String> _cedarGuidesByScopeAndGame = <String, String>{};
 
+  // Work Mode may query these existing local readers without starting a chat plan.
+  static const workReaders = {
+    'phone.search', 'phone.read', 'rules.read', 'memory.search',
+    'chat_history.search', 'chat_history.read', 'room_history.search',
+    'room_history.read', 'qq_history.search', 'qq_history.read',
+  };
+
+  Future<AgentToolResult> readForWork(String reader, Map<String, String> args,
+      String goal, GenerationCancellationToken cancellation) {
+    if (!workReaders.contains(reader)) throw const FormatException('未知的工作资料入口');
+    final call = AgentToolCall(toolId: reader, arguments: args, reasonTag: 'work_read');
+    return _execute(call, cancellation, origin: AgentToolOrigin.userTurn,
+        requireExplicitRoomTarget: true, latestUserText: goal);
+  }
+
   Future<List<AgentToolResult>> runPlan(
     AgentToolPlan plan, {
     AgentToolOrigin origin = AgentToolOrigin.userTurn,

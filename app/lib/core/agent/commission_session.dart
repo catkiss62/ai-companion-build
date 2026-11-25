@@ -265,7 +265,7 @@ class CommissionSession {
               priorRepositories: priorRepositories,
               previousTargets: previousTargets,
               reference: reference,
-              appReader: WorkAppReader(db, config),
+              appReader: WorkAppReader(db, config, goal: goal, client: client),
               proposeEdit: proposeEdit,
               savedReadmes: savedReadmes,
               searchHistory: previousTask == null

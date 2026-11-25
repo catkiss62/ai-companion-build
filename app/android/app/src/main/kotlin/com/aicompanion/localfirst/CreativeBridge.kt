@@ -30,6 +30,19 @@ class CreativeBridge(context: Context, engine: FlutterEngine) {
             }
         }
         engine.platformViewsController.registry.registerViewFactory(
+            "ai_companion/work_html", object : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
+                override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
+                    val html = (args as? Map<*, *>)?.get("html") as? String ?: ""
+                    val document = CreativeWebSandbox.workDocument(html)
+                    val page = CreativeWebSandbox.create(context, {}, {}, bridgeEnabled = false)
+                    page.loadDataWithBaseURL(CreativeWebSandbox.ORIGIN, document, "text/html", "UTF-8", null)
+                    return object : PlatformView {
+                        override fun getView(): View = page
+                        override fun dispose() { page.stopLoading(); page.destroy() }
+                    }
+                }
+            })
+        engine.platformViewsController.registry.registerViewFactory(
             "ai_companion/creative_player", object : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
                 override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
                     val data = args as? Map<*, *> ?: emptyMap<String, Any>()

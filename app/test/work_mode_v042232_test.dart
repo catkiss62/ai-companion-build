@@ -60,6 +60,47 @@ void main() {
     expect(help['registered_only'], contains('理解视频片段'));
   });
 
+  test('first help receipt continues to rules and delivers an immutable referenced HTML page', () async {
+    final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+    addTearDown(db.closeForTesting);
+    final dir = await Directory.systemTemp.createTemp();
+    addTearDown(() => dir.delete(recursive: true));
+    final workspace = CommissionWorkspace(directory: dir);
+    final reader = WorkAppReader(db, SecureConfig.forTesting(const FlutterSecureStorage()));
+    final token = GenerationCancellationToken();
+    final reference = WorkTextSnapshot('需求.txt', '小鲸鱼按钮');
+    final steps = <String>[];
+    var round = 0;
+    final report = await ResearchCommission.run(goal: '根据这份文本制作一页作品', context: [],
+      reference: reference, supplement: [reference.message], workspace: workspace,
+      appReader: reader, cancellation: token, progress: (text, _) => steps.add(text),
+      plan: (history) async {
+        expect(history.any((m) => m['content'].toString().contains(reference.text)), isTrue);
+        final calls = switch (round++) {
+          0 => [DeepSeekToolCall(id: 'help', name: WorkAppReader.name, arguments: '{"section":"help"}')],
+          1 => [DeepSeekToolCall(id: 'rules', name: WorkAppReader.name, arguments: '{"section":"rules.read","params":{"scope":"不存在的规则"}}')],
+          2 => [DeepSeekToolCall(id: 'page', name: 'work_deliver_html', arguments: jsonEncode({
+            'title': '按钮', 'html': '<button>${reference.text}</button>', 'css': 'button{color:purple}',
+            'script': 'document.querySelector("button").onclick=e=>e.target.textContent="亮了";'}))],
+          _ => <DeepSeekToolCall>[],
+        };
+        return (content: '交付', reasoning: '', finishReason: 'stop', toolCalls: calls);
+      });
+    expect(report['end'], 'planner_finished');
+    expect(steps, contains('已读取工作模式能力说明'));
+    final evidence = report['evidence'] as List;
+    expect(evidence[1]['status'], 'no_result');
+    final name = evidence.last['artifact'] as String;
+    final reopened = CommissionWorkspace(directory: dir);
+    final page = await reopened.readHtml(name);
+    expect(page, contains(reference.text));
+    expect(page, contains('<script>'));
+    expect(jsonEncode(evidence.last), isNot(contains('<button>')));
+    await reopened.write(name, '外部编辑');
+    await expectLater(reopened.readHtml(name), throwsFormatException);
+    await expectLater(reader.read({'section': 'phone.write'}, token), throwsFormatException);
+  });
+
   test('model draft is staged and only a separate user apply invokes the write channel', () async {
     final token = GenerationCancellationToken();
     var round = 0;

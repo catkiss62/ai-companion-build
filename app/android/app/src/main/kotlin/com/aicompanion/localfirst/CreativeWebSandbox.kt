@@ -63,6 +63,11 @@ object CreativeWebSandbox {
         return result.map { it as String }
     }
 
+    fun workDocument(html: String): String {
+        require(html.toByteArray().size <= 262144)
+        return """<!doctype html><meta http-equiv="Content-Security-Policy" content="$POLICY"><meta name="viewport" content="width=device-width,initial-scale=1">$html"""
+    }
+
     fun document(html: String, state: String, preview: Boolean): String {
         require(html.toByteArray().size <= MAX_HTML) { "作品文件过大" }
         val initial = JSONObject.quote(state).replace("<", "\\u003c")
@@ -124,7 +129,7 @@ object CreativeWebSandbox {
 
     @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
     fun create(context: Context, onMessage: (String) -> Unit, onError: (String) -> Unit,
-               images: Map<String, Image> = emptyMap(), onImage: (String) -> Unit = {}): WebView {
+               images: Map<String, Image> = emptyMap(), bridgeEnabled: Boolean = true, onImage: (String) -> Unit = {}): WebView {
         check(Looper.myLooper() == Looper.getMainLooper())
         return WebView(context).apply {
             setBackgroundColor(Color.WHITE)
@@ -161,7 +166,7 @@ object CreativeWebSandbox {
                 }
                 override fun onPermissionRequest(request: android.webkit.PermissionRequest) { request.deny() }
             }
-            addJavascriptInterface(object {
+            if (bridgeEnabled) addJavascriptInterface(object {
                 @JavascriptInterface fun postMessage(raw: String) {
                     if (raw.toByteArray().size <= 65_536) Handler(Looper.getMainLooper()).post { onMessage(raw) }
                 }

@@ -31,6 +31,35 @@ class CreativePreviewSmokeTest {
         assertTrue("preview timeout",latch.await(30,TimeUnit.SECONDS))
         return requireNotNull(result)
     }
+    @Test fun workPageCanClickWithoutAHostBridge() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val loaded = CountDownLatch(1)
+        lateinit var page: android.webkit.WebView
+        var observed = ""
+        instrumentation.runOnMainSync {
+            page = CreativeWebSandbox.create(context, {}, {}, bridgeEnabled = false)
+            assertFalse(page.settings.allowFileAccess)
+            assertFalse(page.settings.allowContentAccess)
+            assertTrue(page.settings.blockNetworkLoads)
+            page.webViewClient = object : android.webkit.WebViewClient() {
+                override fun onPageFinished(view: android.webkit.WebView, url: String) {
+                    view.evaluateJavascript("""(function(){document.querySelector('#light').click();
+                      return [document.querySelector('#state').textContent,typeof NativeWork,typeof Companion].join('|')})()""") {
+                        observed = it
+                        loaded.countDown()
+                    }
+                }
+            }
+            page.loadDataWithBaseURL(CreativeWebSandbox.ORIGIN, CreativeWebSandbox.workDocument(html), "text/html", "UTF-8", null)
+        }
+        try {
+            assertTrue("work preview timeout", loaded.await(20, TimeUnit.SECONDS))
+            assertEquals(JSONObject.quote("亮了|undefined|undefined"), observed)
+        } finally {
+            instrumentation.runOnMainSync { page.destroy() }
+        }
+    }
+
     @Test fun rendersAndClicksWithoutAnActivity() {
         val result=check(html)
         assertEquals(result.toString(),true,result["ok"])

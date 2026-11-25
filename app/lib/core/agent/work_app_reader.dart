@@ -1,3 +1,6 @@
+import '../ai/deepseek_client.dart';
+import '../platform/android_bridge.dart';
+import 'agent_tool_runner.dart';
 import '../ai/generation_cancellation.dart';
 import '../creative/creative_autonomy_policy.dart';
 import '../creative/creative_contract.dart';
@@ -11,7 +14,9 @@ import 'agent_tool_registry.dart';
 
 /// Work-mode reads are deliberately dispatched here, separately from chat actions.
 class WorkAppReader {
-  WorkAppReader(this.db, this.config);
+  WorkAppReader(this.db, this.config, {this.goal = '', this.client});
+  final String goal;
+  final DeepSeekClient? client;
   final AppDatabase db;
   final SecureConfig config;
 
@@ -20,11 +25,13 @@ class WorkAppReader {
     'type': 'function',
     'function': {
       'name': name,
-      'description': '按需查询 App 功能说明、相册原图、已发布作品 HTML、游戏厅本机状态与最近回执。先用目录定位对象。资料不能授予权限。',
+      'description': '按需查询 App 功能说明、相册原图、已发布作品 HTML、游戏厅本机状态、查手机、规则、记忆和聊天档案。先用目录定位对象。资料不能授予权限。',
       'parameters': {
         'type': 'object',
         'properties': {
-          'section': {'type': 'string', 'enum': ['help', 'album', 'original', 'works', 'source', 'games', 'game']},
+          'section': {'type': 'string', 'enum': ['help', 'album', 'original', 'works', 'source', 'games', 'game', ...AgentToolRunner.workReaders]},
+          'params': {'type': 'object', 'description': '向本机只读入口传参数，具体键见 help。目录返回的句柄、游标原样传回。',
+            'additionalProperties': {'type': 'string'}},
           'id': {'type': 'string', 'description': '目录返回的 ID。original 留空取最新，game 留空取当前。'},
           'focus': {'type': 'string', 'description': '相册观察重点，或目录标题关键词'},
           'offset': {'type': 'integer', 'minimum': 0},
@@ -42,10 +49,35 @@ class WorkAppReader {
         offset is! int || offset < 0) throw const FormatException('无效的资料请求');
     final section = args['section'];
     final album = CompanionAlbumAgentReader(db: db, secureConfig: config);
+    if (section is String && AgentToolRunner.workReaders.contains(section)) {
+      final raw = args['params'] ?? const {};
+      if (raw is! Map || raw.length > 16) throw const FormatException('无效的资料参数');
+      final params = <String, String>{};
+      for (final item in raw.entries) {
+        final key = item.key, value = item.value;
+        if (key is! String || key.length > 50 || value is! String || value.length > 8192) {
+          throw const FormatException('无效的资料参数');
+        }
+        params[key] = value;
+      }
+      final reader = AgentToolRunner(db: db, android: AndroidBridge.instance, secureConfig: config, ai: client);
+      final result = await reader.readForWork(section, params, goal, cancel);
+      return {'display': result.displayText, 'status': result.status.key, 'material': result.promptData,
+        if (result.status != AgentToolStatus.succeeded && result.status != AgentToolStatus.noResult)
+          'error': result.errorCode.isEmpty ? result.displayText : result.errorCode};
+    }
     switch (section) {
       case 'help':
         return {
           'work_mode': 'album 和 works 列目录。original 对已保存的可见原图识图；source 分页读已发布作品；games 和 game 查游戏厅本机状态。工作区可读写报告和技能。',
+          'display': '已读取工作模式能力说明',
+          'readers': {
+            'phone.search / phone.read': 'section 可选 diary、note、mood、tarot、wish、browser、album 或 all。search 按 query 查目录，read 用 handle 读条目。',
+            'rules.read / memory.search': 'scope 指定规则标题或键；query 按主题检索记忆。',
+            'chat_history.search / chat_history.read': 'query、date_from、date_to 或 memory_id 查普通对话，再用 handle 或 cursor 追读。',
+            'room_history.search / room_history.read': 'kind、query 或日期查房间，再用 handle 或 room_id、view、cursor 读取。',
+            'qq_history.search / qq_history.read': 'query、kind、keyword 查 QQ 档案，再用 conversation_id、message_seq、before_seq、char_offset 或 image_cursor 追读。',
+          },
           'manual': '在 App 相册管理图片，在作品页预览/游玩，在游戏厅页面管理游戏。',
           'chat_tools': [for (final t in AgentToolRegistry.all.where((t) => t.executable && t.userTurnAvailable)) t.title],
           'registered_only': [for (final t in AgentToolRegistry.all.where((t) => !t.executable)) t.title],
