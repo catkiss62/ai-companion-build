@@ -37,6 +37,8 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
     private var reader: ImageReader? = null
     private var captureRequest: Reply? = null
     private var waitingFrame: Reply? = null
+    private var awaitingMarker = false
+    private val markerColor = android.graphics.Color.rgb(13, 211, 157)
     private val frameWidth = 720
     private val frameHeight = 1080
     private val main = Handler(Looper.getMainLooper())
@@ -175,6 +177,11 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
         view.postVisualStateCallback(1L, object: WebView.VisualStateCallback() {
             override fun onComplete(requestId: Long) {
                 if (browser !== view || captureRequest !== result) return
+                // A nonblank image may still belong to the preceding question.
+                // Fence both ends at the actual display surface, then return the
+                // first clean page frame following the marker.
+                awaitingMarker = true
+                view.foreground = android.graphics.drawable.ColorDrawable(markerColor)
                 waitingFrame = result
                 view.postInvalidateOnAnimation()
             }
@@ -183,6 +190,7 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
             if (captureRequest === result) {
                 captureRequest = null
                 waitingFrame = null
+                view.foreground = null
                 result.error("quiz_capture","网页结果仍未绘制完成")
             }
         },5000)
@@ -243,6 +251,16 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
                 val bitmap = Bitmap.createBitmap(plane.rowStride/plane.pixelStride,frameHeight,Bitmap.Config.ARGB_8888)
                 try {
                     bitmap.copyPixelsFromBuffer(plane.buffer)
+                    val marked = bitmap.getPixel(frameWidth/2,frameHeight/2)==markerColor &&
+                        bitmap.getPixel(frameWidth/4,frameHeight/4)==markerColor
+                    if(awaitingMarker || marked){
+                        if(awaitingMarker && marked){
+                            awaitingMarker=false
+                            browser?.foreground=null
+                        }
+                        browser?.postInvalidateOnAnimation()
+                        return@setOnImageAvailableListener
+                    }
                     val png = encodeFrame(bitmap)
                     if (png != null) {
                         waitingFrame = null
@@ -254,6 +272,7 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
                 val reply = waitingFrame
                 captureRequest = null
                 waitingFrame = null
+                browser?.foreground=null
                 reply?.error("quiz_capture",e.message ?: "截图保存失败")
             } finally { frame.close() }
         },main)
