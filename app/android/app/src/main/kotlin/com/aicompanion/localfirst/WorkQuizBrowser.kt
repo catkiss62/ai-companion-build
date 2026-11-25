@@ -36,9 +36,6 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
     private var window: Presentation? = null
     private var reader: ImageReader? = null
     private var captureRequest: Reply? = null
-    private var waitingFrame: Reply? = null
-    private var awaitingMarker = false
-    private val markerColor = android.graphics.Color.rgb(13, 211, 157)
     private val frameWidth = 720
     private val frameHeight = 1080
     private val main = Handler(Looper.getMainLooper())
@@ -56,7 +53,6 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
         }
         captureRequest?.error("quiz_closed","答题页面已关闭")
         captureRequest = null
-        waitingFrame = null
         window?.dismiss()
         screen?.release()
         reader?.close()
@@ -174,26 +170,57 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
 
     private fun captureFrame(view:WebView,result:Reply) {
         captureRequest = result
-        view.postVisualStateCallback(1L, object: WebView.VisualStateCallback() {
-            override fun onComplete(requestId: Long) {
-                if (browser !== view || captureRequest !== result) return
-                // A nonblank image may still belong to the preceding question.
-                // Fence both ends at the actual display surface, then return the
-                // first clean page frame following the marker.
-                awaitingMarker = true
-                view.foreground = android.graphics.drawable.ColorDrawable(markerColor)
-                waitingFrame = result
-                view.postInvalidateOnAnimation()
+        val surface = window?.window
+        if(surface == null){
+            captureRequest=null
+            result.error("quiz_display","独立网页窗口已关闭")
+            return
+        }
+        // PixelCopy reads the most recently submitted window buffer. A WebView
+        // visual-state callback promises its *next* draw includes the DOM update.
+        // Wait for that draw and the following presentation before requesting it.
+        fun copy(attempt:Int){
+            if(browser !== view || captureRequest !== result)return
+            val bitmap=Bitmap.createBitmap(frameWidth,frameHeight,Bitmap.Config.ARGB_8888)
+            try {
+                android.view.PixelCopy.request(surface,bitmap,{ status ->
+                    try {
+                        if(browser !== view || captureRequest !== result)return@request
+                        val encoded=if(status==android.view.PixelCopy.SUCCESS) encodeFrame(bitmap) else null
+                        if(encoded!=null){
+                            captureRequest=null
+                            result.success(encoded)
+                        } else if(attempt<8){
+                            view.invalidate()
+                            main.postDelayed({ copy(attempt+1) },100)
+                        } else {
+                            captureRequest=null
+                            result.error("quiz_capture","独立网页没有返回可读取的结果画面")
+                        }
+                    } catch(e:Exception){
+                        captureRequest=null
+                        result.error("quiz_capture",e.message ?: "网页截图失败")
+                    } finally { bitmap.recycle() }
+                },main)
+            }catch(e:Exception){
+                bitmap.recycle()
+                captureRequest=null
+                result.error("quiz_capture","无法读取独立网页窗口")
+            }
+        }
+        view.postVisualStateCallback(1L,object:WebView.VisualStateCallback(){
+            override fun onComplete(requestId:Long){
+                if(browser !== view || captureRequest !== result)return
+                view.invalidate()
+                view.postOnAnimation { view.postOnAnimation { main.postDelayed({copy(0)},120) } }
             }
         })
         main.postDelayed({
-            if (captureRequest === result) {
-                captureRequest = null
-                waitingFrame = null
-                view.foreground = null
+            if(captureRequest===result){
+                captureRequest=null
                 result.error("quiz_capture","网页结果仍未绘制完成")
             }
-        },5000)
+        },6000)
     }
 
     private fun blocked() = WebResourceResponse("text/plain","utf-8",403,"Blocked",emptyMap(),ByteArrayInputStream(byteArrayOf()))
@@ -244,37 +271,7 @@ internal class WorkQuizBrowser(private val activity: Activity, private val readR
         reader = frames
         frames.setOnImageAvailableListener({ source ->
             if (reader !== source) return@setOnImageAvailableListener
-            val frame = source.acquireLatestImage() ?: return@setOnImageAvailableListener
-            try {
-                val reply = waitingFrame ?: return@setOnImageAvailableListener
-                val plane = frame.planes[0]
-                val bitmap = Bitmap.createBitmap(plane.rowStride/plane.pixelStride,frameHeight,Bitmap.Config.ARGB_8888)
-                try {
-                    bitmap.copyPixelsFromBuffer(plane.buffer)
-                    val marked = bitmap.getPixel(frameWidth/2,frameHeight/2)==markerColor &&
-                        bitmap.getPixel(frameWidth/4,frameHeight/4)==markerColor
-                    if(awaitingMarker || marked){
-                        if(awaitingMarker && marked){
-                            awaitingMarker=false
-                            browser?.foreground=null
-                        }
-                        browser?.postInvalidateOnAnimation()
-                        return@setOnImageAvailableListener
-                    }
-                    val png = encodeFrame(bitmap)
-                    if (png != null) {
-                        waitingFrame = null
-                        captureRequest = null
-                        reply.success(png)
-                    } else browser?.postInvalidateOnAnimation()
-                } finally { bitmap.recycle() }
-            } catch (e: Exception) {
-                val reply = waitingFrame
-                captureRequest = null
-                waitingFrame = null
-                browser?.foreground=null
-                reply?.error("quiz_capture",e.message ?: "截图保存失败")
-            } finally { frame.close() }
+            source.acquireLatestImage()?.close()
         },main)
         val manager = activity.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         val display = requireNotNull(manager.createVirtualDisplay("WorkQuiz",frameWidth,frameHeight,320,frames.surface,
