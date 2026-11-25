@@ -140,6 +140,8 @@ class _WorkMarkdownState extends State<WorkMarkdown>
     final renderer = MarkdownBuilder(
       delegate: this,
       selectable: true,
+      contextMenuBuilder: (context, state) =>
+          AdaptiveTextSelectionToolbar.editableText(editableTextState: state),
       styleSheet: style,
       imageDirectory: null,
       imageBuilder: (_, title, alt) => Text(alt ?? title ?? '图片', style: body),

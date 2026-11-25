@@ -1694,7 +1694,7 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
         if (_showWork) Positioned.fill(child:ListenableBuilder(listenable:_work,builder:(_,_) =>
           WorkPanel(key: ObjectKey(_work),work:_work,input:_workInput,focus:_workFocus,onSend:(){
               final text=_workInput.text.trim();
-              if(text.isEmpty || _work.busy)return;
+              if(text.isEmpty && _work.imageName == null || _work.busy)return;
               _workInput.clear();
               unawaited(_work.send(text));
             }))),

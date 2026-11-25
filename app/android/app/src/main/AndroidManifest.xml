@@ -181,6 +181,11 @@
     </application>
 
     <queries>
+        <package android:name="com.deepseek.chat" />
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
         <package android:name="com.google.ar.core" />
         <intent>
             <action android:name="android.settings.action.MANAGE_OVERLAY_PERMISSION" />

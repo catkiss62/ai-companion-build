@@ -1,5 +1,6 @@
 import 'dart:async';
 import '../../core/agent/work_quiz.dart';
+import '../../core/agent/work_image_reference.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -36,6 +37,28 @@ class WorkConversation extends ChangeNotifier {
   CommissionWorkspace? _workspace;
   String? _file;
   WorkTextReference? _reference;
+  WorkImageReference? _image;
+  String? _turnImageName;
+  String? get imageName => _image?.name;
+  Future<void> chooseImage() async {
+    if (busy || choosingReference) return;
+    final view = _viewGeneration;
+    choosingReference = true;
+    _update();
+    try {
+      final picked = await WorkImageReference.choose();
+      if (!_disposed && view == _viewGeneration && !busy && picked != null) _image = picked;
+    } finally {
+      choosingReference = false;
+      _update();
+    }
+  }
+  void removeImage() {
+    if(busy || choosingReference) return;
+    _image = null;
+    _update();
+  }
+
   Map<String, Object?>? _turnReference;
   String? draft;
   WorkTextSnapshot? draftBase;
@@ -109,6 +132,7 @@ class WorkConversation extends ChangeNotifier {
     if (_failure != null) 'failureReason': _failure,
     'id': _details.executionId,
     if (_turnReference != null) 'text_reference': _turnReference,
+    if (_turnImageName != null) 'image_reference': {'name': _turnImageName},
     'goal': goal,
     'answer': answer,
     'steps': steps,
@@ -147,6 +171,8 @@ class WorkConversation extends ChangeNotifier {
     if (busy) return;
     _historySearch.clear();
     _viewGeneration++;
+    _image = null;
+    _turnImageName = null;
     _turnReference = null;
     removeReference();
     _workspace = null;
@@ -176,7 +202,7 @@ class WorkConversation extends ChangeNotifier {
     bool lookup = false,
     CommissionWorkspace? source,
   }) async {
-    if (busy || choosingReference || text.trim().isEmpty) return;
+    if (busy || choosingReference || text.trim().isEmpty && _image == null) return;
     draft = null;
     draftBase = null;
     final token = GenerationCancellationToken();
@@ -186,6 +212,7 @@ class WorkConversation extends ChangeNotifier {
       turns = [...turns, currentTurn];
     }
     _turnReference = null;
+    _turnImageName = lookup ? null : _image?.name;
     if (lookup) {
       removeReference();
       turns = [];
@@ -194,7 +221,7 @@ class WorkConversation extends ChangeNotifier {
     }
     _details = WorkTurnDetails();
     steps = [];
-    goal = text.trim();
+    goal = text.trim().isEmpty ? '看看这张图片，告诉我你看到了什么。' : text.trim();
     answer = '';
     status = '正在规划';
     _failure = null;
@@ -215,6 +242,7 @@ class WorkConversation extends ChangeNotifier {
       String? proposal;
       answer = await CommissionSession.run(
         reference: snapshot,
+        image: lookup ? null : _image,
         proposeEdit: snapshot == null ? null : (text) { proposal = text; },
         workspace: workspace,
         goal: goal,
@@ -243,6 +271,7 @@ class WorkConversation extends ChangeNotifier {
           _update();
         },
       );
+      _image = null;
       if (proposal != null && !token.isCancelled) {
         draftBase = snapshot;
         draft = proposal;
@@ -264,6 +293,7 @@ class WorkConversation extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _image = null;
     removeReference();
     _historySearch.clear();
     stop();

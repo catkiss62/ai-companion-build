@@ -384,6 +384,10 @@ class _WorkPanelState extends State<WorkPanel>
                     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message, style: failed ? const TextStyle(color: _workErrorColor) : null)));
                   },
                 ),
+              if (work.imageName case final String name)
+                Align(alignment:Alignment.centerLeft,child:Padding(padding:const EdgeInsets.symmetric(horizontal:16),
+                  child:InputChip(avatar:const Icon(Icons.image_outlined),label:Text(name,maxLines:1,overflow:TextOverflow.ellipsis),
+                    deleteButtonTooltipMessage:'移除图片',onDeleted:work.busy || work.choosingReference ? null : work.removeImage))),
               if (work.referenceName != null)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -421,6 +425,16 @@ class _WorkPanelState extends State<WorkPanel>
                         },
                         icon: const Icon(Icons.attach_file),
                       ),
+                      IconButton(
+                        tooltip:'添加图片（第一通道识图）',color:workAccent,icon:const Icon(Icons.image_outlined),
+                        onPressed:work.busy || work.choosingReference ? null : () async {
+                          try { await work.chooseImage(); }
+                          catch(e) {
+                            if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content:Text(workErrorReason(e,fallback:'无法读取这张图片'),style:const TextStyle(color:_workErrorColor))));
+                          }
+                        },
+                      ),
                       Expanded(
                         child: TextField(
                           controller: widget.input,
@@ -453,7 +467,7 @@ class _WorkPanelState extends State<WorkPanel>
                           disabledColor: workMuted.withValues(alpha: .4),
                           onPressed: work.busy
                               ? work.stop
-                              : work.choosingReference || value.text.trim().isEmpty
+                              : work.choosingReference || value.text.trim().isEmpty && work.imageName == null
                               ? null
                               : () {
                                   following = true;
@@ -548,6 +562,7 @@ class _TurnTrace extends StatelessWidget {
           Text(
             [
               if (!live) _status(row),
+              if (row['image_reference'] case {'name': final String imageName}) '图片 · $imageName',
               if (row['text_reference'] case {'name': final String name}) '引用 · $name',
               if (row['researchEnd'] == 'budget') '已到调研上限',
               if (row['researchEnd'] == 'evidence_incomplete') '部分依据待核实',
