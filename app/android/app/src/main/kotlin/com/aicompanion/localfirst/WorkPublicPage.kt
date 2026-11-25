@@ -20,6 +20,7 @@ import org.json.JSONTokener
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.UUID
@@ -40,9 +41,10 @@ internal class WorkPublicPage(private val view: WebView, val host: String,
     private val client = OkHttpClient.Builder().dns(object : Dns {
         override fun lookup(hostname: String): List<InetAddress> {
             check(hostname == host)
-            val public = InetAddress.getAllByName(hostname).filterIsInstance<Inet4Address>().filter {
+            val public = InetAddress.getAllByName(hostname).filter {
                 val a=it.address.map { b -> b.toInt() and 255 }
-                !(it.isLoopbackAddress || it.isLinkLocalAddress || it.isSiteLocalAddress || it.isMulticastAddress ||
+                if(it is Inet6Address) return@filter a[0] in 0x20..0x3f && !(a.take(4)==listOf(0x20,1,0xd,0xb8))
+                it is Inet4Address && !(it.isLoopbackAddress || it.isLinkLocalAddress || it.isSiteLocalAddress || it.isMulticastAddress ||
                     a[0] == 0 || a[0] >= 224 || a[0]==100 && a[1] in 64..127 ||
                     a[0]==198 && a[1] in 18..19 || a[0]==192 && a[1]==0)
             }

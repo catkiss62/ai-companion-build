@@ -11,7 +11,11 @@
     e.getAttribute('title') || text(e) || e.querySelector('img')?.alt || (e.type === 'submit' ? e.value : '')).slice(0,180);
   const selected = e => !!e.checked || e.matches('[aria-pressed=true],[aria-checked=true],.is-selected');
   const resSel = '[data-dere-result],.zdc-quiz-result,[data-quiz-result],.quiz-result,#quiz-result,#result,.result-panel,[data-result-panel],.result-screen';
-  const result = all(resSel,root).find(e=>visible(e) && text(e).length>1);
+  let result = all(resSel,root).find(e=>visible(e) && text(e).length>1);
+  if(!result){
+    const heading=all('h1,h2,h3,[role=heading]',root).find(e=>visible(e) && /^(?:你的(?:测验|测试)?结果|测验结果|測驗結果|your (?:quiz )?results?\b|quiz results?\b)/i.test(text(e)));
+    if(heading && !heading.closest('nav')) result=heading.closest('section,article,[role=dialog]') || heading.parentElement;
+  }
   const eligible = e => visible(e) && !e.disabled && e.getAttribute('aria-disabled') !== 'true';
   const rawControls = all('button,input[type=radio],input[type=checkbox],input[type=submit],[role=radio],[role=checkbox],[role=button],select,canvas',root)
     .filter(e => eligible(e) || (e.matches('input[type=radio],input[type=checkbox]') && !e.disabled && Array.from(e.labels || []).some(visible)));
@@ -24,7 +28,13 @@
   const qEl = first('.hantei-qtext,.zdc-quiz-q',root) ||
     (questionBlock && (first('legend,[data-prompt],h1,h2,h3,h4,p',questionBlock) || questionBlock)) ||
     first('[data-question-title],.question-title,.question-text,[role=heading]',root);
-  const question = text(qEl,450);
+  const question = text(qEl,450) || (!result && rawControls.length >= 2 ?
+    text(all('h1,h2,h3,p',root).find(e=>visible(e) && /[？?]$/.test(text(e)) && !e.closest('header,nav,footer')),450) : '');
+  const href = e => {try{let u=new URL(e.getAttribute('href'),location.href);
+    if(u.protocol==='https:' && !u.username && !u.password && (!u.port || u.port==='443') &&
+      (u.host===location.host || u.host===originHost)) {u.host=originHost;return u.href;}
+  }catch(_){} return '';};
+  const originHost=arg.host;
   for(const e of rawControls) {
     if(e.closest('nav,header,footer') && !questionBlock?.contains(e)) continue;
     if(questionBlock && !questionBlock.contains(e) && !nextPattern.test(label(e)) && !e.matches('.zdc-tarot-draw')) continue;
@@ -34,11 +44,12 @@
     } else if(e.matches('canvas') && !result) add(e,'canvas',label(e)||'画布');
     else add(e,!e.closest('.zdc-quiz-answers,[role=radiogroup],.dere-scale') && nextPattern.test(label(e)) ? 'next' : 'button',label(e)||'图片选项');
   }
-  const originHost = arg.host;
-  const href = e => {try{let u=new URL(e.getAttribute('href'),location.href);
-    if(u.protocol==='https:' && !u.username && !u.password && (!u.port || u.port==='443') &&
-      (u.host===location.host || u.host===originHost)) {u.host=originHost;return u.href;}
-  }catch(_){} return '';};
+  if(!arg.explore || question){
+    for(const e of all('a[href]',questionBlock || root)){
+      const u=href(e), n=label(e);
+      if(visible(e) && u && (nextPattern.test(n) || e.matches('[role=radio],[role=button],.answer,.option')))add(e,'link',n,u);
+    }
+  }
   if(arg.explore && !question && !result) {
     const seen=new Set();
     for(const e of all('main a[href],article a[href],nav a[href],body a[href]')) {
@@ -72,6 +83,12 @@
       const cx=x*innerWidth, cy=y*innerHeight, hit=document.elementFromPoint(cx,cy);
       if(!hit || !hit.closest('button,label,canvas,input[type=radio],input[type=checkbox],[role=button],[role=radio],[role=checkbox]')) return 'miss';
       for(const type of ['pointerdown','pointerup','click']) hit.dispatchEvent(new (type==='click'?MouseEvent:PointerEvent)(type,{bubbles:true,clientX:cx,clientY:cy}));
+      return 'ok';
+    }
+    if(Array.isArray(arg.many)){
+      const items=arg.many.map(i=>controls[i]);
+      if(!items.length || !items.every(c=>c && c.e.matches('input[type=checkbox],[role=checkbox]')))return 'miss';
+      for(const c of items) if(!selected(c.e) && c.e.isConnected)c.e.click();
       return 'ok';
     }
     const item=controls[arg.id]; if(!item) return 'miss';
