@@ -1,8 +1,7 @@
-status=failure
-build_result=skipped
-run_id=45662944998
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45662944998
-head_sha=82680ce4b1ed99ee1bb49b7d96f68a79fa845c17
-
-=== failed or cancelled job logs ===
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2860bec8b1c7f8548485
+status=success
+run_id=45664548745
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45664548745
+head_sha=b45a737d71b95dbe4f6f4541b4a9e760fca6ed7f
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+7eb282e9b34bbe012ca0c155e48ede6070de2a4312fab3f68d7bd8d66787b915  AI-Companion-v0.42.244-488-Work-Mode-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-260012bac0c8acdb43ef
