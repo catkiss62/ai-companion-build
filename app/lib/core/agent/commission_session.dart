@@ -154,6 +154,7 @@ class CommissionSession {
     Future<ResearchPlan> streamRequest(
       List<Map<String, Object?>> messages, {
       bool finalAnswer = false,
+      bool htmlOnly = false,
       bool relay = false,
       FinalReplyRoute? route,
     }) async {
@@ -182,6 +183,8 @@ class CommissionSession {
         messages: messages,
         tools: finalAnswer
             ? const []
+            : htmlOnly
+            ? ResearchCommission.tools.where((t) => (t['function'] as Map)['name'] == ResearchCommission.deliverHtml).toList()
             : [
                 for (final t in ResearchCommission.tools)
                   if (previousTask != null || (t['function'] as Map)['name'] != ResearchCommission.recall) t,
@@ -218,6 +221,7 @@ class CommissionSession {
     Future<ResearchPlan> request(
       List<Map<String, Object?>> messages, {
       bool finalAnswer = false,
+      bool htmlOnly = false,
       bool relay = false,
       FinalReplyRoute? route,
     }) async {
@@ -230,6 +234,7 @@ class CommissionSession {
           return await streamRequest(
             messages,
             finalAnswer: finalAnswer,
+            htmlOnly: htmlOnly,
             relay: relay,
             route: route,
           );
@@ -291,6 +296,7 @@ class CommissionSession {
                 activity.finishTool(result);
                 onDetails?.call();
               },
+              finishHtml: (messages) => request(messages, htmlOnly: true),
               plan: (messages) {
                 activity.rounds++;
                 onPhase?.call(CommissionPhase.planning);
@@ -325,6 +331,11 @@ class CommissionSession {
         if (report['end'] == 'evidence_incomplete')
           {'role': 'user', 'content': '逐项标明本轮已读及未取得的依据。旧资料只能作为历史信息，README 未涉及的问题请说明仍待核实。'},
         {'role': 'user', 'content': '本次调研数据：${jsonEncode(report)}'},
+        {'role': 'user', 'content': report['delivered_html'] == null
+            ? '宿主回执：本轮没有已保存的 HTML。与作品相关的文字请如实区分建议、历史作品和本轮实际交付。'
+            : '本轮已保存并读回校验的 HTML 文件：${report['delivered_html']}。作品预览由工作对话卡片展示。'},
+        if (reference == null && goal.contains('附件'))
+          {'role': 'user', 'content': '本轮没有选中文件附件，请如实说明本轮用了哪些材料。'},
       ];
       final provider = await config.readChatProvider();
       final relay =

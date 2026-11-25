@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
 import 'dart:convert';
 import 'package:ai_companion_localfirst/core/agent/work_text_reference.dart';
 import 'dart:typed_data';
@@ -12,6 +14,57 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('requested HTML is verified after research, early finish or tool failure', () async {
+    for (final scenario in ['budget', 'early', 'already', 'no_source', 'save_error', 'advice']) {
+      final dir = await Directory.systemTemp.createTemp('work_html_');
+      addTearDown(() async { if (await dir.exists()) await dir.delete(recursive: true); });
+      final workspace = CommissionWorkspace(directory: dir);
+      var planning = 0, deliveries = 0;
+      final receipts = <Map<String, Object?>>[];
+      DeepSeekToolCall html() => DeepSeekToolCall(id: 'page', name: ResearchCommission.deliverHtml,
+        arguments: jsonEncode({'title': '切换文字', 'html': '<button onclick="this.textContent=2">1</button>'}));
+      final future = ResearchCommission.run(
+        goal: scenario == 'advice' ? '解释怎么做一个网页' : '先查可用资料，再做个点击切换文字的网页',
+        context: [], workspace: workspace, cancellation: GenerationCancellationToken(),
+        progress: (_, __) {}, onToolResult: receipts.add,
+        searchHistory: (_, __) async => {'matches': <Object>[]},
+        plan: (_) async {
+          planning++;
+          return (content: '已处理', reasoning: '', finishReason: 'stop', toolCalls: [
+            if (scenario == 'budget')
+              DeepSeekToolCall(id: 'h$planning', name: ResearchCommission.recall, arguments: '{"query":"测试"}'),
+            if (scenario == 'already' && planning == 1) html(),
+          ]);
+        },
+        finishHtml: (_) async {
+          deliveries++;
+          if (scenario == 'save_error') await dir.delete(recursive: true);
+          return (content: '已保存', reasoning: '', finishReason: 'stop',
+            toolCalls: [if (scenario != 'no_source') html()]);
+        },
+      );
+      if (scenario == 'no_source' || scenario == 'save_error') {
+        await expectLater(future, throwsA(isA<StateError>()));
+        expect(receipts.last.containsKey('error'), isTrue);
+        expect(receipts.any((r) => r.containsKey('artifact')), isFalse);
+        continue;
+      }
+      final result = await future;
+      if (scenario == 'advice') {
+        expect(deliveries, 0);
+        expect(await workspace.list(), isEmpty);
+        continue;
+      }
+      expect(deliveries, scenario == 'already' ? 0 : 1);
+      if (scenario == 'budget') expect(planning, 6);
+      final name = result['delivered_html'] as String;
+      expect(receipts.where((r) => r['artifact'] == name), hasLength(1));
+      final reopened = CommissionWorkspace(directory: dir);
+      expect(await reopened.list(), contains(name));
+      expect(await reopened.readHtml(name), contains('this.textContent'));
+    }
+  });
+
   test('freshness is per target and per turn, including history, timeout and budget exits', () async {
     for (final scenario in ['history', 'wrong', 'timeout', 'partial', 'both', 'budget', 'implicit', 'online', 'file']) {
       var turn = 0;
