@@ -69,13 +69,14 @@ void main() {
     expect(await File('${dir.path}/${result['screenshot']}').exists(),isTrue);
   });
 
-  test('two confirmed answers on a 35-question site survive a close failure, and another goal can finish on an intermediate page', () async {
+  test('partial answers, repeated respondent perspective and user handoff on a 35-question site survive a close failure', () async {
     final dir=await Directory.systemTemp.createTemp();
     addTearDown(()=>dir.delete(recursive:true));
     final workspace=CommissionWorkspace(directory:dir);
     const id='269254ed-86bc-4613-bffa-142a78ea5755';
     const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+i1JkAAAAASUVORK5CYII=';
     var answered=0, captures=0, closed=0;
+    final decisionPrompts=<String>[];
     final messenger=TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(CommissionWorkspace.channel,(call) async {
       switch(call.method){
@@ -95,7 +96,10 @@ void main() {
       final choices=<Map>[];
       final result=await WorkQuiz.run(uri:Uri.parse('https://example.org/quiz'),order:id,id:id,goal:goal,
         workspace:workspace,cancel:GenerationCancellationToken(),answers:choices,save:() async{},
-        ask:(_) async=>model,vision:(_) async=>'可读',progress:(_){},
+        ask:(messages) async {
+          decisionPrompts.add(messages.first['content'] as String);
+          return model;
+        },vision:(_) async=>'可读',progress:(_){},
         onPhoto:(receipt) async {
           expect(await WorkQuiz.image(workspace,receipt['screenshot'] as String,receipt['digest'] as String),isNotEmpty);
           expect(answered,expected);
@@ -111,8 +115,21 @@ void main() {
     expect(first['screenshot'],isNotNull);
     final next=await run('看看题目的形式，告诉我就可以了','{"finish":"已看到题型","capture":true}',expected:0);
     expect(next['summary'],'已看到题型');
-    expect(closed,2);
-    expect(captures,2);
+    decisionPrompts.clear();
+    final seven=await run('你给我做这个测试，答七题然后截图','{"id":0}',expected:7);
+    expect(seven['questions'],7);
+    expect(seven['position'],'第 8 / 35 题');
+    expect(decisionPrompts,hasLength(7));
+    for(final prompt in decisionPrompts){
+      expect(prompt,contains('你是受测者小鲸鱼'));
+      expect(prompt,contains('想象自己身处其中'));
+    }
+    decisionPrompts.clear();
+    final handoff=await run('给我挑个测试让我自己答','{"id":0}',expected:0);
+    expect(handoff['forUser'],isTrue);
+    expect(decisionPrompts,isEmpty);
+    expect(closed,4);
+    expect(captures,3);
   });
 
   test('thread merges preserve siblings, older imports, and concurrent saves', () async {

@@ -373,7 +373,7 @@ class CommissionSession {
           activity.finishTool(quizResult!);
           if(quizResult!['error'] is String) throw StateError(quizResult!['error'] as String);
           record['quizResult'] = quizResult;
-          catalog.add({'role':'user','content':'网页操作回执：${jsonEncode(quizResult)}。按实际操作汇报。forUser 为 true 时请给用户网页链接，由用户作答。'});
+          catalog.add({'role':'user','content':'网页操作回执：${jsonEncode(quizResult)}。按实际操作汇报。娱乐问卷中小鲸鱼已作答时，用第一人称说自己的选择；网站给出最终结果后再说“我测出来是……”。forUser 为 true 时请给用户网页链接，由用户作答。'});
           await save();
           onDetails?.call();
         } catch(e) {
