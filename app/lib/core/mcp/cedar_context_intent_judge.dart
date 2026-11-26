@@ -10,15 +10,14 @@ class CedarContextIntentJudge {
 
   final JevDecisionGateway gateway;
 
-  Future<bool> answersPuzzle({required String question, required String userText,
+  Future<bool?> answersPuzzle({required String question, required String userText,
       GenerationCancellationToken? cancellationToken}) async {
     final answer = await gateway.choose(
       state: {'question':question, 'user_reply':userText},
       instruction: 'Does this message answer this puzzle question, offer a clue, decline help, or tell her to think again? Changing subject and asking her to stop playing do not resume the puzzle.',
       options: const {'reply':'Answers or sends her back to investigate.', 'other':'Unrelated, unclear, or stops play.'},
       usageLane:'cedar_puzzle_reply', cancellationToken:cancellationToken);
-    if (answer != null) return answer == 'reply';
-    return RegExp(r'^(?:提示[：:，]|(?:这题的?)?(?:答案|谜底)(?:是|[：:，])|(?:你)?(?:再|先)?自己(?:想想|试试|继续))').hasMatch(userText.trim());
+    return answer == null ? null : answer == 'reply';
   }
 
   Future<bool> shouldOfferTools({

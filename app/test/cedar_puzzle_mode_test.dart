@@ -1,3 +1,13 @@
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_play_session_policy.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_timed_play_task.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
+import 'package:ai_companion_localfirst/core/mcp/mcp_http_client.dart';
+import 'package:ai_companion_localfirst/core/storage/secure_config.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -180,6 +190,138 @@ void main() {
               )
               as Map;
       expect(saved.toString(), contains('先留题'));
+    },
+  );
+  test(
+    'background planner sends private puzzle question without a game action',
+    () async {
+      const taskId = 'cedar-task:fixture';
+      FlutterSecureStorage.setMockInitialValues({});
+      await db.setSetting('cedar_toy_enabled', '1');
+      await db.setSetting('cedar_toy_autonomy_enabled', '1');
+
+      await store.recordGuide(
+        gameId: 'puzzle_box',
+        guide: '单人游戏。actions: start explore。',
+      );
+      final session = await store.recordPlay(
+        gameId: 'puzzle_box',
+        action: 'start',
+        outcome: McpToolOutcome(
+          isError: false,
+          content: const [
+            McpContentBlock(kind: McpContentKind.text, text: '游戏已开始'),
+          ],
+        ),
+        mode: CedarParticipationMode.solo,
+        nextActor: 'companion',
+        shareLevel: 'quiet',
+        invitationApproved: false,
+      );
+      final now = DateTime.now();
+      await store.save(
+        session.copyWith(
+          nextActionAt: now.subtract(const Duration(seconds: 1)),
+        ),
+      );
+
+      await db.setSetting(
+        CedarTimedPlayTaskStore.activeKey,
+        jsonEncode({
+          'id': taskId,
+          'gameId': session.gameId,
+          'sessionId': session.id,
+          'minutes': 30,
+          'startedAt': now.millisecondsSinceEpoch,
+          'usedMs': 0,
+        }),
+      );
+      await CedarPlaySessionStore(db).save(
+        CedarPlaySession(
+          gameId: 'puzzle_box',
+          startedAt: now,
+          lastTickAt: now,
+          taskId: taskId,
+          limitMs: 1800000,
+        ),
+      );
+      var calls = 0;
+      final ai = DeepSeekClient(
+        streamClientFactory: () => MockClient((request) async {
+          final body = jsonDecode(request.body) as Map;
+          final tools = body['tools'];
+          if (tools != null)
+            expect(jsonEncode(tools), contains('puzzle_pause_or_ask'));
+          final payload = jsonEncode({
+            'choices': [
+              tools == null
+                  ? {
+                      'delta': {'content': '我想确认这一处线索，你能给我一点提示吗？'},
+                      'finish_reason': 'stop',
+                    }
+                  : {
+                      'delta': {
+                        'tool_calls': [
+                          {
+                            'index': 0,
+                            'id': 'ask',
+                            'type': 'function',
+                            'function': {
+                              'name': 'puzzle_pause_or_ask',
+                              'arguments': jsonEncode({
+                                'choice': 'ask',
+                                'text': '我想确认这一处线索，你能给我一点提示吗？',
+                              }),
+                            },
+                          },
+                        ],
+                      },
+                      'finish_reason': 'tool_calls',
+                    },
+            ],
+          });
+          return http.Response(
+            'data: $payload\n\ndata: [DONE]\n\n',
+            200,
+            headers: {'content-type': 'text/event-stream; charset=utf-8'},
+          );
+        }),
+      );
+      addTearDown(ai.close);
+      final transport = MockClient((request) async {
+        calls++;
+        throw StateError('Puzzle help must not call the game');
+      });
+      final engine = CedarToyAutonomyEngine(
+        db: db,
+        ai: ai,
+        secureConfig: SecureConfig.instance,
+        tokenReader: () async => 'ctai_v1_test',
+        apiKeyReader: () async => 'test',
+        endpointReader: () async => DeepSeekClient.defaultEndpoint,
+        clientFactory: (token) => CedarToyClient(
+          token: token,
+          transport: McpHttpClient(
+            endpoint: Uri.parse('https://example.invalid/mcp'),
+            client: transport,
+          ),
+        ),
+      );
+      final progress = await engine.continueDue(now: now);
+      expect(progress.state, 'puzzle_ask');
+      expect(calls, 0);
+      final after = (await store.load())!;
+      expect(after.waitingReason, '等待你的提示');
+      expect(after.puzzle.questionId, isNotEmpty);
+      final sql = await db.database;
+      expect(
+        (await sql.query(
+          'messages',
+          where: 'id=?',
+          whereArgs: [after.puzzle.questionId],
+        )).single['content'],
+        contains('提示'),
+      );
     },
   );
 }

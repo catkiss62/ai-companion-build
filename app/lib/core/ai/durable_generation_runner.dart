@@ -541,8 +541,19 @@ class DurableGenerationRunner {
           (previous.any((message) => message.id == pendingPuzzle.puzzle.questionId) ||
               explicitCedarGameId == pendingPuzzle.gameId)) {
         try {
-          if (await CedarContextIntentJudge().answersPuzzle(question: pendingPuzzle.puzzle.note,
-              userText: user.content, cancellationToken: effectiveCancellation)) {
+          var answers = await CedarContextIntentJudge().answersPuzzle(question: pendingPuzzle.puzzle.note,
+              userText: user.content, cancellationToken: effectiveCancellation);
+          if (answers == null) {
+            final result = await client.jsonCompletion(apiKey: apiKey, endpoint: endpoint,
+                model: firstModel, thinking: false, maxTokens: 80,
+                requestTimeout: const Duration(seconds: 10), cancellationToken: effectiveCancellation,
+                usageLane: 'cedar_puzzle_reply_fallback', messages: [
+                  {'role': 'system', 'content': '只判断用户是否在回答这条解谜求助、提供提示或请她再想想；无关闲聊或叫停为 false。输出 JSON {"reply":true或false}。'},
+                  {'role': 'user', 'content': jsonEncode({'question':pendingPuzzle.puzzle.note,'reply':user.content})},
+                ]);
+            answers = result['reply'] == true;
+          }
+          if (answers) {
             answeredQuestion = pendingPuzzle.puzzle.questionId;
           }
         } on GenerationCancelledByUserException { rethrow; } catch (_) { /* Retry through the game window. */ }
