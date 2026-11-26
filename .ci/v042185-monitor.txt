@@ -1,7 +1,7 @@
 status=success
-run_id=45816855132
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45816855132
-head_sha=c6eebe52f15c145bac0a5b1edb122be529e38ecb
+run_id=45865019942
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45865019942
+head_sha=69aa4f0ecaa7b6e4bbe4cd2d19be018efef431d1
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-70f2c778d076e865de89916eb106dbbfc51c8241af6eb8693721ed09411ee4f3  AI-Companion-v0.42.250-494-Puzzle-Mode-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e24c4cca483acebfd6f2
+c4bb0772af5bf22cd2869a8ce04d0596c49835ca5882ed353c5ff2971d95184f  AI-Companion-v0.42.251-495-Arcade-Guide-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f375e40fa5a05228706d
