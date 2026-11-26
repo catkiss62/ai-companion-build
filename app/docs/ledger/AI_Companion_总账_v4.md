@@ -2,7 +2,7 @@
 
 ## 当前接班快照
 
-- **v0.42.250+494 / schema67 游戏厅第一批已实现；本地游戏厅回归通过，CI、签名和 Redmi 真机验证分开记录。** 文末「+494 游戏厅解谜模式」给出旧局复验入口。第二批工作模式七项和第三批 QQ 尚待实施。
+- **v0.42.250+494 / schema67 游戏厅第一批已实现，三项 CI 及签名 APK 通过，Redmi 旧局与求助待真机验证。** 文末「+494 游戏厅解谜模式」给出旧局复验入口。第二批工作模式七项和第三批 QQ 尚待实施。
 
 - +494 第一批开工：游戏厅解谜模式、按游戏纠正、旧局续玩、聊天求助和短段调查。工作模式与 QQ 待后续批次。
 
@@ -1803,3 +1803,5 @@ v0.42.246+490 / schema67 已实现。会话与选项编号修正后 Android 15 �
 - 首次交接校验识别出快照内机器可读版本号仍为 +493；已同步 +494，与源码及 pubspec 对齐。补充从后台 continueDue、模拟规划器、正文路由直到聊天入档的集成回归，确认问题落在本地，MCP 游戏调用数为零。求助回复仅在有已发问题时做语义判断，JEV 不可用时可沿第一通道判断简短谜底。
 
 - e96d650 的交接检查和原生测试通过。APK 的历史源码检查要求在窗口重复写“已暂停”字面量，统一状态文案后触发。检查已改为验证阶段枚举的中文值及列表和详情各自读取该值，补跑引用游戏厅的 41 项历史检查。游戏厅运行代码及本地 333 项测试结果沿用 e96d650，签名产物待远端确认。
+
+- 最终构建源码 c6eebe52f15c145bac0a5b1edb122be529e38ecb。游戏厅本地 333 项、涉及游戏厅的历史检查 41 项通过；远端 [系统逻辑](https://github.com/catkiss62/ai-companion-build/actions/runs/45816855173)、[交接文档](https://github.com/catkiss62/ai-companion-build/actions/runs/45816855195)、[完整 Flutter 测试、包名版本、签名和 APK 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/45816855132) 均通过。[APK 草稿发布页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e24c4cca483acebfd6f2)，[Actions 压缩包](https://github.com/catkiss62/ai-companion-build/actions/runs/45816855132/artifacts/15118700393)。APK SHA-256 为 70f2c778d076e865de89916eb106dbbfc51c8241af6eb8693721ed09411ee4f3。Redmi 待验证：覆盖安装后打开原盲盒存档，自主续玩、向主人求提示再续玩，真人操作回合仍等待。下一批从「+493 工作模式第二次复查」进入，随后处理 QQ 群漏回。
