@@ -81,7 +81,7 @@ class CommissionSession {
     var order = id;
     var effectiveGoal = goal;
     var started = DateTime.now().millisecondsSinceEpoch;
-    final priorReports = <Map>[];
+    final priorReports = <String,Map>{};
     String? candidateHtml;
     String? htmlDigest;
     final omitted = <String>{};
@@ -113,7 +113,7 @@ class CommissionSession {
         quizChoices.addAll((last['quizChoices'] as List? ?? []).whereType<Map>());
         if(last['quizResult'] is Map) {
           final cached = Map<String,Object?>.from(last['quizResult'] as Map);
-          if (WorkQuiz.photosAllowed(effectiveGoal) == false) {
+          if (!WorkQuiz.photosAllowed(effectiveGoal,finalResult:cached['error']==null)) {
             for (final field in ['photos','screenshot','digest']) { cached.remove(field); }
           }
           if (!WorkQuiz.forUser(effectiveGoal) || cached['forUser'] == true) quizResult = cached;
@@ -122,7 +122,8 @@ class CommissionSession {
         priorImage = last['image_reference'] as Map?;
         candidateHtml = last['htmlCandidate'] as String?;
         for (final result in (last['evidence'] as List? ?? []).whereType<Map>()) {
-          if (result['reportTarget'] is String) priorReports.add(result);
+          final reportName = result['reportTarget'];
+          if (reportName is String) priorReports[reportName] = result;
           if (last['htmlCandidate'] == null && result['artifact'] is String) candidateHtml = result['artifact'] as String;
         }
       }
@@ -219,7 +220,7 @@ class CommissionSession {
       if(quizResult!=null) 'quizResult':quizResult,
       if(htmlDigest!=null) 'htmlDigest':htmlDigest,
       'workModel': model.apiName, 'workEffort': effort.apiName,
-      if (priorReports.isNotEmpty) 'evidence':priorReports,
+      if (priorReports.isNotEmpty) 'evidence':priorReports.values.toList(),
       'orderId': order, 'orderGoal': effectiveGoal, 'orderStarted': started,
       'htmlExpected': htmlExpected || ResearchCommission.requestsHtml(effectiveGoal),
       if (candidateHtml != null) 'htmlCandidate': candidateHtml,
@@ -407,7 +408,7 @@ class CommissionSession {
               : await ResearchCommission.run(
               goal: effectiveGoal,
               host: host,
-              priorReports:priorReports,
+              priorReports:priorReports.values.toList(),
               expectedHtml: record['htmlExpected'] == true,
               candidateHtml: candidateHtml,
               expectedDigest:htmlDigest,
@@ -466,7 +467,12 @@ class CommissionSession {
                 reportStep(s);
               },
               checkpoint: (items) async {
-                record['evidence'] = items;
+                final checked = items.map((item)=>item['reportTarget']).whereType<String>().toSet();
+                record['evidence'] = [
+                  for (final prior in priorReports.entries)
+                    if (!checked.contains(prior.key)) prior.value,
+                  ...items,
+                ];
                 await save();
               },
             );

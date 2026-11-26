@@ -310,6 +310,7 @@ class ResearchCommission {
         for (final prior in priorReports) {
           final name = prior['reportTarget'];
           if (name is! String || !name.startsWith('报告-') || !CommissionWorkspace.names.hasMatch(name)) continue;
+          onToolStart?.call('workspace_read',name);
           if (prior['saved'] == name && prior['reportDigest'] is String &&
               (await workspace.list()).contains(name) && CreativeContract.hash(await workspace.read(name)) == prior['reportDigest']) {
             savedReports.add(name);

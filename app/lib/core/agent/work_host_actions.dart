@@ -241,11 +241,16 @@ class WorkHostActions {
     if (matches.length == 1 &&
         (target == null || target == matches.single['title']))
       return matches.single['id'] as String;
-    final generic =
-        goal.isEmpty ||
-        RegExp(
-          r'^(?:(?:请|帮我|把|将|请把|请将|我|你|的|一下|刚才|刚刚|刚设|刚设好|上次|最近|最新|最后|上一个|那个|这个|那条|上一条|这条|最后一个|设置|建立|提醒|闹钟|取消|删除|关闭|撤销|掉|了|修改|调整|推迟|提前|改到|改成|到|为|明天|后天|今天|上午|下午|晚上|早上|点|时|分|半|[零一二三四五六七八九十两0-9:：，,。！!\s]))+$',
-        ).hasMatch(goal);
+    final subject = goal
+        .split(RegExp(r'改到|改成|改为|推迟到|提前到'))
+        .first
+        .replaceAll(
+          RegExp(r'请|帮我|把|将|取消|撤销|删除|关闭|提醒|闹钟|设置|建立|修改|调整|一下|掉|了|[。！!\s]'),
+          '',
+        );
+    final generic = RegExp(
+      r'^(?:刚才|刚刚|刚设好?|上次|最近|最新|最后)?(?:的)?(?:上一个|最后一个|那个|这个|那条|上一条|这条)?(?:的)?$',
+    ).hasMatch(subject);
     if (matches.isNotEmpty || target != null || !generic) {
       throw const FormatException('未能唯一确定本会话中点名的提醒，请核对原提醒标题');
     }
@@ -272,7 +277,17 @@ class WorkHostActions {
     final raw = await db.getSetting(calendarKey) ?? '';
     final entries = raw.isEmpty ? <dynamic>[] : jsonDecode(raw) as List;
     final clauses = action == 'remind' ? _creationClauses : const <String>[];
-    final multiple = clauses.length > 1;
+    final declared = action == 'remind'
+        ? RegExp(
+            r'([1-9]\d?|[一二两三四五六七八九十])(?:个|条|项)(?:不同的)?提醒',
+          ).firstMatch(goal)?.group(1)
+        : null;
+    final explicitCount = declared == null
+        ? null
+        : int.tryParse(declared) ??
+              '零一二三四五六七八九十'.indexOf(declared.replaceAll('两', '二'));
+    final count = explicitCount ?? clauses.toSet().length;
+    final multiple = count > 1;
     final text = args['text'] is String
         ? (args['text'] as String).trim()
         : null;
@@ -337,9 +352,13 @@ class WorkHostActions {
         if (title is! String || title.isEmpty || title.length > 120)
           throw const FormatException('提醒需要简短标题');
         if (multiple &&
-            (items.length >= clauses.length ||
-                clauses.where((p) => p.contains(title)).length <=
-                    items.where((i) => i['entry']?['title'] == title).length)) {
+            (items.length >= count ||
+                !goal.contains(title) ||
+                explicitCount == null &&
+                    clauses.where((p) => p.contains(title)).length <=
+                        items
+                            .where((i) => i['entry']?['title'] == title)
+                            .length)) {
           throw const FormatException('请逐条使用原任务中的提醒标题与时间');
         }
         entry = {
@@ -375,7 +394,7 @@ class WorkHostActions {
     }
     if (!await CalendarReminderStore(db).sync())
       throw const FormatException('事项已保存，系统响铃安排尚未核实');
-    if (!multiple || items.length >= clauses.length) confirmed.add(action);
+    if (!multiple || items.length >= count) confirmed.add(action);
     return {
       'action': action,
       'id': id,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ai_companion_localfirst/core/agent/work_turn_details.dart';
 import 'dart:io';
 import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
 import 'package:ai_companion_localfirst/core/agent/workspace_archive.dart';
@@ -216,6 +217,7 @@ void main() {
       );
       expect(captures, 0);
       expect(WorkQuiz.photosAllowed('不需要每题截图，最后结果截图'), true);
+      expect(WorkQuiz.photosAllowed('不需要每题截图', finalResult: true), true);
     },
   );
 
@@ -227,17 +229,25 @@ void main() {
       await ws.write('报告-原文.md', original);
       final failed = <Map<String, Object?>>[];
       var round = 0;
-      Future<Map> run(List<Map> prior, List<DeepSeekToolCall> ops) =>
-          ResearchCommission.run(
-            goal: '修改报告并保存',
-            context: [],
-            workspace: ws,
-            priorReports: prior,
-            cancellation: GenerationCancellationToken(),
-            progress: (_, __) {},
-            onToolResult: failed.add,
-            plan: (_) async => plan(round < ops.length ? ops[round++] : null),
-          );
+      Future<Map> run(List<Map> prior, List<DeepSeekToolCall> ops) {
+        final activity = WorkTurnDetails();
+        return ResearchCommission.run(
+          goal: '修改报告并保存',
+          context: [],
+          workspace: ws,
+          priorReports: prior,
+          cancellation: GenerationCancellationToken(),
+          progress: (_, __) {},
+          onToolStart: activity.beginTool,
+          onToolResult: (result) {
+            expect(activity.receipts.last['state'], 'pending');
+            activity.finishTool(result);
+            failed.add(result);
+          },
+          plan: (_) async => plan(round < ops.length ? ops[round++] : null),
+        );
+      }
+
       final read = call('workspace_read', {'name': '报告-原文.md'});
       final bad = call('workspace_save', {
         'kind': '报告',

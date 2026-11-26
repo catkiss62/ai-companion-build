@@ -17,10 +17,11 @@ class WorkQuiz {
       '遇到没有亲身经历过的情境，想象自己身处其中，选择最像自己的反应。'
       '前面已确认的答案都是你自己的选择，后续题目继续用同一视角。';
   static const example = 'https://zodiacgalore.com/quizzes/which-element/';
-  static bool photosAllowed(String goal) {
+  static bool photosAllowed(String goal, {bool finalResult = false}) {
     var allowed = true;
     final decisions = RegExp(r'(?:不要|不用|无需|不必|别|不需要|禁止|不发|不附)(?:给我|再|发送|发|附上|保存|提供|任何|结果|页面|附|的|一张|每题|每道题)*截(?:图|屏)|只(?:要|看|需|需要|给我|告诉我|发给我|发)?(?:文字|文本)(?:结果|回复|汇报)?|(?:最后|最终|结果页?|完成后)(?:请|再|要|发|给我|附上)*截(?:图|屏)');
     for (final match in decisions.allMatches(goal)) {
+      if (finalResult && RegExp(r'每题|每道题').hasMatch(match[0]!)) continue;
       allowed = RegExp(r'^(?:最后|最终|结果|完成后)').hasMatch(match[0]!);
     }
     return allowed;
@@ -134,7 +135,7 @@ class WorkQuiz {
         if(forUser(goal)) return {'url':uri.toString(),'page':uri.toString(),'forUser':true,
           'title':title ?? state['question'],'display':'已为你打开网页'};
         if(title is String && title.isNotEmpty && i>0) {
-          if(!photosAllowed(goal)) return {'url':uri.toString(),'title':title,
+          if(!photosAllowed(goal,finalResult:true)) return {'url':uri.toString(),'title':title,
             'summary':state['summary'],'questions':i,'display':'已取得网页结果'};
           progress('正在截取网页结果');
           final png = await call('workQuizCapture',{'title':title});
@@ -275,7 +276,7 @@ class WorkQuiz {
         }
         if(title!=null && title.isNotEmpty){
           progress('正在保存网页结果');
-          if(!allowPhotos) return {'url':uri.toString(),'page':page,'title':title,
+          if(!photosAllowed(goal,finalResult:true)) return {'url':uri.toString(),'page':page,'title':title,
             'summary':state['summary'],'questions':questions.length,'answers':confirmed,'display':'已取得网页结果'};
           final list=jsonDecode(await call('workPageResult')) as List;
           if(list.isEmpty) throw const FormatException('网页没有返回结果图');
