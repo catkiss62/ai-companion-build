@@ -2,7 +2,7 @@
 
 ## 当前接班快照
 
-- **v0.42.252+496 / schema67，第三批工作模式九项已实现。** 本地工作模式与委托回归见文末「+496 第三批工作模式」。构建与 Redmi 真机状态分别登记。后续入口为「+494 之后的修改批次」中的第四批 QQ。
+- **v0.42.252+496 / schema67，第三批工作模式九项已实现，三项 CI 和签名 APK 均已通过。** 源码 0755181；本地回归、签名、下载入口见文末「+496 第三批工作模式」。Redmi 真机待验。后续入口为「+494 之后的修改批次」中的第四批 QQ。
 
 - 第三批工作模式九项开工，基线 43a4330。按文末批次清单复现、修改和复验。
 
@@ -1869,3 +1869,8 @@ v0.42.246+490 / schema67 已实现。会话与选项编号修正后 Android 15 �
 - 验证。使用临时 SQLite、工作目录、模拟网页、HTTP 和 Android 通道，覆盖同一委托的重试及两条提醒、点名与撤回、限定和默认来源、自己答与代答、文字与图片、题数与正式结果、报告失败续交、HTML 外部编辑和同名备份重复导入。工作模式与委托测试共 48 项通过，其中新增 6 个组合回归用例。局部测试不代表真实网页、设备系统铃声或 Redmi 已验证。构建结果另记。
 
 补充复核：把报告恢复测试接到实际的 WorkTurnDetails 后，第一次重验报 Bad state: No element。原因是恢复报告时写回执前未建立工具活动。修正为先开启文件核验活动；记录多个待核验报告时，中途保存也保留尚未检查的项目。新增同一用例覆盖每个结果都有对应的 pending 活动。仅禁止每题截图时继续保留正式结果图；明确列出提醒数量的委托按指定项数验收。首次本地运行总账入口校验遇到稀疏工作树缺少 AI_START_HERE.md，交接 CI 在完整检出上执行。16e50c3 为首次实现，安装包以本次补充修正之后的构建为准。
+
+
+最终验收：源码 0755181ee5303a501154134732060d64015b2d0a。最终本地工作模式和委托回归 48/48。另以模拟模型流从 CommissionSession 正常入口执行长报告文件写入和跨轮续做：首次拒绝截断后持久化为 interrupted，原文保留；「继续任务」沿用同一 orderId，重新读原文并局部修改后才记为 completed，工具记录没有悬空 pending，模拟请求未开放 GitHub 检索。该附加端到端用例 1/1 通过。
+
+[交接校验](https://github.com/catkiss62/ai-companion-build/actions/runs/45877513420)、[系统逻辑检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45877513367)、[Android 构建](https://github.com/catkiss62/ai-companion-build/actions/runs/45877513353) 均通过。核对产物关联提交及上传回执：[签名 APK 草稿页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1b407d805aebb5db0053)，[备用 Actions 产物](https://github.com/catkiss62/ai-companion-build/actions/runs/45877513353/artifacts/15147257310)。APK SHA-256 为 d1e72060d390c1521644514449b0558e5558168274dd848d67bfb3cb844e703b，签名证书与 +495 一致（30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48）。本批尚无 Redmi 真机反馈。游戏厅继续自然观察，下一项为第四批 QQ 漏回。
