@@ -17,6 +17,24 @@ class WorkQuiz {
       '遇到没有亲身经历过的情境，想象自己身处其中，选择最像自己的反应。'
       '前面已确认的答案都是你自己的选择，后续题目继续用同一视角。';
   static const example = 'https://zodiacgalore.com/quizzes/which-element/';
+  static bool photosAllowed(String goal) {
+    var allowed = true;
+    final decisions = RegExp(r'(?:不要|不用|无需|不必|别|不需要|禁止|不发|不附)(?:给我|再|发送|发|附上|保存|提供|任何|结果|页面|附|的|一张|每题|每道题)*截(?:图|屏)|只(?:要|看|需|需要|给我|告诉我|发给我|发)?(?:文字|文本)(?:结果|回复|汇报)?|(?:最后|最终|结果页?|完成后)(?:请|再|要|发|给我|附上)*截(?:图|屏)');
+    for (final match in decisions.allMatches(goal)) {
+      allowed = RegExp(r'^(?:最后|最终|结果|完成后)').hasMatch(match[0]!);
+    }
+    return allowed;
+  }
+
+  static bool forUser(String goal) {
+    var pick = RegExp(r'推荐|给我挑|帮我找|给我找|(?:找|挑|选).{0,16}给我(?:做|答|填)').hasMatch(goal);
+    final role = RegExp(r'(?:不要|不用|别|无需)(?:你)?(?:替我|帮我|代我|代替我|代)(?:作答|做|答|填)|(?:让我|我|给我)(?:亲自|自己|来)(?:作答|做|答|填)|让我(?:作答|做|答|填)|(?:你(?:自己|来)|替我|帮我|不用我|别让我)(?:作答|做|答|填)');
+    for (final match in role.allMatches(goal)) {
+      pick = !RegExp(r'^(?:你|替我|帮我|不用我|别让我)').hasMatch(match[0]!);
+    }
+    return pick;
+  }
+
   static Uri? requested(String text) {
     if (RegExp(r'先讨论|能否实现|举例|能不能做这个功能').hasMatch(text)) return null;
     final link = RegExp(r"""https?://[A-Za-z0-9./_?&=%#~+!$:@*-]+""").firstMatch(text)?.group(0);
@@ -113,7 +131,11 @@ class WorkQuiz {
       for (var i=0; i<=20; i++) {
         cancel.throwIfCancelled();
         final title = state['title'];
+        if(forUser(goal)) return {'url':uri.toString(),'page':uri.toString(),'forUser':true,
+          'title':title ?? state['question'],'display':'已为你打开网页'};
         if(title is String && title.isNotEmpty && i>0) {
+          if(!photosAllowed(goal)) return {'url':uri.toString(),'title':title,
+            'summary':state['summary'],'questions':i,'display':'已取得网页结果'};
           progress('正在截取网页结果');
           final png = await call('workQuizCapture',{'title':title});
           final digest = sha256.convert(base64Decode(png)).toString();
@@ -176,8 +198,8 @@ class WorkQuiz {
         !RegExp(r'(?:不要|不用|别|不必|无需).{0,3}(?:答完|做完|填完|完成)').hasMatch(goal);
     final wantsPhoto = RegExp(r'截图|截.{0,4}屏|截.{0,3}图|拍一张').hasMatch(goal);
     final explore = uri.host == 'zodiacgalore.com';
-    final pick = RegExp(r'我(?:自己|来)(?:做|答|填)|让我(?:自己|来)?(?:做|答|填)|给我(?:自己|来)(?:做|答|填)|(?:找|挑|选|推荐).{0,16}给我(?:做|答|填)|推荐|给我挑|帮我找|给我找').hasMatch(goal) &&
-        !RegExp(r'看你(?:自己)?(?:做|答)|你自己|你来答|你来做|替我答|帮我答').hasMatch(goal);
+    final pick = forUser(goal);
+    final allowPhotos = photosAllowed(goal);
     final perspective = pick ? '小鲸鱼负责挑选网页，用户是受测者，由用户亲自作答。' : _quizPerspective;
     final spread = RegExp(r'三张|三牌|牌阵|过去.{0,4}现在|感情|事业|学业').hasMatch(goal);
     final clock = Stopwatch()..start();
@@ -212,7 +234,7 @@ class WorkQuiz {
     Future<Map<String,Object?>> stopped(String why) async {
       final reason = '已确认作答 ${questions.length} 题${location.isEmpty ? "" : "，停在$location"}。$why';
       String? captureError;
-      if(savedPhotos.isEmpty && !RegExp(r'quiz_busy|page_busy').hasMatch(why)) {
+      if(allowPhotos && savedPhotos.isEmpty && !RegExp(r'quiz_busy|page_busy').hasMatch(why)) {
         try {await photo(await call('workPageFrame'),'截图-${const Uuid().v5(order,"stopped")}.png');}
         catch(e){cancel.throwIfCancelled();captureError=e.toString();}
       }
@@ -221,7 +243,7 @@ class WorkQuiz {
         if(savedPhotos.isNotEmpty)...savedPhotos.first,if(savedPhotos.isNotEmpty)'photos':savedPhotos};
     }
     Future<void> capture(String key) async {
-      if(lastCaptureKey==key && savedPhotos.isNotEmpty)return;
+      if(!allowPhotos || lastCaptureKey==key && savedPhotos.isNotEmpty)return;
       progress('正在保存当前页面截图');
       final suffix=const Uuid().v5(order,'frame-${savedPhotos.length}');
       await photo(await call('workPageFrame'),'截图-$suffix.png');
@@ -247,13 +269,14 @@ class WorkQuiz {
         final page=uri.resolve(state['page'] as String? ?? '').toString();
         final controls=(state['controls'] as List? ?? []).whereType<Map>().toList();
         final title=state['title'] as String?;
-        if(limit!=null && questions.length>=limit) return await finish(state,'已按要求作答 ${questions.length} 题');
         if(state['wall']==true) return await stopped('网页要求打开其他应用');
         if(pick && (q.isNotEmpty || title!=null && title.isNotEmpty)){
           return {'url':uri.toString(),'page':page,'title':title ?? q,'display':'已找到可由你作答的网页','forUser':true};
         }
         if(title!=null && title.isNotEmpty){
           progress('正在保存网页结果');
+          if(!allowPhotos) return {'url':uri.toString(),'page':page,'title':title,
+            'summary':state['summary'],'questions':questions.length,'answers':confirmed,'display':'已取得网页结果'};
           final list=jsonDecode(await call('workPageResult')) as List;
           if(list.isEmpty) throw const FormatException('网页没有返回结果图');
           final photos=<Map<String,Object?>>[];
@@ -263,6 +286,7 @@ class WorkQuiz {
           return {'url':uri.toString(),'page':page,'title':title,'summary':state['summary'],
             'questions':questions.length,'answers':confirmed,...photos.first,'photos':savedPhotos,'display':'已保存网页结果'};
         }
+        if(limit!=null && questions.length>=limit) return await finish(state,'已按要求作答 ${questions.length} 题');
         // When the user asked for a test to take themselves, enforce that
         // boundary in the host even if the model proposes an answer.
         if(pick && Uri.parse(page).path.contains('/quizzes/') && Uri.parse(page).pathSegments.where((s)=>s.isNotEmpty).length>=2 &&
@@ -321,7 +345,7 @@ class WorkQuiz {
           if(summary is String && summary.trim().isNotEmpty && (!completeQuiz || questions.isNotEmpty && q.isEmpty) && (limit==null || questions.length>=limit)) {
             return await finish(state,summary,screenshot:action['capture']==true);
           }
-          if(action['capture']==true){
+          if(action['capture']==true && allowPhotos){
             await capture(key);
             continue;
           }

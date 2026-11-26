@@ -1,0 +1,366 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
+import 'package:ai_companion_localfirst/core/agent/workspace_archive.dart';
+import 'package:ai_companion_localfirst/core/agent/work_quiz.dart';
+import 'package:ai_companion_localfirst/core/agent/work_host_actions.dart';
+import 'package:ai_companion_localfirst/core/agent/research_commission.dart';
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
+import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
+import 'package:ai_companion_localfirst/core/database/app_database.dart';
+import 'package:ai_companion_localfirst/core/phone/calendar_reminder_store.dart';
+import 'package:ai_companion_localfirst/core/creative/creative_contract.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  sqfliteFfiInit();
+  const id = '269254ed-86bc-4613-bffa-142a78ea5755';
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  void mock(Future<dynamic> Function(MethodCall) fn) {
+    messenger.setMockMethodCallHandler(CommissionWorkspace.channel, fn);
+    addTearDown(
+      () =>
+          messenger.setMockMethodCallHandler(CommissionWorkspace.channel, null),
+    );
+  }
+
+  Future<CommissionWorkspace> workspace() async {
+    final dir = await Directory.systemTemp.createTemp('work496_');
+    addTearDown(() => dir.delete(recursive: true));
+    return CommissionWorkspace(directory: dir);
+  }
+
+  DeepSeekToolCall call(String name, Map args) =>
+      DeepSeekToolCall(id: 't', name: name, arguments: jsonEncode(args));
+  ResearchPlan plan([DeepSeekToolCall? c]) => (
+    content: '交付',
+    reasoning: '',
+    finishReason: 'stop',
+    toolCalls: [if (c != null) c],
+  );
+
+  test(
+    'compound reminders survive partial resume; named changes stay scoped',
+    () async {
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      addTearDown(db.closeForTesting);
+      mock((c) async => true);
+      WorkHostActions host(String order, String goal) => WorkHostActions(
+        db,
+        order,
+        'thread',
+        WorkHostActions.requested(goal),
+        GenerationCancellationToken(),
+        goal: goal,
+      );
+      const goal = '明天九点提醒我喝水，十点提醒我取快递';
+      final day = DateTime.now()
+          .add(const Duration(days: 2))
+          .toIso8601String()
+          .substring(0, 10);
+      final drink = {
+        'action': 'remind',
+        'text': '喝水',
+        'local_time': '${day}T09:00',
+      };
+      final parcel = {
+        'action': 'remind',
+        'text': '取快递',
+        'local_time': '${day}T10:00',
+      };
+      final one = host('one', goal);
+      await one.execute(drink);
+      expect(one.confirmed, isEmpty);
+      final resumed = host('one', goal);
+      await resumed.verifyExisting();
+      expect(resumed.confirmed, isEmpty);
+      expect((await resumed.execute(drink))['reused'], true);
+      await expectLater(
+        resumed.execute({...drink, 'local_time': '${day}T09:15'}),
+        throwsFormatException,
+      );
+      await resumed.execute(parcel);
+      expect(resumed.confirmed, {'remind'});
+      expect(await host('one', goal).verifyExisting(), hasLength(2));
+      expect(WorkHostActions.requested('取消喝水提醒，等等，别取消了'), isEmpty);
+      await expectLater(
+        host('two', '取消喝水提醒').execute({'action': 'cancel', 'target': '取快递'}),
+        throwsFormatException,
+      );
+      await expectLater(
+        host('two', '取消跑步提醒').execute({'action': 'cancel'}),
+        throwsFormatException,
+      );
+      await host(
+        'two',
+        '把喝水提醒改到明天十一点',
+      ).execute({'action': 'reschedule', 'local_time': '${day}T11:00'});
+      await host(
+        'three',
+        '取消喝水提醒',
+      ).execute({'action': 'cancel', 'target': '喝水'});
+      expect((await CalendarReminderStore(db).load()).single.title, '取快递');
+    },
+  );
+
+  test(
+    'offline rejects actual retrieval, ordinary research still sends',
+    () async {
+      for (final offline in [true, false]) {
+        var httpCalls = 0, rounds = 0;
+        final transport = MockClient((req) async {
+          httpCalls++;
+          return http.Response('{"items":[]}', 200);
+        });
+        await ResearchCommission.run(
+          goal: offline ? '只根据附件整理，不要联网' : '搜开源项目',
+          context: [],
+          transport: transport,
+          cancellation: GenerationCancellationToken(),
+          progress: (_, __) {},
+          plan: (_) async => plan(
+            rounds++ == 0
+                ? call(ResearchCommission.search, {'query': 'demo'})
+                : null,
+          ),
+        );
+        expect(httpCalls, offline ? 0 : 1);
+      }
+    },
+  );
+
+  test(
+    'zero clicks for self-answer, exact limit retains official result, default and text-only captures',
+    () async {
+      final ws = await workspace();
+      const png =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+i1JkAAAAASUVORK5CYII=';
+      var clicks = 0, captures = 0, wall = false;
+      mock((c) async {
+        switch (c.method) {
+          case 'workPageOpen':
+          case 'workPageRead':
+            return jsonEncode(
+              clicks == 1
+                  ? {'key': 'r', 'title': '正式结果', 'summary': '官网摘要'}
+                  : {
+                      'key': 'q',
+                      'wall': wall,
+                      'question': '第一题',
+                      'controls': [
+                        {'kind': 'button', 'name': 'A'},
+                      ],
+                    },
+            );
+          case 'workPageAct':
+            clicks++;
+            return 'ok';
+          case 'workPageResult':
+            captures++;
+            return jsonEncode([png]);
+          case 'workPageFrame':
+            captures++;
+            return png;
+          case 'workQuizClose':
+            return null;
+          default:
+            throw StateError(c.method);
+        }
+      });
+      Future<Map> run(String goal, {String decision = '{"id":0}'}) =>
+          WorkQuiz.run(
+            uri: Uri.parse('https://example.org/quiz'),
+            order: id,
+            id: id,
+            goal: goal,
+            workspace: ws,
+            cancel: GenerationCancellationToken(),
+            answers: [],
+            save: () async {},
+            ask: (_) async => decision,
+            vision: (_) async => '',
+            progress: (_) {},
+          );
+      final handoff = await run('找个测试让我自己答，别替我答');
+      expect(handoff['forUser'], true);
+      expect(clicks, 0);
+      expect(WorkQuiz.forUser('不用我答，你自己做'), false);
+      for (final allowed in [false, true]) {
+        clicks = 0;
+        captures = 0;
+        final result = await run(allowed ? '你来答一道题' : '你来答一道题，只告诉我文字结果');
+        expect(result['title'], '正式结果');
+        expect(result['summary'], '官网摘要');
+        expect(clicks, 1);
+        expect(captures, allowed ? 1 : 0);
+        expect(result.containsKey('photos'), allowed);
+      }
+      clicks = 0;
+      captures = 0;
+      wall = true;
+      expect((await run('不要截图 做测试'))['error'], isNotNull);
+      expect(captures, 0);
+      wall = false;
+      expect(
+        (await run(
+          '只要文字结果',
+          decision: '{"finish":"已完成","capture":true}',
+        ))['photos'],
+        isNull,
+      );
+      expect(captures, 0);
+      expect(WorkQuiz.photosAllowed('不需要每题截图，最后结果截图'), true);
+    },
+  );
+
+  test(
+    'report write failure remains pending until a verified write succeeds',
+    () async {
+      final ws = await workspace();
+      final original = '甲' * 16001;
+      await ws.write('报告-原文.md', original);
+      final failed = <Map<String, Object?>>[];
+      var round = 0;
+      Future<Map> run(List<Map> prior, List<DeepSeekToolCall> ops) =>
+          ResearchCommission.run(
+            goal: '修改报告并保存',
+            context: [],
+            workspace: ws,
+            priorReports: prior,
+            cancellation: GenerationCancellationToken(),
+            progress: (_, __) {},
+            onToolResult: failed.add,
+            plan: (_) async => plan(round < ops.length ? ops[round++] : null),
+          );
+      final read = call('workspace_read', {'name': '报告-原文.md'});
+      final bad = call('workspace_save', {
+        'kind': '报告',
+        'title': '原文',
+        'body': '截断',
+      });
+      await expectLater(run([], [read, bad]), throwsStateError);
+      expect(await ws.read('报告-原文.md'), original);
+      final prior = failed.where((r) => r['reportTarget'] != null).toList();
+      failed.clear();
+      round = 0;
+      await run(prior, [
+        read,
+        call('workspace_save', {
+          'kind': '报告',
+          'title': '原文',
+          'body': '乙',
+          'old_text': original,
+        }),
+      ]);
+      expect(await ws.read('报告-原文.md'), '乙');
+      final saved = failed.where((r) => r['saved'] != null).toList();
+      round = 0;
+      await run(saved, []);
+    },
+  );
+
+  test(
+    'external HTML edit survives resume and subsequent verified reuse',
+    () async {
+      final ws = await workspace();
+      final candidate = await ws.savePage('原作', '<b>旧</b>', null);
+      await ws.write(candidate, '手动修改');
+      final events = <String?>[];
+      var rounds = 0;
+      final result = await ResearchCommission.run(
+        goal: '做个网页',
+        context: [],
+        workspace: ws,
+        candidateHtml: candidate,
+        expectedDigest: CreativeContract.hash('<b>旧</b>'),
+        onHtmlCandidate: (n) async => events.add(n),
+        plan: (_) async => plan(
+          rounds++ == 0
+              ? call(ResearchCommission.deliverHtml, {
+                  'title': '原作',
+                  'html': '<b>新</b>',
+                })
+              : null,
+        ),
+        cancellation: GenerationCancellationToken(),
+        progress: (_, __) {},
+      );
+      final copy = result['delivered_html'] as String;
+      expect(events.first, isNull);
+      expect(copy, isNot(candidate));
+      expect(await ws.read(candidate), '手动修改');
+      final page = await ws.readHtml(copy);
+      final resumed = await ResearchCommission.run(
+        goal: '做个网页',
+        context: [],
+        workspace: ws,
+        candidateHtml: copy,
+        expectedDigest: CreativeContract.hash(page),
+        plan: (_) async => plan(),
+        cancellation: GenerationCancellationToken(),
+        progress: (_, __) {},
+      );
+      expect(resumed['delivered_html'], copy);
+    },
+  );
+
+  test(
+    'archive merge remaps incoming cards only and repeated import reuses files',
+    () async {
+      final source = await workspace(), target = await workspace();
+      const paths = MethodChannel('plugins.flutter.io/path_provider');
+      messenger.setMockMethodCallHandler(
+        paths,
+        (_) async => source.directory!.path,
+      );
+      addTearDown(() => messenger.setMockMethodCallHandler(paths, null));
+      final zip = File('${source.directory!.path}/copy.zip');
+      mock((c) async {
+        if (c.method == 'saveCollectedStickerZip') {
+          await File(c.arguments['sourcePath'] as String).copy(zip.path);
+          return {'verified': true};
+        }
+        if (c.method == 'openPlainBackup') return {'filePath': zip.path};
+        throw StateError(c.method);
+      });
+      const page = '<i>源作品</i>';
+      final name = await source.savePage('同名', page, null);
+      await target.savePage('同名', '<b>本机</b>', null);
+      final card = {'artifact': name, 'digest': CreativeContract.hash(page)};
+      await source.mergeTurns('会话-$id.json', [
+        {
+          'id': id,
+          'threadId': id,
+          'goal': name,
+          'htmlCandidate': name,
+          'receipts': [card],
+          'evidence': [card],
+        },
+      ]);
+      for (var i = 0; i < 2; i++) {
+        await WorkspaceArchive.export(source);
+        await WorkspaceArchive.import(target);
+        final row = (await target.conversation('会话-$id.json')).single;
+        final actual = row['receipts'].first['artifact'] as String;
+        expect(row['goal'], name);
+        expect(row['htmlCandidate'], actual);
+        expect(row['evidence'].first['artifact'], actual);
+        expect(
+          await target.readHtml(actual, expectedDigest: card['digest']),
+          page,
+        );
+        expect(await target.readHtml(name), '<b>本机</b>');
+        expect(
+          (await target.list()).where((n) => n.endsWith('.html')),
+          hasLength(2),
+        );
+      }
+    },
+  );
+}

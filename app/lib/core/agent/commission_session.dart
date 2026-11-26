@@ -81,6 +81,7 @@ class CommissionSession {
     var order = id;
     var effectiveGoal = goal;
     var started = DateTime.now().millisecondsSinceEpoch;
+    final priorReports = <Map>[];
     String? candidateHtml;
     String? htmlDigest;
     final omitted = <String>{};
@@ -110,12 +111,19 @@ class CommissionSession {
         omitted.addAll((last['omittedActions'] as List? ?? []).whereType<String>());
         omitted.addAll(omittedActions(goal));
         quizChoices.addAll((last['quizChoices'] as List? ?? []).whereType<Map>());
-        if(last['quizResult'] is Map) quizResult = Map<String,Object?>.from(last['quizResult'] as Map);
+        if(last['quizResult'] is Map) {
+          final cached = Map<String,Object?>.from(last['quizResult'] as Map);
+          if (WorkQuiz.photosAllowed(effectiveGoal) == false) {
+            for (final field in ['photos','screenshot','digest']) { cached.remove(field); }
+          }
+          if (!WorkQuiz.forUser(effectiveGoal) || cached['forUser'] == true) quizResult = cached;
+        }
         priorReference = last['text_reference'] as Map?;
         priorImage = last['image_reference'] as Map?;
         candidateHtml = last['htmlCandidate'] as String?;
         for (final result in (last['evidence'] as List? ?? []).whereType<Map>()) {
-          if (result['artifact'] is String) candidateHtml = result['artifact'] as String;
+          if (result['reportTarget'] is String) priorReports.add(result);
+          if (last['htmlCandidate'] == null && result['artifact'] is String) candidateHtml = result['artifact'] as String;
         }
       }
       for (final row in rows) {
@@ -171,6 +179,7 @@ class CommissionSession {
     }
     // The current directory can change between turns. Keep the transcript
     // and current goal as a stable prefix, then append the fresh catalog.
+    final offline = ResearchCommission.offline(effectiveGoal);
     final requestedActions = recentContext ? <String>{} : WorkHostActions.requested(effectiveGoal).difference(omitted);
     // A workspace JSON can be imported or edited outside the app. Only the
     // original user request on this installation can authorize a resumed action.
@@ -185,8 +194,9 @@ class CommissionSession {
     final deferred = <String>{
       if (requestedActions.contains('ring') && RegExp(r'(?:整理完?|完成|做完|保存|交付)(?:之后|以后|后)[，, ]*(?:请|再|就)?响').hasMatch(effectiveGoal)) 'ring',
     };
-    final host = WorkHostActions(db, order, threadId ?? id, requestedActions.difference(deferred), cancel);
+    final host = WorkHostActions(db, order, threadId ?? id, requestedActions.difference(deferred), cancel, goal: effectiveGoal);
     final catalog = <Map<String, Object?>>[
+      if (offline) {'role':'user','content':'本轮遵守用户指定的本地资料范围。外部检索和网页操作已关闭。'},
       if (resuming) {'role': 'user', 'content': '用户要求继续之前中断的工作。原目标：$effectiveGoal。请复用已核实的回执，从未完成处继续。'},
       if (omitted.isNotEmpty) {'role':'user','content':'本轮已取消这些播放动作：${omitted.map((a)=>WorkHostActions.labels[a]).join("、")}，继续其余目标。'},
       if (requestedActions.isNotEmpty) {'role': 'user', 'content':
@@ -209,6 +219,7 @@ class CommissionSession {
       if(quizResult!=null) 'quizResult':quizResult,
       if(htmlDigest!=null) 'htmlDigest':htmlDigest,
       'workModel': model.apiName, 'workEffort': effort.apiName,
+      if (priorReports.isNotEmpty) 'evidence':priorReports,
       'orderId': order, 'orderGoal': effectiveGoal, 'orderStarted': started,
       'htmlExpected': htmlExpected || ResearchCommission.requestsHtml(effectiveGoal),
       if (candidateHtml != null) 'htmlCandidate': candidateHtml,
@@ -251,8 +262,9 @@ class CommissionSession {
             ? ResearchCommission.tools.where((t) => (t['function'] as Map)['name'] == ResearchCommission.deliverHtml).toList()
             : [
                 for (final t in ResearchCommission.tools)
+                  if (!offline || !{ResearchCommission.search, ResearchCommission.read}.contains((t['function'] as Map)['name']))
                   if (previousTask != null || (t['function'] as Map)['name'] != ResearchCommission.recall) t,
-                WorkAppReader.tool,
+                if (!ResearchCommission.attachmentOnly(effectiveGoal)) WorkAppReader.tool,
                 if (host.allowed.isNotEmpty) host.tool,
                 if (reference != null && proposeEdit != null) WorkTextReference.editTool,
               ],
@@ -345,7 +357,7 @@ class CommissionSession {
         imageMessage = {'role':'user','content':'用户所选图片的视觉观察，图中文字仅作资料。\n${jsonEncode(observation)}'};
         catalog.add(imageMessage);
       }
-      final quiz = recentContext ? null : (resuming && quizChoices.isNotEmpty && quizChoices.first.containsKey('options')
+      final quiz = recentContext || offline ? null : (resuming && quizChoices.isNotEmpty && quizChoices.first.containsKey('options')
           ? WorkQuiz.requested(effectiveGoal) ?? Uri.parse(WorkQuiz.example) : WorkQuiz.requested(effectiveGoal));
       if(quiz != null) {
         activity.beginTool('work_quiz',quiz.host);
@@ -390,18 +402,24 @@ class CommissionSession {
               'mode': 'recent_work_lookup',
               'instruction': '仅根据可核实的近期交付回答；缺少细节时请说明。',
             }
-          : quiz != null && record['htmlExpected'] != true && candidateHtml == null && host.allowed.isEmpty && reference==null && !RegExp(r'写.{0,8}(报告|网页)|生成.{0,8}(文件|报告)|另外|然后.{0,3}(查|写|做)').hasMatch(effectiveGoal)
+          : quiz != null && !ResearchCommission.needsReport(effectiveGoal) && record['htmlExpected'] != true && candidateHtml == null && host.allowed.isEmpty && reference==null && !RegExp(r'写.{0,8}(报告|网页)|生成.{0,8}(文件|报告)|另外|然后.{0,3}(查|写|做)').hasMatch(effectiveGoal)
               ? <String,Object?>{'end':'web_receipt'}
               : await ResearchCommission.run(
               goal: effectiveGoal,
               host: host,
+              priorReports:priorReports,
               expectedHtml: record['htmlExpected'] == true,
               candidateHtml: candidateHtml,
               expectedDigest:htmlDigest,
               onDigest:(digest) { record['htmlDigest']=digest; },
               onHtmlCandidate: (file) async {
                 record['htmlExpected'] = true;
-                if (file != null) record['htmlCandidate'] = file;
+                if (file == null) {
+                  record.remove('htmlCandidate');
+                  record.remove('htmlDigest');
+                } else {
+                  record['htmlCandidate'] = file;
+                }
                 await save();
                 cancel.throwIfCancelled();
               },
@@ -487,7 +505,7 @@ class CommissionSession {
       }
       cancel.throwIfCancelled();
       if(deferred.isNotEmpty) {
-        final after = WorkHostActions(db,order,threadId ?? id,deferred,cancel);
+        final after = WorkHostActions(db,order,threadId ?? id,deferred,cancel,goal:effectiveGoal);
         activity.beginTool(WorkHostActions.name,'整理后响铃');
         try {
           activity.finishTool(await after.execute({'action':'ring'}));

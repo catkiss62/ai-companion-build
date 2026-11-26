@@ -106,9 +106,27 @@ class CommissionWorkspace {
     final digest = CreativeContract.hash(page);
     final encoded = '<!-- work-sha256:$digest -->\n$page';
     if (utf8.encode(encoded).length > maxBytes) throw const FormatException('文件过大');
+    return _createHtml(base, encoded, checkpoint, digest:digest);
+  }
+
+  Future<String> importHtml(String name, String encoded) async {
+    validate(name);
+    final legacy = RegExp(r'^作品-([a-f0-9]{64})\.html$').firstMatch(name);
+    // Legacy files use the filename as their signature. A renamed copy needs
+    // an embedded signature to remain verifiable after export and re-import.
+    final legacyDigest = legacy != null && CreativeContract.hash(encoded) == legacy[1] ? legacy[1] : null;
+    return _createHtml(name.substring(0,name.length-5),encoded,null,legacyDigest:legacyDigest);
+  }
+
+  Future<String> _createHtml(String base,String original,Future<void> Function(String?)? checkpoint,
+      {String? digest,String? legacyDigest}) async {
     final existing = (await list()).toSet();
     for (var i = 1; ; i++) {
-      final name = i == 1 ? '$base.html' : '$base（$i）.html';
+      final suffix = i == 1 ? '' : '（$i）';
+      final stem = base.substring(0,base.length.clamp(0,78-suffix.length));
+      final name = '$stem$suffix.html';
+      final encoded = i > 1 && legacyDigest != null ? '<!-- work-sha256:$legacyDigest -->\n$original' : original;
+      if (utf8.encode(encoded).length > maxBytes) throw const FormatException('文件过大');
       validate(name);
       if (existing.contains(name)) {
         if (await read(name) == encoded) { await checkpoint?.call(name); return name; }
@@ -124,7 +142,7 @@ class CommissionWorkspace {
         on FileSystemException { if (!await file.exists()) rethrow; existing.add(name); continue; }
         try { await file.writeAsString(encoded, flush:true); } catch (_) { await file.delete(); rethrow; }
       }
-      await readHtml(name, expectedDigest:digest);
+      if (digest != null) await readHtml(name, expectedDigest:digest);
       return name;
     }
   }
@@ -134,6 +152,7 @@ class CommissionWorkspace {
         final current = (await list()).contains(name) ? await read(name) : null;
         if (current != expected) throw const FormatException('文档已变化，请重新读取后修改');
         await _write(name, content);
+        if (await read(name) != content) throw const FormatException('报告或技能写入后校验失败');
       });
 
   Future<void> write(String name, String content) => name.endsWith('.md')

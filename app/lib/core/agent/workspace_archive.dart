@@ -87,11 +87,33 @@ class WorkspaceArchive {
           }
           final existing = (await workspace.list()).toSet();
           var count = 0;
-          for (final name in names) {
+          final renamed = <String,String>{};
+          // Install artifacts first even if a transcript is first in the ZIP.
+          for (final name in names.where((n)=>n.endsWith('.html'))) {
+            final raw = await File('${staged.path}/$name').readAsString();
+            final installed = await workspace.importHtml(name,raw);
+            if (installed != name) renamed[name] = installed;
+            count++;
+          }
+          for (final name in names.where((n)=>!n.endsWith('.html'))) {
             final source = File('${staged.path}/$name');
-            if (name.startsWith('会话-')) {
+            if (name.endsWith('.json')) {
               final turns = CommissionWorkspace.decodeRecords(name, await source.readAsString());
-              await workspace.mergeTurns(name, turns, keepExisting: true);
+              for (final row in turns) {
+                for (final field in ['htmlCandidate','delivered_html']) {
+                  if (renamed.containsKey(row[field])) row[field] = renamed[row[field]];
+                }
+                for (final field in ['receipts','evidence']) {
+                  for (final item in (row[field] as List? ?? []).whereType<Map>()) {
+                    if (renamed.containsKey(item['artifact'])) item['artifact'] = renamed[item['artifact']];
+                  }
+                }
+              }
+              if (name.startsWith('会话-')) {
+                await workspace.mergeTurns(name, turns, keepExisting: true);
+              } else if (!existing.contains(name)) {
+                await workspace.write(name,jsonEncode(turns.single));
+              }
             } else {
               if (existing.contains(name)) continue;
               final body = name.endsWith('.png') ? base64Encode(await source.readAsBytes()) : await source.readAsString();
