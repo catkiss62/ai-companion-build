@@ -25,27 +25,117 @@ class CedarPuzzleState {
   static CedarParticipationMode effective(
     String game,
     String preference,
-    CedarParticipationMode inferred,
-  ) {
+    CedarParticipationMode inferred, {
+    bool revised = false,
+  }) {
     if (preference != 'auto' && preferences.contains(preference))
       return CedarParticipationMode.fromKey(preference);
-    return knownGames.contains(game) ? CedarParticipationMode.puzzle : inferred;
+    return !revised && knownGames.contains(game)
+        ? CedarParticipationMode.puzzle
+        : inferred;
+  }
+
+  static CedarParticipationMode declaredMode(String guide) {
+    // Prefer an explicit guide header; leave ambiguous prose to the normal planner.
+    final heading = guide.split(RegExp(r'[。；;\n]')).first.trim();
+    if (RegExp(
+      r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?(?:(?:独立|单人)(?:推理)?解谜|解谜模式)',
+    ).hasMatch(heading))
+      return CedarParticipationMode.puzzle;
+    if (RegExp(r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?单人(?:游戏)?$').hasMatch(heading))
+      return CedarParticipationMode.solo;
+    return CedarParticipationMode.unknown;
+  }
+
+  static final _revealName = RegExp(
+    r'^(?:(?:show|view|read|get|reveal|peek|unlock)[_-]?(?:the[_-])?(?:answer|solution|walkthrough|truth)|solution|walkthrough|spoiler|human_guide|answer_key|查看答案|标准谜底|查看攻略)(?:$|[_ -])',
+  );
+  static final _revealDescription = RegExp(
+    r'(?:查看|显示|揭晓|揭示|公开|揭开|阅读|直接给出|展示)(?:本题|本案|游戏|最终|完整|全部|标准|正确|真正|的|所有|本关|官方|此题|该题|这道题){0,5}(?:答案|解答|谜底|真相|攻略)|(?:仅供人类|仅供主人)(?:查看|阅读)的?(?:攻略|解答)|(?:show|display|read|reveal|view|unlock)\s+(?:(?:the|full|complete|correct|final|official)\s+)*(?:solution|answer\s*key|walkthrough|answer\b|truth\b)',
+    caseSensitive: false,
+  );
+  static bool _describesReveal(String text) {
+    if (RegExp(
+      r'^(?:提交|验证|核对)(?:玩家|自己|你的|所填|猜测|推理|推测|答案)|^(?:submit|check|verify)\s+(?:(?:your|a|the player.s)\s+)?(?:guess|answer)',
+      caseSensitive: false,
+    ).hasMatch(text.trimLeft()))
+      return false;
+    for (final match in _revealDescription.allMatches(text)) {
+      final prefix = text.substring(0, match.start);
+      if (!RegExp(
+        r'(?:不(?:会|能|可)?|禁止|无法|不要|without|never|not)\s*$',
+        caseSensitive: false,
+      ).hasMatch(prefix))
+        return true;
+    }
+    return false;
   }
 
   static bool revealsSolution(
     CedarParticipationMode mode,
     String action,
-    Map<String, Object?> params,
-  ) {
-    if (mode != CedarParticipationMode.puzzle) return false;
-    final command =
-        (action == 'cmd' ? params['command']?.toString() ?? '' : action)
-            .toLowerCase()
-            .trim()
-            .replaceAll(RegExp(r'\s+'), '_');
-    return RegExp(
-      r'^(?:(?:show|view|read|get|reveal|peek)[_-]?(?:the[_-])?(?:answer|solution|walkthrough)|solution|walkthrough|spoiler|human_guide|answer_key|查看答案|标准谜底|查看攻略)(?:$|[_ -])',
-    ).hasMatch(command);
+    Map<String, Object?> params, {
+    String guide = '',
+  }) {
+    if (mode != CedarParticipationMode.puzzle &&
+        mode != CedarParticipationMode.unknown)
+      return false;
+    final raw = (action == 'cmd' ? params['command']?.toString() ?? '' : action)
+        .trim();
+    if (raw.isEmpty) return false;
+    if (_revealName.hasMatch(raw.toLowerCase().replaceAll(RegExp(r'\s+'), '_')))
+      return true;
+    final command = raw.split(RegExp(r'\s+')).first;
+    final label = RegExp.escape(command);
+    // Match an action entry, not examples or an answer supplied by the player.
+    final entry = RegExp(
+      '(?:^|[；;。，,、|])\\s*(?:[-*]\\s*)?[\x60"\']?' +
+          label +
+          '(?![a-z0-9_-])[\x60"\']?\\s*(?:\\([^()\\n]{0,100}\\))?\\s*[:：=|—–-]?\\s*([^；;。，,、|\\n]{1,140})',
+      caseSensitive: false,
+    );
+    bool structured(Object? node) {
+      if (node is List) return node.any(structured);
+      if (node is! Map) return false;
+      bool described(Object? value) {
+        if (value is String) return _describesReveal(value);
+        if (value is! Map) return false;
+        return [
+          'description',
+          'desc',
+          'summary',
+          'label',
+          'title',
+          '说明',
+          '描述',
+        ].any(
+          (k) => value[k] is String && _describesReveal(value[k] as String),
+        );
+      }
+
+      if (described(node[command])) return true;
+      if (['name', 'id', 'action', 'command'].any((k) => node[k] == command) &&
+          described(node))
+        return true;
+      return node.values.any((v) => (v is Map || v is List) && structured(v));
+    }
+
+    for (final line in const LineSplitter().convert(guide)) {
+      final clean = line.trim();
+      if (clean.startsWith('{') || clean.startsWith('[')) {
+        try {
+          if (structured(jsonDecode(clean))) return true;
+          continue;
+        } on FormatException {
+          /* mixed text */
+        }
+      }
+      if (entry
+          .allMatches(clean.replaceAll('**', ''))
+          .any((m) => _describesReveal(m.group(1)!)))
+        return true;
+    }
+    return false;
   }
 
   Map<String, Object?> toJson() => {
@@ -124,6 +214,7 @@ extension CedarPuzzleControls on CedarToyActivityStore {
         session.gameId,
         selection,
         inferred,
+        revised: session.useRevisedGuide,
       );
       final actor = previous.serverTurn.isNotEmpty
           ? previous.serverTurn
@@ -206,7 +297,8 @@ extension CedarPuzzleControls on CedarToyActivityStore {
         return false;
       final state = await CedarToyActivityStore.readStateInTransaction(txn);
       final session = state.activeSession;
-      if (state.execution?.id != executionId || session == null ||
+      if (state.execution?.id != executionId ||
+          session == null ||
           session.id != shown.id ||
           session.mode != CedarParticipationMode.puzzle ||
           !session.companionCanContinue ||

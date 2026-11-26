@@ -79,7 +79,8 @@ require(
 require(
     "lib/features/chat/cedar_toy_activity_window.dart",
     "游戏活动（",
-    "当前选中：",
+    "正在玩：",
+    "正在查看：",
     "item.phase.label",
     "session.phase.label",
     "查看中",

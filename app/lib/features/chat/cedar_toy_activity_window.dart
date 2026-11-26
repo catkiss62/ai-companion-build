@@ -347,8 +347,9 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
               subtitle: Text(
                 state.activeSession == null
                     ? '当前已暂离；可从旧存档恢复'
-                    : '当前选中：${state.activeSession!.displayName}',
-                maxLines: 1,
+                    : state.activeGameId == session.gameId ? '正在玩：${session.displayName}'
+                    : '正在玩：${state.activeSession!.displayName} · 正在查看：${session.displayName}',
+                maxLines: state.activeGameId == session.gameId ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
               ),
               children: [
@@ -435,7 +436,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
           trailing: DropdownButton<String>(
             value: session.puzzle.preference,
             items: [
-              for (final item in {'auto':'自动（${session.mode.label}）','solo':'她自己玩','co_play':'一起玩','puzzle':'解谜模式'}.entries)
+              for (final item in {'auto':session.puzzle.preference == 'auto' ? '自动（${session.mode.label}）' : '自动判断','solo':'她自己玩','co_play':'一起玩','puzzle':'解谜模式'}.entries)
                 DropdownMenuItem(value:item.key, child:Text(item.value)),
             ],
             onChanged: state?.execution != null ? null : (value) { if (value != null) _changePlayMode(session, value); },
@@ -444,7 +445,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('当前进度'),
-          subtitle: Text(session.phase == CedarActivityPhase.waitingUser && session.puzzle.questionId.isNotEmpty
+          subtitle: Text(!session.guideComplete ? '等待重新取得完整游戏指南' : session.phase == CedarActivityPhase.waitingUser && session.puzzle.questionId.isNotEmpty
               ? '等待你的提示' : session.waitingReason.isNotEmpty ? session.waitingReason :
               session.mode == CedarParticipationMode.puzzle && session.phase == CedarActivityPhase.active ? '正在解谜' : session.phase.label),
           trailing: state?.activeGameId == session.gameId && session.canRecheckTurn

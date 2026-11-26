@@ -248,6 +248,8 @@ class CedarGameSession {
     required this.phase,
     required this.updatedAt,
     this.gameTitle = '',
+    this.guideCheckedAt,
+    this.useRevisedGuide = false,
     this.puzzle = const CedarPuzzleState(),
     this.lastAction = '',
     this.lastOutcome = '',
@@ -277,6 +279,15 @@ class CedarGameSession {
   final String gameTitle;
   final String guide;
   final bool guideComplete;
+  final DateTime? guideCheckedAt;
+  final bool useRevisedGuide;
+  bool guideNeedsRefresh(DateTime now) {
+    final checked = (guideCheckedAt ?? updatedAt).toLocal();
+    final today = now.toLocal();
+    return !guideComplete || DateTime(checked.year, checked.month, checked.day)
+        .isBefore(DateTime(today.year, today.month, today.day));
+  }
+
   final CedarParticipationMode mode;
   final CedarPuzzleState puzzle;
   final CedarActivityPhase phase;
@@ -341,7 +352,10 @@ class CedarGameSession {
         hasContinuationCall: hasContinuationCall,
         nextActor: nextActor,
       );
-  bool get needsContinuation => companionCanContinue || companionCanObserve;
+  bool get needsGuideRetry => !guideComplete && guideCheckedAt != null &&
+      (phase == CedarActivityPhase.active || phase == CedarActivityPhase.guideReady ||
+       phase == CedarActivityPhase.waitingRemote || hasContinuationCall && phase == CedarActivityPhase.waitingUser);
+  bool get needsContinuation => companionCanContinue || companionCanObserve || needsGuideRetry;
   bool get isParkedUnresolvedWrite => phase==CedarActivityPhase.paused && pauseSource=='blocked_unresolved_write';
   bool get canRevisitAfterBudget => phase==CedarActivityPhase.paused &&
     const {'budget_complete', 'solo_variety'}.contains(pauseSource) &&
@@ -381,6 +395,8 @@ class CedarGameSession {
     String? gameTitle,
     String? guide,
     bool? guideComplete,
+    DateTime? guideCheckedAt,
+    bool? useRevisedGuide,
     CedarParticipationMode? mode,
     CedarPuzzleState? puzzle,
     CedarActivityPhase? phase,
@@ -417,6 +433,8 @@ class CedarGameSession {
         gameTitle: gameTitle ?? this.gameTitle,
         guide: guide ?? this.guide,
         guideComplete: guideComplete ?? this.guideComplete,
+        guideCheckedAt: guideCheckedAt ?? this.guideCheckedAt,
+        useRevisedGuide: useRevisedGuide ?? this.useRevisedGuide,
         mode: mode ?? this.mode,
         puzzle: puzzle ?? this.puzzle,
         phase: phase ?? this.phase,
@@ -463,6 +481,8 @@ class CedarGameSession {
         'game_title': gameTitle,
         'guide': guide,
         'guide_complete': guideComplete,
+        if (useRevisedGuide) 'use_revised_guide': true,
+        if (guideCheckedAt != null) 'guide_checked_at': guideCheckedAt!.millisecondsSinceEpoch,
         'mode': mode.key,
         if (!puzzle.empty) 'puzzle_play': puzzle.toJson(),
         'phase': phase.key,
@@ -498,6 +518,8 @@ class CedarGameSession {
       gameTitle: json['game_title']?.toString() ?? '',
       guide: json['guide']?.toString() ?? '',
       guideComplete: json['guide_complete'] == true,
+      useRevisedGuide: json['use_revised_guide'] == true,
+      guideCheckedAt: DateTime.fromMillisecondsSinceEpoch(((json['guide_checked_at'] ?? json['updated_at']) as num?)?.toInt() ?? 0),
       mode: CedarParticipationMode.fromKey(json['mode']?.toString()),
       puzzle: CedarPuzzleState.fromJson(json['puzzle_play']),
       phase: CedarActivityPhase.fromKey(json['phase']?.toString()),
@@ -825,6 +847,7 @@ class CedarToyActivityStore {
   static const sessionSettingKey = 'cedar_toy_activity_session_v1';
   static const stateSettingKey = 'cedar_toy_activity_state_v2';
   static const catalogSettingKey = 'cedar_toy_catalog_v1';
+  static String guideRevisionKey(String gameId) => 'cedar_guide_revision_$gameId';
   static const catalogUpdatedAtKey = 'cedar_toy_catalog_updated_at_v1';
   static const playProtocolSettingKey = 'cedar_toy_play_protocol_v2';
   static const realtimeDiagnosticsSettingKey =
@@ -1185,7 +1208,7 @@ class CedarToyActivityStore {
       kind: complete ? 'guide' : 'guide_too_long',
       summary: complete
           ? '已取得完整真实指南，可以按指南盲玩。'
-          : '指南已取得，但超过当前完整判断容量，已停止而没有截断盲玩。',
+          : '当前玩家指南为空或超出完整判断容量，需要重新取得可用指南。',
       createdAt: now,
     );
     final resolvedTitle = catalogTitle.isNotEmpty
@@ -1196,6 +1219,7 @@ class CedarToyActivityStore {
     // Refreshing a guide is metadata, not a new game transition. Preserve an
     // existing room's actor, next_call, messages, aliases and pause state; the
     // previous implementation silently reset all of them to guideReady.
+    final changed = existing != null && existing.guide != clean && complete;
     final session = existing == null
         ? CedarGameSession(
             id: 'cedar-${now.microsecondsSinceEpoch}',
@@ -1203,6 +1227,7 @@ class CedarToyActivityStore {
             gameTitle: resolvedTitle,
             guide: clean.length <= maxStoredTextChars ? clean : '',
             guideComplete: complete,
+            guideCheckedAt: now,
             mode: CedarPuzzleState.effective(gameId, preference, CedarParticipationMode.unknown),
             puzzle: CedarPuzzleState(preference: preference),
             phase: complete
@@ -1215,7 +1240,11 @@ class CedarToyActivityStore {
         : existing.copyWith(
             gameTitle: resolvedTitle,
             guide: complete ? clean : existing.guide,
-            guideComplete: complete ? true : existing.guideComplete,
+            guideComplete: complete,
+            guideCheckedAt: now,
+            useRevisedGuide: changed || existing.useRevisedGuide,
+            mode: changed ? CedarPuzzleState.effective(gameId, existing.puzzle.preference,
+                CedarPuzzleState.declaredMode(clean), revised: true) : existing.mode,
             phase: existing.phase == CedarActivityPhase.completed ||
                     existing.phase == CedarActivityPhase.failed
                 ? (complete
@@ -1224,7 +1253,7 @@ class CedarToyActivityStore {
                 : existing.phase,
             updatedAt: now,
             events: _append(existing.events, event),
-            nextActionAt: existing.phase == CedarActivityPhase.completed ||
+            nextActionAt: !complete ? now.add(const Duration(minutes: 30)) : existing.phase == CedarActivityPhase.completed ||
                     existing.phase == CedarActivityPhase.failed
                 ? (complete ? now : null)
                 : existing.nextActionAt,
@@ -1244,6 +1273,7 @@ class CedarToyActivityStore {
       updatedAt: now,
     );
     final saved = await _saveState(state, executionId: executionId,workFence:workFence,attemptFence:attemptFence,requireIdle:executionId.isEmpty, extra: {
+      if (existing == null || changed || existing.guideComplete != complete) guideRevisionKey(gameId): _uuid.v4(),
       if (previousActiveGameId != gameId || existing?.phase == CedarActivityPhase.completed ||
           existing?.phase == CedarActivityPhase.failed) controlRevisionKey: _uuid.v4(),
     });
@@ -1251,6 +1281,25 @@ class CedarToyActivityStore {
       throw const CedarExecutionPreemptedException('guide_fenced');
     }
     return session;
+  }
+
+  Future<bool> discardPuzzleContinuation(CedarGameSession shown, String executionId, DateTime now) async {
+    final state = await loadState();
+    final session = state.activeSession;
+    if (session == null || session.id != shown.id || state.execution?.id != executionId ||
+        session.continuationAction != shown.continuationAction ||
+        session.continuationParamsJson != shown.continuationParamsJson) return false;
+    final human = const {'user', 'shared'}.contains(session.puzzle.serverTurn) ||
+        session.puzzle.questionId.isNotEmpty;
+    final remote = session.puzzle.serverTurn == 'wait';
+    final next = session.copyWith(clearContinuation: true,
+      nextActor: human ? (session.puzzle.serverTurn == 'shared' ? 'shared' : 'user') : remote ? 'wait' : 'companion',
+      phase: human ? CedarActivityPhase.waitingUser : remote ? CedarActivityPhase.waitingRemote : CedarActivityPhase.active,
+      waitingReason: human ? '等待你参与下一步' : remote ? '正在核对游戏回合' : '继续调查其他线索',
+      clearNextActionAt: human, nextActionAt: human ? null : now.add(const Duration(minutes: 2)),
+      updatedAt: now);
+    return _saveState(state.copyWith(sessions: {...state.sessions, session.gameId: next},
+        updatedAt: now), executionId: executionId);
   }
 
   Future<CedarQueuedSwitch> queueSwitch({
@@ -1679,7 +1728,7 @@ class CedarToyActivityStore {
           ? latest.message
           : '${latest.author}：${latest.message}';
     }
-    mode = CedarPuzzleState.effective(gameId, existing.puzzle.preference, mode);
+    mode = CedarPuzzleState.effective(gameId, existing.puzzle.preference, mode, revised: existing.useRevisedGuide);
     final explicitTurn = McpTurnStateResolver.resolveStructured(outcome.structuredContent) ??
         outcome.content.where((block) => block.kind == McpContentKind.text).map((block) => McpTurnStateResolver.resolve(block.text)).nonNulls.firstOrNull;
     if (mode.playsAlone && explicitTurn == null && const {'user', 'shared'}.contains(nextActor)) nextActor = 'companion';
@@ -2081,7 +2130,10 @@ class CedarToyActivityStore {
             phase: CedarActivityPhase.paused, pauseSource: 'changed_game',
             waitingReason: '切换到另一游戏，远端进度保留', updatedAt: now, clearNextActionAt: true);
         }
-        sessions[targetId] = resuming ? resumedSession(target, now) : target.copyWith(
+        sessions[targetId] = resuming ? resumedSession(target, now).copyWith(
+          guideCheckedAt: switching && state.activeGameId.isNotEmpty || target.pauseSource == 'changed_game'
+              ? DateTime.fromMillisecondsSinceEpoch(0) : target.guideCheckedAt,
+        ) : target.copyWith(
           phase: CedarActivityPhase.paused, pauseSource: source,
           waitingReason: operation == 'switch_off' ? '游戏厅开关已关闭，远端存档保留' : '已在本机暂停，进度仍由远端存档保存',
           updatedAt: now, clearNextActionAt: true);
@@ -2545,7 +2597,7 @@ ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
     final sessions = Map<String, CedarGameSession>.from(state.sessions);
     for (final entry in state.sessions.entries) {
       var session = entry.value;
-      if (CedarPuzzleState.knownGames.contains(session.gameId) &&
+      if (!session.useRevisedGuide && CedarPuzzleState.knownGames.contains(session.gameId) &&
           session.puzzle.preference == 'auto' && session.mode != CedarParticipationMode.puzzle) {
         session = session.copyWith(mode: CedarParticipationMode.puzzle);
         sessions[entry.key] = session;

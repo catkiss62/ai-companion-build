@@ -537,6 +537,7 @@ class AgentToolRunner {
         expectedSettings:{...original.expectedSettings,CedarToyActivityStore.userControlRevisionKey:revision});
     }
     return db.extendBrainWorkFence(source,settingKeys:[CedarToyActivityStore.userControlRevisionKey,
+      CedarToyActivityStore.guideRevisionKey(gameId),
       'cedar_toy_enabled','cedar_toy_autonomy_enabled']);
   }
 
@@ -706,7 +707,7 @@ class AgentToolRunner {
     final client = await _cedarToyClient();
     if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyGetGuide.id);
     final outcome = await client.getGuide(game, cancellationToken: cancellationToken);
-    if (!outcome.isError && outcome.text.trim().isNotEmpty) {
+    if (!outcome.isError) {
       final playerGuide = CedarToyClient.playerSafeGuideOutcome(outcome);
       final session = await activityStore.recordGuide(
         gameId: game,
@@ -717,8 +718,8 @@ class AgentToolRunner {
         return const AgentToolResult(
           toolId: 'cedar_toy.get_guide',
           status: AgentToolStatus.blocked,
-          displayText: '指南过长，已安全停止',
-          promptData: '远端指南超过 120000 字完整判断容量；本次没有截断盲玩，也没有调用 play。',
+          displayText: '未取得可完整读取的玩家指南',
+          promptData: '玩家指南为空或超出完整判断容量，请重新读取当前游戏的指南再继续。',
           errorCode: 'cedar_guide_too_long',
         );
       }
@@ -775,8 +776,12 @@ class AgentToolRunner {
     final activityStore = CedarToyActivityStore(db);
     final persisted = await activityStore.loadSession(game);
     final list = _cedarGameListsByScope[scope] ?? await activityStore.loadCatalog();
-    final guide = _cedarGuidesByScopeAndGame['$scope|$game'] ??
-        (persisted?.guideComplete == true ? persisted!.guide : '');
+    if (persisted != null && persisted.guideNeedsRefresh(DateTime.now())) {
+      return const AgentToolResult(toolId: 'cedar_toy.play', status: AgentToolStatus.blocked,
+          displayText: '需要重新核对这款游戏的指南', promptData: '请调用 get_guide 取得这个游戏当前的玩家指南后继续原任务。',
+          errorCode: 'cedar_guide_refresh_required', continuationRecommended: true);
+    }
+    final guide = persisted?.guide ?? _cedarGuidesByScopeAndGame['$scope|$game'] ?? '';
     final serverContinuation = persisted?.gameId == game &&
         CedarServerContinuationPolicy.authorizesExactAction(
           action: action,
@@ -825,7 +830,7 @@ class AgentToolRunner {
         toolId: 'cedar_toy.play',
         status: AgentToolStatus.blocked,
         displayText: '尚未可靠判断游戏参与方式',
-        promptData: 'Cedar Toy 没有执行游玩；必须先根据完整真实指南判断 solo/co_play/multiplayer/hybrid。',
+        promptData: 'Cedar Toy 没有执行游玩；必须先根据完整真实指南判断 solo/co_play/multiplayer/hybrid/puzzle。',
         errorCode: 'cedar_participation_mode_unknown',
         continuationRecommended: true,
       );
@@ -869,15 +874,15 @@ class AgentToolRunner {
         continuationRecommended: true,
       );
     }
-    if (CedarPuzzleState.revealsSolution(mode, action, params)) {
-      return const AgentToolResult(toolId:'cedar_toy.play', status: AgentToolStatus.blocked,
-        displayText:'人类攻略留给主人查看', promptData:'选择玩家调查、提交自己的推断或向主人求助。');
-    }
     params = CedarExecutableCallPolicy.hydrateTransportParams(
       planned: params,
       continuationParamsJson: persisted?.continuationParamsJson ?? '',
       lastOutcome: persisted?.lastOutcome ?? '',
     );
+    if (CedarPuzzleState.revealsSolution(mode, action, params, guide: guide)) {
+      return const AgentToolResult(toolId:'cedar_toy.play', status: AgentToolStatus.blocked,
+        displayText:'人类攻略留给主人查看', promptData:'选择玩家调查、提交自己的推断或向主人求助。', continuationRecommended:true);
+    }
     if (CedarSaveSlotPolicy.isOverwriteConfirmation(
           guide: guide,
           params: params,

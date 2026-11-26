@@ -58,6 +58,7 @@ void main() {
     downloads=MockClient((_)async=>http.Response.bytes(png,200,headers:{'content-type':'image/png'}));
     await store.save(CedarGameSession(id:'session-150',gameId:'duel',guide:'多人游戏。state 查询；move 落子。',guideComplete:true,
       mode:CedarParticipationMode.multiplayer,phase:CedarActivityPhase.waitingUser,updatedAt:clock,
+      guideCheckedAt:DateTime.now(),
       nextActor:'wait',invitationApproved:true,nextActionAt:clock.subtract(const Duration(seconds:1)),
       continuationAction:'state',continuationParamsJson:jsonEncode({'room_id':'ROOM150','wait':true}),continuationWaitScope:'current_request_only'));
   });

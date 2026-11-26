@@ -248,7 +248,7 @@ class CedarAgentActionPlanner {
           contextSections: contextSections,
           correction: attempt == 1
               ? ''
-              : '上一方案未形成可执行调用（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
+              : '上一方案未形成可执行调用（可能为空、缺少必填参数、重复只读查询、动作不在指南、会直接揭底或游戏 ID 错误）。'
                   '不要解释，不要重复已有查询；现在调用一次 cedar_toy_play，选择指南允许且能补齐缺失事实或推进目标的调用，并补全全部必填参数。$problem',
           puzzleChoices: puzzleChoices,
           thinking: attempt == 1,
@@ -1122,6 +1122,11 @@ class CedarToyAutonomyEngine {
         now:now,
         sourceFence:sourceFence,
         body: (scope) async {
+          final refresh = await _refreshPlayingGuide(now, _client(token), store, session, scope);
+          if (refresh != null) return refresh;
+          if (CedarPuzzleState.revealsSolution(session.mode, 'rest', const {}, guide: session.guide)) {
+            return const CedarAutonomyProgress('puzzle_action_withheld');
+          }
           final claimKey='cedar_self_reset_claim_v1:${session.gameId}';
           final claimValue=jsonEncode([session.id,episode.startedAt.millisecondsSinceEpoch,
             episode.antiAddictionObservedAt?.millisecondsSinceEpoch??0]);
@@ -1420,7 +1425,7 @@ class CedarToyAutonomyEngine {
             cancellationToken: scope.cancellation,
           );
           scope.throwIfPreempted();
-          if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
+          if (guideOutcome.isError) {
             return const CedarAutonomyProgress('queued_guide_failed');
           }
           final recorded = await store.recordGuide(
@@ -1801,7 +1806,7 @@ $selectionCatalog''',
             cancellationToken: scope.cancellation,
           );
           scope.throwIfPreempted();
-          if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
+          if (guideOutcome.isError) {
             return const CedarAutonomyProgress('guide_failed');
           }
           final recorded = await store.recordGuide(
@@ -1821,7 +1826,7 @@ $selectionCatalog''',
     }
 
     final activeSession = session!;
-    if (!activeSession.guideComplete) {
+    if (!activeSession.guideComplete && !activeSession.needsGuideRetry) {
       return const CedarAutonomyProgress('guide_incomplete');
     }
     return _runExecution(
@@ -1841,6 +1846,21 @@ $selectionCatalog''',
     );
   }
 
+  Future<CedarAutonomyProgress?> _refreshPlayingGuide(DateTime now, CedarToyClient client,
+      CedarToyActivityStore store, CedarGameSession session, _CedarExecutionScope scope) async {
+    if (!session.guideNeedsRefresh(DateTime.now())) return null;
+    final outcome = await client.getGuide(session.gameId, cancellationToken: scope.cancellation);
+    scope.throwIfPreempted();
+    if (outcome.isError) {
+      await store.deferContinuation(gameId: session.gameId, executionId: scope.executionId,
+          delay: const Duration(minutes: 2), now: now);
+      return const CedarAutonomyProgress('guide_refresh_failed');
+    }
+    final updated = await store.recordGuide(gameId: session.gameId,
+        guide: CedarToyClient.playerSafeGuideOutcome(outcome), executionId: scope.executionId);
+    return CedarAutonomyProgress(updated.guideComplete ? 'guide_refreshed' : 'guide_incomplete');
+  }
+
   Future<CedarAutonomyProgress> _observeSession({
     required DateTime now,
     required String apiKey,
@@ -1850,6 +1870,8 @@ $selectionCatalog''',
     required CedarGameSession session,
     required _CedarExecutionScope scope,
   }) async {
+    final refreshed = await _refreshPlayingGuide(now, client, store, session, scope);
+    if (refreshed != null) return refreshed;
     var action = _identifier(session.continuationAction);
     // This exact action and parameter object came from Cedar's signed Outcome.
     // Requiring a compact human guide to repeat it can strand a valid room.
@@ -1876,6 +1898,10 @@ $selectionCatalog''',
         executionId: scope.executionId,
       );
       return const CedarAutonomyProgress('invalid_continuation_params');
+    }
+    if (CedarPuzzleState.revealsSolution(session.mode, action, params, guide: session.guide)) {
+      final saved = await store.discardPuzzleContinuation(session, scope.executionId, now);
+      return CedarAutonomyProgress(saved ? 'puzzle_continuation_withheld' : 'planning_or_write_fenced');
     }
     var roomMessage = '';
     var dispatchedWrite = false;
@@ -1922,7 +1948,8 @@ $selectionCatalog''',
             action: 'state', params: stateParams,
             guide: '${session.guide}\n${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}',
             playProtocol: await store.loadPlayProtocol());
-        if (room.isEmpty || !_containsIdentifier(session.guide, 'state') || missing.isNotEmpty) {
+        if (room.isEmpty || !_containsIdentifier(session.guide, 'state') || missing.isNotEmpty ||
+            CedarPuzzleState.revealsSolution(session.mode, 'state', stateParams, guide: session.guide)) {
           await store.deferContinuation(gameId: session.gameId,
               delay: const Duration(minutes: 2), executionId: scope.executionId);
           return const CedarAutonomyProgress('write_reconciliation_target_unknown');
@@ -2038,6 +2065,8 @@ $selectionCatalog''',
     required _CedarExecutionScope scope,
     bool readOnlyRecovery = false,
   }) async {
+    final refreshedGuide = await _refreshPlayingGuide(now, client, store, session, scope);
+    if (refreshedGuide != null) return refreshedGuide;
     readOnlyRecovery = readOnlyRecovery || session.waitingReason == '正在核对游戏回合';
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
@@ -2072,12 +2101,13 @@ $selectionCatalog''',
         return true;
       },
       acceptsDecision: (candidate) {
-        if (CedarPuzzleState.revealsSolution(session.mode, candidate.action, candidate.params)) return false;
+        final mode = session.mode == CedarParticipationMode.unknown ? candidate.mode : session.mode;
         final hydrated = CedarExecutableCallPolicy.hydrateTransportParams(
           planned: candidate.params,
           continuationParamsJson: session.continuationParamsJson,
           lastOutcome: session.lastOutcome,
         );
+        if (CedarPuzzleState.revealsSolution(mode, candidate.action, hydrated, guide: session.guide)) return false;
         if (readOnlyRecovery && !CedarPlatformActionPolicy.isReadOnlyCall(candidate.action, hydrated)) return false;
         if (session.nextActor == 'companion' && session.repeatsUnchangedRead(candidate.action, hydrated)) return false;
         if (CedarSaveSlotPolicy.blocksAutonomousAction(
@@ -2101,7 +2131,7 @@ $selectionCatalog''',
 
 你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。选择一个工具。可用 puzzle_pause_or_ask 时，想求助或留题可选择该工具；正常操作选择 cedar_toy_play。每次只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
-平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。''',
+平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。优先处理服务端 next_call。解谜时人类攻略和直接揭底的动作留给主人；玩家调查、向主持人提问和提交自己的猜测可正常进行。近期用户建议只是参考，不是逐步命令。''',
       contextSections: [
         store.guidePrompt(session, playProtocol),
         '''
@@ -2222,6 +2252,9 @@ ${arrangements.prompt}'''.trim(),
       continuationParamsJson: session.continuationParamsJson,
       lastOutcome: session.lastOutcome,
     );
+    if (CedarPuzzleState.revealsSolution(mode, action, params, guide: session.guide)) {
+      return const CedarAutonomyProgress('puzzle_action_withheld');
+    }
     if (!platformAction &&
         session.nextActor == 'companion' &&
         session.repeatsUnchangedRead(action, params)) {
@@ -2363,6 +2396,9 @@ ${arrangements.prompt}'''.trim(),
             action: 'state',
           );
           scope.throwIfPreempted();
+          if (CedarPuzzleState.revealsSolution(mode, 'state', stateParams, guide: session.guide)) {
+            return const CedarAutonomyProgress('puzzle_action_withheld');
+          }
           await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,
             executionId:scope.executionId,toolCalls:1);
           var stateOutcome = await client.play(
