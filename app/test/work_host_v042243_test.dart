@@ -19,6 +19,10 @@ void main() {
     expect(WorkHostActions.requested('十分钟后提醒我吃饭，完成后响一声'), {'remind','ring'});
     expect(WorkHostActions.requested('做一个有朗读和响铃按钮的网页'), isEmpty);
     expect(WorkHostActions.requested('朗读「明天提醒我吃饭」'), {'speak'});
+    expect(WorkHostActions.requested('别取消刚才的提醒'), isEmpty);
+    expect(WorkHostActions.requested('别取消提醒，读给我听'), {'speak'});
+    expect(WorkHostActions.requested('别忘了提醒我喝水'), {'remind'});
+    expect(WorkHostActions.requested('取消刚才的提醒'), {'cancel'});
     expect(WorkHostActions.requested('不要响铃，看看有哪些语音'), isEmpty);
     expect(workErrorReason(StateError('Failed host lookup: example')), '连接中断');
   });

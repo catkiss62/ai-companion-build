@@ -110,7 +110,7 @@ class _WorkspacePageState extends State<CommissionWorkspacePage> {
       ),
     );
     if (choice == 'open') await store!.openExternally(name);
-    if (choice == 'save') await store!.write(name, edited);
+    if (choice == 'save') await store!.saveMarkdown(name, edited, expected: raw);
   }
 
   Future<void> remove(String name) async {

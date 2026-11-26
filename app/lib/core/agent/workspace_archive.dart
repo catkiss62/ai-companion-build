@@ -6,6 +6,12 @@ import '../platform/android_bridge.dart';
 import 'commission_workspace.dart';
 
 class WorkspaceArchive {
+  static const _maxBytes = 512 * 1024 * 1024;
+
+  static void _checkSize(int bytes) {
+    if (bytes > _maxBytes) throw const FormatException('工作区备份超过 512 MiB');
+  }
+
   static Future<bool> export(CommissionWorkspace workspace) async {
     final temp = await (await getTemporaryDirectory()).createTemp(
       'commission_',
@@ -14,11 +20,15 @@ class WorkspaceArchive {
       final file = File('${temp.path}/workspace.zip');
       final encoder = ZipFileEncoder()..create(file.path);
       try {
+        var total = 0;
         Future<void> add(String name, String content) async {
           final source = File('${temp.path}/$name');
           if (name.endsWith('.png')) { await source.writeAsBytes(base64Decode(content), flush:true); }
           else { await source.writeAsString(content, flush:true); }
+          total += await source.length();
+          _checkSize(total);
           await encoder.addFile(source, name);
+          await source.delete();
         }
 
         await add('workspace-version', '1');
@@ -28,6 +38,7 @@ class WorkspaceArchive {
       } finally {
         await encoder.close();
       }
+      _checkSize(await file.length());
       return await AndroidBridge.instance.saveCollectedStickerZip(
         file.path,
         'Little-Whale-Workspace.zip',
@@ -43,8 +54,7 @@ class WorkspaceArchive {
     if (path == null) return '';
     final file = File(path);
     try {
-      if (await file.length() > 32 * 1024 * 1024)
-        throw const FormatException('工作区压缩包过大');
+      _checkSize(await file.length());
       final source = InputFileStream(path);
       try {
         final archive = ZipDecoder().decodeStream(source);
@@ -53,35 +63,46 @@ class WorkspaceArchive {
             marker.size != 1 ||
             utf8.decode(marker.content) != '1')
           throw const FormatException('无法识别的工作区');
-        final imported = <String, String>{};
-        var total = 0;
-        for (final item in archive.files) {
-          if (item.name == 'workspace-version') continue;
-          CommissionWorkspace.validate(item.name);
-          total += item.size;
-          if (!item.isFile ||
-              item.size > CommissionWorkspace.limit(item.name) ||
-              total > 32 * 1024 * 1024 ||
-              imported.containsKey(item.name))
-            throw const FormatException('无效工作区条目');
-          final body = item.name.endsWith('.png') ? base64Encode(item.content) : utf8.decode(item.content);
-          if (item.name.endsWith('.json')) {
-            CommissionWorkspace.decodeRecords(item.name,body);
+        final staged = await (await getTemporaryDirectory()).createTemp('work_import_');
+        try {
+          final names = <String>{};
+          var total = marker.size;
+          for (final item in archive.files) {
+            if (item.name == 'workspace-version') continue;
+            final name = item.name;
+            CommissionWorkspace.validate(name);
+            if (!item.isFile || item.size > CommissionWorkspace.limit(name) || !names.add(name)) {
+              throw const FormatException('无效工作区条目');
+            }
+            total += item.size;
+            _checkSize(total);
+            final bytes = item.content;
+            if (bytes.length != item.size) throw const FormatException('工作区条目长度异常');
+            if (!name.endsWith('.png')) {
+              final body = utf8.decode(bytes);
+              if (name.endsWith('.json')) CommissionWorkspace.decodeRecords(name, body);
+            }
+            await File('${staged.path}/$name').writeAsBytes(bytes);
+            item.clear();
           }
-          imported[item.name] = body;
-        }
-        final existing = (await workspace.list()).toSet();
-        var count=0;
-        for(final entry in imported.entries){
-          if(entry.key.startsWith('会话-')){
-            await workspace.mergeTurns(entry.key,CommissionWorkspace.decodeRecords(entry.key,entry.value),keepExisting:true);
-            count++;
-          }else if(!existing.contains(entry.key)){
-            await workspace.write(entry.key,entry.value);
+          final existing = (await workspace.list()).toSet();
+          var count = 0;
+          for (final name in names) {
+            final source = File('${staged.path}/$name');
+            if (name.startsWith('会话-')) {
+              final turns = CommissionWorkspace.decodeRecords(name, await source.readAsString());
+              await workspace.mergeTurns(name, turns, keepExisting: true);
+            } else {
+              if (existing.contains(name)) continue;
+              final body = name.endsWith('.png') ? base64Encode(await source.readAsBytes()) : await source.readAsString();
+              await workspace.write(name, body);
+            }
             count++;
           }
+          return '已导入或合并 $count 项，已有内容保留';
+        } finally {
+          await staged.delete(recursive: true);
         }
-        return '已导入或合并 $count 项，已有内容保留';
       } finally {
         await source.close();
       }

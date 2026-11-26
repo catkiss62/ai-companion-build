@@ -129,7 +129,18 @@ class CommissionWorkspace {
     }
   }
 
-  Future<void> write(String name, String content) async {
+  Future<void> saveMarkdown(String name, String content, {required String? expected}) =>
+      _serialized(name, () async {
+        final current = (await list()).contains(name) ? await read(name) : null;
+        if (current != expected) throw const FormatException('文档已变化，请重新读取后修改');
+        await _write(name, content);
+      });
+
+  Future<void> write(String name, String content) => name.endsWith('.md')
+      ? _serialized(name, () => _write(name, content))
+      : _write(name, content);
+
+  Future<void> _write(String name, String content) async {
     validate(name);
     final bytes = name.endsWith('.png') ? base64Decode(content) : utf8.encode(content);
     if (bytes.length > limit(name))
@@ -230,7 +241,7 @@ class CommissionWorkspace {
         final pending=journal==null ? null : File('${journal.path}/$name');
         final fromJournal=pending!=null && await pending.exists();
         if(fromJournal || (await list()).contains(name)){
-          final original=fromJournal ? await pending!.readAsString() : await read(name);
+          final original=fromJournal ? await pending.readAsString() : await read(name);
           for(final row in decodeRecords(name,original)){byId[row['id'] as String]=row;}
         }
         for(final row in incoming){

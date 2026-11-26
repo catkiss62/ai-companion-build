@@ -351,11 +351,15 @@ class CommissionSession {
         activity.beginTool('work_quiz',quiz.host);
         onPhase?.call(CommissionPhase.tool);
         try {
-          if(quizResult != null && quizResult!['url'] == quiz.toString()) {
-            for(final part in (quizResult!['photos'] as List? ?? [quizResult!]).whereType<Map>()){
-              if(part['screenshot'] is String) await WorkQuiz.image(workspace,part['screenshot'] as String,part['digest'] as String);
-            }
-          } else {
+          if (quizResult != null && quizResult['url'] == quiz.toString() &&
+              !await WorkQuiz.photosAvailable(workspace, quizResult)) {
+            cancel.throwIfCancelled();
+            quizResult = null;
+            record.remove('quizResult');
+            await save();
+            reportStep('正在按原作答记录恢复网页截图');
+          }
+          if (quizResult == null || quizResult['url'] != quiz.toString()) {
             quizResult = await WorkQuiz.run(uri:quiz,order:order,id:id,goal:effectiveGoal,
               workspace:workspace,cancel:cancel,answers:quizChoices,save:save,progress:reportStep,
               onPhoto:(photo) async {
@@ -370,8 +374,8 @@ class CommissionSession {
                 model:model,cancel:cancel,goal:'读取独立网页截图，描述当前题目、可点击选项及其中心点相对全图的横纵百分比。'),
               ask:(messages) async => (await request([messages.first, if(imageMessage!=null) imageMessage, ...messages.skip(1)],finalAnswer:true)).content);
           }
-          activity.finishTool(quizResult!);
-          if(quizResult!['error'] is String) throw StateError(quizResult!['error'] as String);
+          activity.finishTool(quizResult);
+          if(quizResult['error'] is String) throw StateError(quizResult['error'] as String);
           record['quizResult'] = quizResult;
           catalog.add({'role':'user','content':'网页操作回执：${jsonEncode(quizResult)}。按实际操作汇报。娱乐问卷中小鲸鱼已作答时，用第一人称说自己的选择；网站给出最终结果后再说“我测出来是……”。forUser 为 true 时请给用户网页链接，由用户作答。'});
           await save();
@@ -386,8 +390,8 @@ class CommissionSession {
               'mode': 'recent_work_lookup',
               'instruction': '仅根据可核实的近期交付回答；缺少细节时请说明。',
             }
-          : quiz != null && host.allowed.isEmpty && reference==null && !RegExp(r'写.{0,8}(报告|网页)|生成.{0,8}(文件|报告)|另外|然后.{0,3}(查|写|做)').hasMatch(effectiveGoal)
-              ? <String,Object?>{'end':'web_receipt','web':quizResult}
+          : quiz != null && record['htmlExpected'] != true && candidateHtml == null && host.allowed.isEmpty && reference==null && !RegExp(r'写.{0,8}(报告|网页)|生成.{0,8}(文件|报告)|另外|然后.{0,3}(查|写|做)').hasMatch(effectiveGoal)
+              ? <String,Object?>{'end':'web_receipt'}
               : await ResearchCommission.run(
               goal: effectiveGoal,
               host: host,

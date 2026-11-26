@@ -25,14 +25,16 @@ class WorkHostActions {
   };
   static Set<String> requested(String goal) {
     final result = <String>{};
-    final instruction = goal.replaceAll(RegExp(r'「[^」]*」|“[^”]*”|"[^"]*"|《[^》]*》'), '…');
+    final instruction = goal.replaceAll(RegExp(r'「[^」]*」|“[^”]*”|"[^"]*"|《[^》]*》'), '…')
+        .replaceAll(RegExp(r'(?:别|不要)忘(?:了|记)?'), '记得');
     for (final part in instruction.split(RegExp(r'[，,。；;！!\n]'))) {
+      if (RegExp(r'不要|不用|不必|无需|不想|禁止|不(?:取消|撤销|删除|关闭|改动|修改|调整|设置|建立|朗读|响铃|播放|提醒)|(?<!分)(?<!特)别(?!人|的|处|名|致)').hasMatch(part)) continue;
       final afterTask = RegExp(r'(?:整理|完成|整理完|做完|保存|交付)(?:之后|以后|后)(?:请|再|就)?(响铃|响一声|响一下|朗读|读给我)').firstMatch(part);
-      if (afterTask != null && !RegExp(r'不要|别|不用|网页|按钮|演示|举例|比如|如果|假设|怎么|能否|[？?]').hasMatch(part)) {
+      if (afterTask != null && !RegExp(r'网页|按钮|演示|举例|比如|如果|假设|怎么|能否|[？?]').hasMatch(part)) {
         result.add(afterTask.group(1)!.startsWith('响') ? 'ring' : 'speak');
       }
       if (RegExp(r'网页|按钮|代码|示例|文档|教程|HTML|html|模拟|演示|测试题|看看|查一下|查查|查找|查询|查看|列出|总结|整理|分析|能否实现|功能介绍').hasMatch(part)) continue;
-      if (RegExp(r'怎么|如何|是否|能不能|为什么|支持|哪些|解释|讨论|不要|不用|不必|无需|别再|别响|别读|不想|只查|[?？]').hasMatch(part)) continue;
+      if (RegExp(r'怎么|如何|是否|能不能|为什么|支持|哪些|解释|讨论|只查|[?？]').hasMatch(part)) continue;
       if (RegExp(r'(取消|撤销|删除|关闭).{0,12}(提醒|闹钟)|(提醒|闹钟).{0,10}(取消|删除|关掉)').hasMatch(part)) {
         result.add('cancel');
       } else if (RegExp(r'(提醒|闹钟).{0,16}(改到|改成|推迟|提前|改为)|(修改|推迟|提前|调整).{0,10}(提醒|闹钟)').hasMatch(part)) {

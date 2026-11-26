@@ -31,6 +31,19 @@ class WorkHistoryLookup {
     return count;
   }
 
+  static ({DateTime start, DateTime end})? dateRange(String text, DateTime now) {
+    DateTime day(int delta) => DateTime(now.year, now.month, now.day + delta);
+    final monday = 1 - now.weekday;
+    if (text.contains('上周')) return (start: day(monday - 7), end: day(monday));
+    if (RegExp(r'这周|本周').hasMatch(text)) return (start: day(monday), end: day(monday + 7));
+    if (text.contains('上个月')) return (start: DateTime(now.year, now.month - 1), end: DateTime(now.year, now.month));
+    if (RegExp(r'这个月|本月').hasMatch(text)) return (start: DateTime(now.year, now.month), end: DateTime(now.year, now.month + 1));
+    if (text.contains('前天')) return (start: day(-2), end: day(-1));
+    if (text.contains('昨天')) return (start: day(-1), end: day(0));
+    if (text.contains('今天')) return (start: day(0), end: day(1));
+    return null;
+  }
+
   static Map<String,Object?> summary(Map row) {
     final answer=row['answer']?.toString() ?? '';
     return {'goal':row['orderGoal'] ?? row['goal'],'at':row['at'],'state':row['state'],
@@ -57,7 +70,9 @@ class WorkHistoryLookup {
     final workspace = await CommissionWorkspace.open();
     final location = workspace.tree ?? workspace.directory?.path;
     if(previous!=null && previous['location']!=location) return result('工作区已切换，请重新指定文件',{},found:false);
-    if(anchor==null &&
+    final today = DateTime.now();
+    final range = dateRange(text, today);
+    if(anchor==null && range == null &&
         RegExp(r'做(?:过|了)?(?:些|点)?(?:什么|啥|哪些)|有哪些(?:工作|任务|委托|交付)|(?:工作|任务|委托).{0,5}(?:进度|怎么样)').hasMatch(text) &&
         !RegExp(r'上周|昨天|上个月|前天|本周|这周|原文|那份|那篇|文件名|读.{0,4}段').hasMatch(text)) {
       final recent = await workspace.recent();
@@ -65,19 +80,14 @@ class WorkHistoryLookup {
     }
     final rows = (await workspace.conversations()).values.expand((g)=>g).toList()
       ..sort((a,b)=>(b['at'] as int? ?? 0).compareTo(a['at'] as int? ?? 0));
-    final today = DateTime.now();
-    final midnight = DateTime(today.year,today.month,today.day);
-    final monday = midnight.subtract(Duration(days:today.weekday-1));
-    final from = text.contains('上周') ? monday.subtract(const Duration(days:7))
-        : text.contains('昨天') ? midnight.subtract(const Duration(days:1)) : null;
-    final until = text.contains('上周') ? monday : midnight;
-    final matchedRows = rows.where((r) => from == null ||
-        (r['at'] as int? ?? 0) >= from.millisecondsSinceEpoch && (r['at'] as int? ?? 0) < until.millisecondsSinceEpoch).toList();
+    final matchedRows = rows.where((r) => range == null ||
+        (r['at'] as int? ?? 0) >= range.start.millisecondsSinceEpoch &&
+        (r['at'] as int? ?? 0) < range.end.millisecondsSinceEpoch).toList();
     final referenced = <String>{for(final r in matchedRows)
       for(final e in (r['evidence'] as List? ?? []).whereType<Map>())
         for(final key in ['artifact','saved']) if(e[key] is String) e[key] as String};
     final names = (await workspace.list()).where((n) => (n.endsWith('.html') || n.endsWith('.md')) &&
-        (from == null || referenced.contains(n))).toList();
+        (range == null || referenced.contains(n))).toList();
     final query = args['query'] ?? text;
     final ranked = [for(final n in names) (name:n, rank:score(query,n))]..sort((a,b)=>b.rank.compareTo(a.rank));
     final wanted = args['name'] ?? '';
@@ -102,10 +112,13 @@ class WorkHistoryLookup {
         return result('已读取 $target',{'file':target,'text':body.substring(offset,end),if(end<body.length)'next_offset':end});
       }
     }
-    final recent = from == null && RegExp(r'最近|近期|刚才').hasMatch(text) && target == null &&
+    final recent = range == null && RegExp(r'最近|近期|刚才').hasMatch(text) && target == null &&
         !ranked.any((e)=>e.rank>0);
     final cutoff = today.subtract(const Duration(hours:48)).millisecondsSinceEpoch;
+    final dateOverview = range != null && target == null && !ranked.any((e) => e.rank > 0) &&
+        RegExp(r'做(?:过|了)?(?:些|点)?(?:什么|啥|哪些)(?:工作|任务|委托)?[呢吗啊？?。！! ]*$|有哪些(?:工作|任务|委托)[呢吗啊？?。！! ]*$').hasMatch(text);
     final hits = matchedRows.where((r)=>recent ? r['state']=='completed' && (r['at'] as int? ?? 0)>=cutoff :
+        dateOverview ? true :
         target != null ? jsonEncode(r['evidence']).contains(target) :
         score(query,r['orderGoal']?.toString() ?? r['goal']?.toString() ?? '')>0).take(recent?3:8);
     return result('已查询工作记录',{

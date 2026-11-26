@@ -14,6 +14,40 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('quiz plus a deliverable requests HTML; answering a web quiz alone does not', () {
+    expect(ResearchCommission.requestsHtml('帮我答题，把结果做成 HTML 网页'), isTrue);
+    expect(ResearchCommission.requestsHtml('帮我做一下这个网页上的测试，截图给我'), isFalse);
+  });
+
+  test('long Markdown updates preserve unseen text and reject stale originals', () async {
+    final dir = await Directory.systemTemp.createTemp();
+    addTearDown(() => dir.delete(recursive: true));
+    final workspace = CommissionWorkspace(directory: dir);
+    const name = '报告-长文.md';
+    final original = '开头${'甲' * 16000}结尾';
+    await workspace.write(name, original);
+    final receipts = <Map<String,Object?>>[];
+    final ops = [
+      ('workspace_read', <String,Object?>{'name':name}),
+      ('workspace_save', <String,Object?>{'kind':'报告','title':'长文','body':'截短'}),
+      ('workspace_save', <String,Object?>{'kind':'报告','title':'长文','old_text':'开头','body':'新开头'}),
+    ];
+    var round = 0;
+    await ResearchCommission.run(goal:'更新长报告', context:[], workspace:workspace,
+      cancellation:GenerationCancellationToken(), progress:(_, __){}, onToolResult:receipts.add,
+      plan:(_) async {
+        final i = round++;
+        return (content:'完成', reasoning:'', finishReason:'stop', toolCalls:[
+          if(i < ops.length) DeepSeekToolCall(id:'call$i',name:ops[i].$1,arguments:jsonEncode(ops[i].$2)),
+        ]);
+      });
+    expect(receipts.first['next_offset'], 16000);
+    expect(receipts[1]['error'], contains('局部修改'));
+    expect(await workspace.read(name), '新$original');
+    await expectLater(workspace.saveMarkdown(name,'过期稿',expected:original), throwsFormatException);
+    expect(await workspace.read(name), '新$original');
+  });
+
   test('requested HTML is verified after research, early finish or tool failure', () async {
     for (final scenario in ['budget', 'early', 'already', 'no_source', 'save_error', 'advice']) {
       final dir = await Directory.systemTemp.createTemp('work_html_');

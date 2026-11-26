@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:ai_companion_localfirst/core/agent/workspace_archive.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:ai_companion_localfirst/core/ai/generation_cancellation.dart';
@@ -32,6 +33,47 @@ void main() {
     expect(second,'作品-元素测验（2）.html');
     expect(await workspace.readHtml(first),'<p>甲</p>');
     await expectLater(workspace.readHtml(second,expectedDigest:'wrong'),throwsFormatException);
+  });
+  test('workspace backup round-trips more than 32 MiB of valid files', () async {
+    final dir = await Directory.systemTemp.createTemp();
+    addTearDown(() => dir.delete(recursive: true));
+    final original = CommissionWorkspace(directory: await Directory('${dir.path}/original').create());
+    final restored = CommissionWorkspace(directory: await Directory('${dir.path}/restored').create());
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const paths = MethodChannel('plugins.flutter.io/path_provider');
+    messenger.setMockMethodCallHandler(paths, (_) async => dir.path);
+    messenger.setMockMethodCallHandler(CommissionWorkspace.channel, (call) async {
+      final zip = File('${dir.path}/copy.zip');
+      if (call.method == 'saveCollectedStickerZip') {
+        await File(call.arguments['sourcePath'] as String).copy(zip.path);
+        return {'verified':true};
+      }
+      if (call.method == 'openPlainBackup') return {'filePath':zip.path};
+      throw StateError(call.method);
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(paths,null);
+      messenger.setMockMethodCallHandler(CommissionWorkspace.channel,null);
+    });
+    final text = 'a' * CommissionWorkspace.maxBytes;
+    for (var i = 0; i < 129; i++) {
+      await original.write('报告-$i.md', text);
+    }
+    expect(await WorkspaceArchive.export(original), isTrue);
+    expect(await WorkspaceArchive.import(restored), contains('129'));
+    expect(await restored.list(), await original.list());
+    expect(await restored.read('报告-128.md'), text);
+  });
+
+  test('quiz count is independent of screenshot delivery and dated work uses local calendar boundaries', () {
+    expect(WorkQuiz.answerLimit('把题答完，最后只要截图'), isNull);
+    expect(WorkQuiz.answerLimit('只做两道题，最后只要截图'), 2);
+    expect(WorkQuiz.answerLimit('不要答，只截图'), 0);
+    expect(WorkQuiz.answerLimit('不用答完，做两道题'), 2);
+    final now = DateTime(2027, 1, 1, 7);
+    expect(WorkHistoryLookup.dateRange('前天', now), (start: DateTime(2026,12,30), end: DateTime(2026,12,31)));
+    expect(WorkHistoryLookup.dateRange('这周', now), (start: DateTime(2026,12,28), end: DateTime(2027,1,4)));
+    expect(WorkHistoryLookup.dateRange('上个月', now), (start: DateTime(2026,12), end: DateTime(2027,1)));
   });
   test('explicit quiz requests select the supported HTTPS document', () {
     expect(WorkQuiz.requested('做个五题元素测试，发截图'),isNull);
@@ -113,6 +155,9 @@ void main() {
     expect(first['position'],'第 3 / 35 题');
     expect((first['answers'] as List).map((r)=>r['choice']),['比较同意','比较同意']);
     expect(first['screenshot'],isNotNull);
+    expect(await WorkQuiz.photosAvailable(workspace,first),isTrue);
+    await workspace.remove(first['screenshot'] as String);
+    expect(await WorkQuiz.photosAvailable(workspace,first),isFalse);
     final next=await run('看看题目的形式，告诉我就可以了','{"finish":"已看到题型","capture":true}',expected:0);
     expect(next['summary'],'已看到题型');
     decisionPrompts.clear();

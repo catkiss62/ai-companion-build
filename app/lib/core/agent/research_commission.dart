@@ -33,8 +33,9 @@ class ResearchCommission {
       caseSensitive: false,
     );
     final advice = RegExp(r'(?:如何|怎么|怎样|教我|能否解释|不用|不必|不要|无需|别做|先讨论|只分析|how (?:do|to)|do not|don.t)', caseSensitive: false);
+    final existingPage = RegExp(r'(?:这个|那个|此|该)网页|网页(?:上|里|中)(?:的)?|(?:打开|进入|访问)网页');
     return goal.split(RegExp(r'[，。；！？,;!？\n]')).any((part) =>
-        action.hasMatch(part) && !advice.hasMatch(part));
+        !advice.hasMatch(part) && action.hasMatch(part.replaceAll(existingPage, '网站')));
   }
 
   static const instruction =
@@ -78,12 +79,21 @@ class ResearchCommission {
         }, 'required': ['title','html'], 'additionalProperties': false},
       },
     },
-    _tool('workspace_read', '按清单中的准确名称读取报告或已启用的技能', 'name'),
+    {
+      'type': 'function',
+      'function': {
+        'name': 'workspace_read',
+        'description': '读取报告或已启用的技能，长文可传 next_offset 继续。',
+        'parameters': {'type': 'object', 'properties': {
+          'name': {'type': 'string'}, 'offset': {'type': 'integer', 'minimum': 0},
+        }, 'required': ['name'], 'additionalProperties': false},
+      },
+    },
     {
       'type': 'function',
       'function': {
         'name': 'workspace_save',
-        'description': '创建或更新 Markdown 报告或私人技能。更新时请先读原文件。',
+        'description': '创建或更新 Markdown 报告或私人技能。更新前读取原文件。局部修改传唯一的原文片段 old_text 和替换文本 body。长文必须局部修改。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -93,6 +103,7 @@ class ResearchCommission {
             },
             'title': {'type': 'string'},
             'body': {'type': 'string'},
+            'old_text': {'type': 'string'},
           },
           'required': ['kind', 'title', 'body'],
           'additionalProperties': false,
@@ -255,7 +266,7 @@ class ResearchCommission {
       '比较|对比|各自|分别|compare|versus|对照',
       caseSensitive: false,
     ).hasMatch(goal);
-    final opened = <String>{};
+    final opened = <String, String>{};
     final unavailableAppReads = <String>{};
     var summary = '';
     var end = 'budget';
@@ -457,11 +468,20 @@ class ResearchCommission {
                     throw const FormatException('文件不存在或已停用');
                   }
                   progress('读取 $name', null);
-                  result = {
-                    'file': name,
-                    'excerpt': _clip(await workspace.read(name), 16000),
-                  };
-                  opened.add(name);
+                  final original = await workspace.read(name);
+                  final offset = args['offset'] ?? 0;
+                  if (offset is! int || offset < 0 || offset > original.length) {
+                    throw const FormatException('无效的文档位置');
+                  }
+                  if (offset > 0 && opened[name] != original) {
+                    throw const FormatException('原文已变化，请从头重新读取');
+                  }
+                  var end = (offset + 16000).clamp(0, original.length).toInt();
+                  if (end < original.length && end > offset &&
+                      (original.codeUnitAt(end) & 0xfc00) == 0xdc00) end--;
+                  result = {'file': name, 'excerpt': original.substring(offset, end),
+                    if (end < original.length) 'next_offset': end};
+                  opened[name] = original;
                 } else {
                   final kind = args['kind'],
                       title = args['title'],
@@ -469,7 +489,7 @@ class ResearchCommission {
                   if (!const {'报告', '技能'}.contains(kind) ||
                       title is! String ||
                       body is! String ||
-                      body.trim().isEmpty ||
+                      (body.trim().isEmpty && args['old_text'] == null) ||
                       body.length > 16000) {
                     throw const FormatException('无效工作文档');
                   }
@@ -480,13 +500,26 @@ class ResearchCommission {
                   if (name == reference?.name) {
                     throw const FormatException('所选引用文件只读，请另存报告');
                   }
-                  if (files.contains(name) && !opened.contains(name) ||
+                  if (files.contains(name) && !opened.containsKey(name) ||
                       kind == '技能' && files.contains('停用$name')) {
                     throw const FormatException('请先核对原文或技能停用状态');
                   }
                   cancellation.throwIfCancelled();
                   progress('正在保存 $name', null);
-                  await workspace.write(name, body);
+                  final original = opened[name];
+                  final fragment = args['old_text'];
+                  var updated = body;
+                  if (fragment != null) {
+                    if (fragment is! String || fragment.isEmpty || original == null ||
+                        original.indexOf(fragment) < 0 || original.indexOf(fragment) != original.lastIndexOf(fragment)) {
+                      throw const FormatException('请提供原文中唯一的非空片段');
+                    }
+                    updated = original.replaceFirst(fragment, body);
+                  } else if (original != null && original.length > 16000) {
+                    throw const FormatException('长文请使用 old_text 局部修改，保留其余原文');
+                  }
+                  await workspace.saveMarkdown(name, updated, expected: original);
+                  opened[name] = updated;
                   result = {'saved': name};
                 }
               } else {
