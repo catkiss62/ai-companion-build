@@ -119,6 +119,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
 
   static const _labels = {
     'stopped': '已关闭', 'starting': '正在启动', 'connecting': '连接中', 'online': '已连接',
+    'resume_checkpoint_unavailable':'暂时无法保存 QQ 会话续接位置',
     'reconnecting': '断线重连中', 'permission_error': '机器人权限不足，请检查腾讯平台配置',
     'recovering': '后台运行异常，正在自动恢复连接',
     'config_missing': '连接配置不完整，请填写后重新启动',

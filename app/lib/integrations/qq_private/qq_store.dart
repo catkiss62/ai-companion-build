@@ -23,6 +23,11 @@ class QqBatch {
   String get cid=>conversation['id'] as String;
   String get target=>conversation['target'] as String;
   bool get group=>conversation['kind']=='group';
+  static int eventTime(Map<String,Object?> row) {
+    final received = row['received_at'] as int;
+    final observed = row['observed_at'] as int?;
+    return observed != null && observed > 0 && observed < received ? observed : received;
+  }
   int get through=>rows.last['seq'] as int;
 }
 
@@ -165,7 +170,7 @@ class QqStore {
     final admitted=<Map<String,Object?>>[];
     for(final r in rows) {
       await txn.update('qq_attention_events',{'consumed':1},where:'archive_seq=?',whereArgs:[r['seq']]);
-      if(acceptsIngress(r['accepted_identity'] as String,fence) && r['accepted_policy']==policy &&
+      if(now-QqBatch.eventTime(r)<240000 && acceptsIngress(r['accepted_identity'] as String,fence) && r['accepted_policy']==policy &&
         ((r['seq'] as int)>checked || !await _responded(txn,cid,r['seq'] as int)))admitted.add(r);
     }
     if(admitted.isEmpty) { await txn.update('qq_conversations',{'checked_seq':through>checked?through:checked},where:'id=?',whereArgs:[cid]); return null; }
@@ -176,7 +181,9 @@ class QqStore {
     await QqReplyTasks.begin(txn,batch,now,policy);
     return batch;
   });
-  Future<void> mark(QqBatch b,String state,{String? text,String? sticker,int? confirmedParts})=>write(b.fence,(txn) async {
+  Future<void> mark(QqBatch b,String state,{String? text,String? sticker,int? confirmedParts})=>write(b.fence,(txn) =>
+      markInTransaction(txn,b,state,text:text,sticker:sticker,confirmedParts:confirmedParts));
+  Future<void> markInTransaction(Transaction txn,QqBatch b,String state,{String? text,String? sticker,int? confirmedParts}) async {
     String? journal;
     if(confirmedParts!=null) {
       try {
@@ -195,7 +202,7 @@ class QqStore {
       if(const {'watching','context_invalidated','address_rejected','sent'}.contains(state))'draft':''},where:'id=?',whereArgs:[b.id]);
     final raw=await BrainWorkFence.value(txn,QqFailure.historyKey);
     await txn.rawInsert('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)',[QqFailure.historyKey,QqFailureHistory.finish(raw,b.id,state)]);
-  });
+  }
   Future<void> sentPart(QqBatch b,int part,String text,String sticker,int now,{String sketchSvg='',String voiceLanguage='',String voiceProfile=''})=>write(b.fence,(txn) async {
     if(!await QqArchiveReader(txn).matches([for(final r in b.rows){'table':'qq_archive','id':r['id'],'version':r['version']}])) throw const BrainWorkInvalidated();
     await txn.insert('qq_archive',{'id':'reply:${b.id}:$part','conversation_id':b.cid,'platform_id':_platformReceipts['${b.id}:$part']?.id??'',

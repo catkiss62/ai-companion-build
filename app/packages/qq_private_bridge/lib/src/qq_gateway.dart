@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'qq_api.dart';
+import 'qq_gateway_checkpoint.dart';
 
 /// Event-driven QQ gateway; group delivery is opt-in through a host callback. It never downloads media, reads memory, or
 /// drives a model. Those operations belong to the injected host/session.
 class QqGateway {
-  QqGateway(this.api, {required this.onMessage, required this.onStatus, this.onGroupMessage});
+  QqGateway(this.api, {required this.onMessage, required this.onStatus, this.onGroupMessage, this.checkpoint});
+  final QqGatewayCheckpoint? checkpoint;
   final QqApi api;
   final Future<void> Function(Map<String, dynamic>) onMessage;
   final Future<void> Function(Map<String, dynamic>)? onGroupMessage;
@@ -21,7 +23,32 @@ class QqGateway {
   final _stopSignal = Completer<void>();
   Future<void> _events = Future.value();
 
+  DateTime? _lastCheckpoint;
+  Future<void> _checkpointIO = Future.value();
+  Future<void> _saveCursor({bool heartbeat = false, bool clear = false}) {
+    final disk = checkpoint;
+    if (disk == null || _stopped && !clear) return Future.value();
+    final time = DateTime.now(), session = _session, sequence = _sequence;
+    if (!clear && (session == null || sequence == null ||
+        heartbeat && _lastCheckpoint != null && time.difference(_lastCheckpoint!) < const Duration(minutes:1))) return Future.value();
+    return _checkpointIO = _checkpointIO.then((_) async {
+      try {
+        if (clear) { await disk.clear(); _lastCheckpoint = null; }
+        else { await disk.write(session!,sequence!,time); _lastCheckpoint = time; }
+      } on FileSystemException { onStatus('resume_checkpoint_unavailable'); }
+    });
+  }
+
+  Future<void> _forgetSession() async {
+    _session = null;
+    _sequence = null;
+    await _saveCursor(clear: true);
+  }
+
   Future<void> run() async {
+    final saved = await checkpoint?.read(DateTime.now());
+    _session = saved?.session;
+    _sequence = saved?.sequence;
     var failures = 0;
     while (!_stopped) {
       WebSocket? socket;
@@ -59,10 +86,10 @@ class QqGateway {
                   owned.add(jsonEncode({'op': 1, 'd': _sequence}));
                 });
                 break;
-              case 11: _awaitingHeartbeat = false; break;
+              case 11: _awaitingHeartbeat = false; if (ready) await _saveCursor(heartbeat:true); break;
               case 7: await owned.close(); break;
               case 9:
-                _session = null; _sequence = null; api.invalidateToken();
+                await _forgetSession(); api.invalidateToken();
                 await owned.close();
                 break;
               case 0:
@@ -70,6 +97,7 @@ class QqGateway {
                 final d = payload['d'];
                 if (type == 'READY' && d is Map) {
                   _session = d['session_id'] as String?;
+                  _sequence = null;
                   ready = true; failures = 0; onStatus('online');
                 } else if (type == 'RESUMED') {
                   ready = true; failures = 0; onStatus('online');
@@ -84,14 +112,17 @@ class QqGateway {
                   _events = _events.then((_) => onGroupMessage!({...d, '_trusted_event_type': type}));
                   await _events;
                 }
-                if (payload['s'] is num) _sequence = (payload['s'] as num).toInt();
+                if (payload['s'] is int) {
+                  _sequence = payload['s'] as int;
+                  await _saveCursor();
+                }
                 break;
             }
           }
         } finally { handshake.cancel(); }
         final close = socket.closeCode;
-        if (close == 4007 || close == 4009) { _session = null; _sequence = null; }
-        if (close == 4004) { _session = null; _sequence = null; api.invalidateToken(); }
+        if (close == 4007 || close == 4009) { await _forgetSession(); }
+        if (close == 4004) { await _forgetSession(); api.invalidateToken(); }
         if (const {4010, 4011, 4012, 4013, 4014, 4914, 4915}.contains(close)) {
           onStatus('permission_error'); return;
         }
@@ -119,5 +150,6 @@ class QqGateway {
     _stopped = true;
     if (!_stopSignal.isCompleted) _stopSignal.complete();
     _heartbeat?.cancel(); api.close(); await _socket?.close();
+    await _forgetSession();
   }
 }

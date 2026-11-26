@@ -92,7 +92,7 @@ class QqReplyTasks {
   }
   static Future<void> begin(Transaction sql, QqBatch b, int now, String policy) async {
     await prune(sql,now);
-    final at = b.rows.last['received_at'] as int;
+    final at = QqBatch.eventTime(b.rows.last);
     await sql.insert('qq_reply_tasks', {
       'id': b.id, 'conversation_id': b.cid, 'through_seq': b.through,
       'sources': jsonEncode(b.rows.map((r) => r['seq']).toList()),

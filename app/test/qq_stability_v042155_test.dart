@@ -68,10 +68,45 @@ void main() {
     await QqArchiveSchema.restored(await db.database);
     expect(await retry.claim(await store.capture(),cid,now,'policy'),isNull);
   });
+  test('known group failure and retry are claimed once across reconnects; watching stays final',() async {
+    final b=await batch('real-message'),retry=QqReplyRecovery(store),fence=await store.capture();
+    expect(await retry.markFailedAndDefer(b,now),true);
+    expect(await retry.due(fence,now,{}),isEmpty);
+    now+=15000;
+    expect(await retry.due(fence,now,{}),{cid});
+    final results=await Future.wait([retry.claim(fence,cid,now,'policy'),retry.claim(fence,cid,now,'policy')]);
+    expect(results.whereType<QqBatch>(),hasLength(1));
+    await store.mark(results.whereType<QqBatch>().single,'watching');
+    expect(await retry.due(fence,now,{}),isEmpty);
+    expect(await store.append(fence:fence,scope:'fixture',kind:'group',target:'g',platformId:'real-message',
+      sender:'peer',text:'合成问题',observedAt:now-15000,receivedAt:now,policy:'policy'),isNull);
+    expect(await store.pending(cid),isEmpty);
+  });
+  test('a subsequent permanent failure cannot reuse a consumed retry marker',() async {
+    final b=await batch('permanent'),retry=QqReplyRecovery(store),fence=await store.capture();
+    await retry.markFailedAndDefer(b,now);
+    now+=15000;
+    final next=(await retry.claim(fence,cid,now,'policy'))!;
+    await store.mark(next,'failed');
+    expect(await retry.due(fence,now,{}),isEmpty);
+    expect(await retry.claim(fence,cid,now,'policy'),isNull);
+  });
+  test('platform replay preserves the original response deadline for claims and retries',() async {
+    final fence=await store.capture();
+    Future<int> replay(String id,int age) async=>(await store.append(fence:fence,scope:'fixture',kind:'group',target:'g',
+      platformId:id,sender:'peer',text:'合成问题',observedAt:now-age,receivedAt:now,policy:'policy'))!;
+    final old=await replay('too-old',240001);
+    expect(await store.claim(fence,cid,old,now,policy:'policy'),isNull);
+    final recent=await replay('almost-expired',235000);
+    final b=(await store.claim(fence,cid,recent,now,policy:'policy'))!;
+    final retry=QqReplyRecovery(store);
+    expect(await retry.markFailedAndDefer(b,now),false);
+    expect(await retry.claim(fence,cid,now+16000,'policy'),isNull);
+  });
   test('malformed or inherited confirmation facts never allow an automatic retry',() async {
     final b=await batch('one'),sql=await db.database;
     await store.mark(b,'failed');
-    for(final raw in ['broken',jsonEncode({'inherited_delivery':{'unknown':true}}),jsonEncode({'delivery':{'confirmed':[{'sequence':1}]}})]) {
+    for(final raw in ['broken',jsonEncode({'delivery':{'failure_confirmed_count':1}}),jsonEncode({'inherited_delivery':{'unknown':true}}),jsonEncode({'delivery':{'confirmed':[{'sequence':1}]}})]) {
       await sql.update('qq_reply_tasks',{'draft':raw},where:'id=?',whereArgs:[b.id]);
       expect(await QqReplyRecovery(store).defer(b,now),false);
     }

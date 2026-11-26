@@ -56,9 +56,17 @@ Future<void> runQqPrivateBackground() async {
     final namespace=sha256.convert(utf8.encode('${c.appId}:${c.namespace}')).toString();
     final legacy=QqJournal(File('${support.path}/qq_private_v1/$namespace.json'));
     try {await legacy.open();await runtime.importLegacy(legacy.rows);} catch(_) {await status('task','legacy_history_failed');}
+    final cache = await getApplicationCacheDirectory();
+    final resumeScope = QqStore.hash([QqStore.ingressIdentity(await store.capture()),
+      QqRuntime.policy(c,await QqOptions.read(namespace:c.namespace))]);
     gateway=QqGateway(api,onMessage:runtime.accept,
+      checkpoint:QqGatewayCheckpoint(File('${cache.path}/qq_gateway/$namespace.json'),resumeScope),
       onGroupMessage:(event)=>runtime.accept(event,group:true),
-      onStatus:(code) {lastConnection=code;unawaited(status('connection',code));});
+      onStatus:(code) {
+        lastConnection=code;
+        unawaited(status('connection',code));
+        if(code=='online') unawaited(runtime.wakeReplies());
+      });
     if(stopped) {await runtime.stop();await gateway.stop();return;}
     await runtime.start();await gateway.run();
   } catch(_) {

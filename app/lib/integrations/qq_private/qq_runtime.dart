@@ -159,12 +159,13 @@ class QqRuntime {
     await wakeReplies();
   }
   Future<void> wakeReplies() async {
-    if(_recoveringReplies || !await _enabled())return;
+    if(_recoveringReplies)return;
     _recoveringReplies=true;
     _imageUrls.removeWhere((seq,_)=>_imageExpires.containsKey(seq) && _imageExpires[seq]!<=now().millisecondsSinceEpoch);
     _imageExpires.removeWhere((_,at)=>at<=now().millisecondsSinceEpoch);
     _visionReview.prune(now().millisecondsSinceEpoch);
     try {
+      if(!await _enabled())return;
       final c=await configReader(),o=await optionsReader(),fence=await store.capture();
       try {await ingressBuffer.drain(fence,policy(c,o),now().millisecondsSinceEpoch,(event,group,receivedAt) async {
         if(!await _enabled())return false;
@@ -310,7 +311,7 @@ class QqRuntime {
     final batchStamp=[for(final r in b.rows)<String,Object?>{'table':'qq_archive','id':r['id'],'version':r['version']}];
     List<Map<String,Object?>> qqStamp=[],echoStamp=[],pendingStamp=[],webStamp=[];Map<String,Object?>? mainStamp;String? stickerStamp,styleStamp;
     Future<bool> current() async {
-      if(!await _enabled() || now().millisecondsSinceEpoch-(b.rows.last['received_at'] as int)>240000 || !await store.current(fence)) return false;
+      if(!await _enabled() || now().millisecondsSinceEpoch-QqBatch.eventTime(b.rows.last)>=QqReplyRecovery.windowMs || !await store.current(fence)) return false;
       final fresh=await configReader();final opts=await optionsReader();
       if(!_sameDevice(fresh) || policy(fresh,opts)!=policy(c,o) || scope(fresh)!=b.conversation['scope']) return false;
       if(b.group && !opts.groups.contains(b.target)) return false;
@@ -902,13 +903,15 @@ class QqRuntime {
       await store.recordFailure(fence,phase,error is QqDeliveryFailure?error.cause:error,elapsedMs:operationClock.elapsedMilliseconds,operation:b.id,conversation:b.cid);
       final state=error is QqDeliveryFailure?error.state:sentAny?'sent_archive_failed':
         error is QqApiException && error.uncertain?'send_uncertain':await current()?'failed':'context_invalidated';
-      try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Existing sending receipt remains conservative. */}
+
       var retryScheduled=false;
       // First-part failures propagate directly; a delivery wrapper means a part
       // was already sent. Only an explicit known-unsent API failure may replay.
       final knownUnsentSend=error is QqApiException && !error.uncertain;
       if(!illustrationPrepared && state=='failed' && (phase!='send' || knownUnsentSend) && phase!='archive' && QqFailure.retryable(error is QqDeliveryFailure?error.cause:error)) {
-        try {retryScheduled=await QqReplyRecovery(store).defer(b,now().millisecondsSinceEpoch);}catch(_) {}
+        try {retryScheduled=await QqReplyRecovery(store).markFailedAndDefer(b,now().millisecondsSinceEpoch);}catch(_) {}
+      } else {
+        try {await store.mark(b,state,confirmedParts:error is QqDeliveryFailure?error.confirmed:null);} catch(_) {/* Retain the last durable receipt. */}
       }
       status(retryScheduled?'reply_retry_wait':state=='failed'?'reply_failed':state);
     } finally {client.close();_clients.remove(client);if(ownsDrawing)_drawingBusy=false;echoes.release(b);

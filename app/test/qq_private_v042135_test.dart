@@ -234,6 +234,45 @@ void main() {
     } finally { await gateway.stop(); await run; await subscription.cancel(); await server.close(force: true); }
   });
 
+  test('fresh gateway resumes the last accepted dispatch; failure does not acknowledge it', () async {
+    final dir=await Directory.systemTemp.createTemp();
+    addTearDown(()=>dir.delete(recursive:true));
+    final disk=QqGatewayCheckpoint(File('${dir.path}/resume.json'),'test-owner');
+    await disk.write('old-session',6,DateTime.now());
+    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);
+    final resumed=<int>[];
+    final accepted=Completer<void>();
+    final subscription=server.listen((req) async {
+      final socket=await WebSocketTransformer.upgrade(req);
+      socket.add(jsonEncode({'op':10,'d':{'heartbeat_interval':45000}}));
+      socket.listen((raw){
+        final f=jsonDecode(raw as String);
+        if(f['op']!=6)return;
+        resumed.add(f['d']['seq'] as int);
+        socket.add(jsonEncode({'op':0,'s':7,'t':'GROUP_MESSAGE_CREATE','d':event('incoming')}));
+      });
+    });
+    var calls=0;
+    final gateway=QqGateway(_GatewayApi('ws://127.0.0.1:${server.port}'),checkpoint:disk,
+      onStatus:(_){},onMessage:(_) async {},onGroupMessage:(row)async{
+        expect(row['id'],'incoming');
+        if(++calls==1)throw StateError('simulated archive write failed');
+        accepted.complete();
+      });
+    final run=gateway.run();
+    try {
+      await accepted.future.timeout(const Duration(seconds:12));
+      await until(() {
+        try {return jsonDecode(disk.file.readAsStringSync())['seq']==7;} catch(_){return false;}
+      });
+      expect(resumed,[6,6]);
+      expect(await QqGatewayCheckpoint(disk.file,'other-owner').read(DateTime.now()),isNull);
+      expect(await disk.read(DateTime.now().add(const Duration(minutes:5))),isNull);
+      expect(disk.file.readAsStringSync(),isNot(contains('incoming')));
+    } finally {await gateway.stop();await run;await subscription.cancel();await server.close(force:true);}
+    expect(await disk.read(DateTime.now()),isNull);
+  });
+
   test('host memory snapshot leaves every existing SQLite table unchanged', () async {
     final db = await AppDatabase.createForTesting(databaseFactoryFfi);
     try {

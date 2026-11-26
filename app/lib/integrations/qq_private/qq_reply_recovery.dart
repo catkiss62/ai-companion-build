@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:sqflite/sqflite.dart';
 import '../../core/database/brain_work_fence.dart';
 import 'qq_archive_reader.dart';
 import 'qq_reply_tasks.dart';
@@ -22,11 +23,20 @@ class QqReplyRecovery {
     final draft=decode(raw);
     for(final name in ['delivery','inherited_delivery']) {
       final delivery=draft[name];
-      if(delivery is Map && (delivery['unknown']==true || (delivery['confirmed'] as List? ?? []).isNotEmpty)) return false;
+      if(delivery == null)continue;
+      if(delivery is! Map || delivery['unknown']==true)return false;
+      final parts=delivery['confirmed'], count=delivery['failure_confirmed_count'];
+      if(parts!=null && (parts is! List || parts.isNotEmpty) ||
+          count!=null && (count is! int || count!=0))return false;
     }
     return true;
   }
-  Future<bool> defer(QqBatch b,int now) => store.write(b.fence,(sql) async {
+  Future<bool> markFailedAndDefer(QqBatch b,int now) => store.write(b.fence,(sql) async {
+    await store.markInTransaction(sql,b,'failed');
+    return _schedule(sql,b,now);
+  });
+  Future<bool> defer(QqBatch b,int now) => store.write(b.fence,(sql) => _schedule(sql,b,now));
+  Future<bool> _schedule(Transaction sql,QqBatch b,int now) async {
     final rows=await sql.query('qq_reply_tasks',where:'id=? AND valid=1',whereArgs:[b.id],limit:1);
     if(rows.isEmpty || !unsent(rows.single))return false;
     final row=rows.single,draft=decode(row['draft']);
@@ -36,7 +46,7 @@ class QqReplyRecovery {
     draft[key]={'attempts':attempts,'next_at':now+delay};
     await sql.update('qq_reply_tasks',{'draft':jsonEncode(draft)},where:'id=?',whereArgs:[b.id]);
     return true;
-  });
+  }
 
   /// Reconcile only conversations that have no live owner in this engine.
   /// A send interrupted by backup/process death remains unknown, never queued.
@@ -60,7 +70,8 @@ class QqReplyRecovery {
         draft[key]={'attempts':0,'next_at':now};
         await sql.update('qq_reply_tasks',{'stage':'interrupted','draft':jsonEncode(draft),'updated_at':now},where:'id=?',whereArgs:[row['id']]);
       }
-      if(draft[key] is Map && ((draft[key] as Map)['next_at'] as num? ?? now+1)<=now)result.add(cid);
+      final next = draft[key] is Map ? (draft[key] as Map)['next_at'] : null;
+      if(next is int && next<=now && (stage!='failed' || next>0))result.add(cid);
     }
     return result;
   });
@@ -71,7 +82,9 @@ class QqReplyRecovery {
     for(final row in rows) {
       if(row['policy']!=policy || !QqStore.acceptsIngress(row['identity'] as String,fence) || !unsent(row))continue;
       final draft=decode(row['draft']),retry=draft[key];
-      if(retry is! Map || (retry['next_at'] as num? ?? now+1)>now)continue;
+      if(retry is! Map)continue;
+      final nextAt=retry['next_at'];
+      if(nextAt is! int || nextAt>now || row['stage']=='failed' && nextAt<=0)continue;
       final later=await sql.query('qq_archive',columns:['seq'],where:"conversation_id=? AND role='user' AND seq>?",whereArgs:[cid,row['through_seq']],limit:1);
       if(later.isNotEmpty)continue; // Let the new batch judge continuation/cancel.
       final stamps=(jsonDecode(row['source_stamp'] as String) as List).map((x)=>Map<String,Object?>.from(x as Map)).toList();
@@ -79,7 +92,7 @@ class QqReplyRecovery {
       final ids=(jsonDecode(row['sources'] as String) as List).cast<int>();
       if(ids.isEmpty || ids.length>80)continue;
       final original=await sql.query('qq_archive',where:"conversation_id=? AND role='user' AND seq IN (${List.filled(ids.length,'?').join(',')})",whereArgs:[cid,...ids],orderBy:'seq');
-      if(original.length!=ids.length)continue;
+      if(original.length!=ids.length || now-QqBatch.eventTime(original.last)>=windowMs)continue;
       final conversation=(await sql.query('qq_conversations',where:'id=?',whereArgs:[cid],limit:1)).single;
       // Recheck context on recovery. Only paid illustration work can resume from its saved original.
       final next={key:{'attempts':((retry['attempts'] as num?)?.toInt() ?? 0)+1,'next_at':0},

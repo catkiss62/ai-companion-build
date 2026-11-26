@@ -50,7 +50,11 @@ void main() {
   }
   test('deleting unrelated history preserves successor proof and withdraws old drafts',()async {
     final oldAt=clock-const Duration(days:60).inMilliseconds;
-    await mark(await claim(await add('old',at:oldAt)),'watching');final history=await chain('sent_archive_failed');
+    final present=clock;
+    clock=oldAt;
+    await mark(await claim(await add('old')),'watching');
+    clock=present;
+    final history=await chain('sent_archive_failed');
     final sql=await db.database;final version=(await sql.query('qq_conversations',where:'id=?',whereArgs:[cid])).single['version'] as int;
     final result=await QqArchiveAdmin(db).deleteRange(cid,DateTime.fromMillisecondsSinceEpoch(oldAt-1),DateTime.fromMillisecondsSinceEpoch(oldAt+1),expectedVersion:version);
     expect(result.messages,1);final row=(await sql.query('qq_reply_tasks',where:'id=?',whereArgs:[history.last.id])).single;
