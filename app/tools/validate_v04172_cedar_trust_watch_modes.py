@@ -41,7 +41,7 @@ require(
     'lib/core/mcp/cedar_toy_autonomy_engine.dart',
     'session.mode == CedarParticipationMode.unknown',
     'CedarActionTransportPolicy.immediateResponseParams',
-    "mode == CedarParticipationMode.solo",
+    "mode.playsAlone",
     '_judgeOutcome',
     'thinking: false',
     '_cleanRoomDialogue(content)',

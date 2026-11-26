@@ -869,6 +869,10 @@ class AgentToolRunner {
         continuationRecommended: true,
       );
     }
+    if (CedarPuzzleState.revealsSolution(mode, action, params)) {
+      return const AgentToolResult(toolId:'cedar_toy.play', status: AgentToolStatus.blocked,
+        displayText:'人类攻略留给主人查看', promptData:'选择玩家调查、提交自己的推断或向主人求助。');
+    }
     params = CedarExecutableCallPolicy.hydrateTransportParams(
       planned: params,
       continuationParamsJson: persisted?.continuationParamsJson ?? '',
@@ -1016,6 +1020,7 @@ class AgentToolRunner {
               action: action,
               outcome: outcome,
               latestUserText: latestUserText,
+              mode: mode,
               params: params,
               cancellationToken: cancellationToken,
             );
@@ -1152,6 +1157,7 @@ class AgentToolRunner {
   Future<({String nextActor, String shareLevel, int resumeAfterSeconds, bool? accepted, bool? goalSatisfied})>
       _verifyCedarOutcome({
     required String game,
+    required CedarParticipationMode mode,
     required String guide,
     required String action,
     required McpToolOutcome outcome,
@@ -1230,8 +1236,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
           'wait',
           'finished',
         }.contains(actor)
-            ? actor
-            : 'wait'),
+            ? (mode.playsAlone && const {'user','shared'}.contains(actor) ? 'companion' : actor)
+            : mode.playsAlone ? 'companion' : 'wait'),
         shareLevel:
             const <String>{'quiet', 'notable', 'required'}.contains(share)
                 ? share

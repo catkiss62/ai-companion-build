@@ -1,3 +1,4 @@
+import '../platform/android_bridge.dart';
 import '../diagnostics/third_channel_diagnostics.dart';
 import 'cedar_activity_media.dart';
 import '../ai/first_channel_model.dart';
@@ -184,6 +185,8 @@ class CedarAgentActionDecision {
     required this.params,
     required this.mode,
     required this.invitationApproved,
+    this.investigationGoal = '',
+    this.localChoice = '',
     this.sharePreviousOutcome = false,
     this.arrangementReviews = const [],
   });
@@ -193,6 +196,7 @@ class CedarAgentActionDecision {
   final Map<String, Object?> params;
   final CedarParticipationMode mode;
   final bool invitationApproved;
+  final String investigationGoal, localChoice;
   final bool sharePreviousOutcome;
   final List<Object?> arrangementReviews;
 }
@@ -228,6 +232,7 @@ class CedarAgentActionPlanner {
     required bool Function(String action) acceptsAction,
     bool Function(CedarAgentActionDecision decision)? acceptsDecision,
     String Function(CedarAgentActionDecision decision)? decisionProblem,
+    bool puzzleChoices = false,
     GenerationCancellationToken? cancellationToken,
     Duration requestTimeout = const Duration(seconds: 45),
   }) async {
@@ -245,6 +250,7 @@ class CedarAgentActionPlanner {
               ? ''
               : '上一方案未形成可执行调用（可能为空、缺少必填参数、重复只读查询、动作不在指南或游戏 ID 错误）。'
                   '不要解释，不要重复已有查询；现在调用一次 cedar_toy_play，选择指南允许且能补齐缺失事实或推进目标的调用，并补全全部必填参数。$problem',
+          puzzleChoices: puzzleChoices,
           thinking: attempt == 1,
           cancellationToken: cancellationToken,
           requestTimeout: attempt == 1
@@ -255,7 +261,8 @@ class CedarAgentActionPlanner {
                 ),
         );
         final decision = _parse(call, expectedGameId: gameId);
-        if (!acceptsAction(decision.action)) {
+        if (puzzleChoices && decision.localChoice.isNotEmpty) return decision;
+        if (decision.localChoice.isNotEmpty || !acceptsAction(decision.action)) {
           throw const CedarAgentActionPlanningException(
             'non_executable_action',
           );
@@ -285,6 +292,7 @@ class CedarAgentActionPlanner {
     required String instruction,
     required List<String> contextSections,
     required String correction,
+    required bool puzzleChoices,
     required bool thinking,
     GenerationCancellationToken? cancellationToken,
     required Duration requestTimeout,
@@ -316,6 +324,8 @@ class CedarAgentActionPlanner {
       'description': '指南中的精确动作名。可以读取尚缺的必要事实；局面未变化时不得重复已有的同参数查询。',
     };
 
+    if (puzzleChoices) properties['investigation_goal'] = const {'type': 'string',
+      'description': '仅同一个需要连续取证的小目标可填简短名称，后续沿用同一名称；无须快速连查时留空。'};
     properties['share_previous_outcome'] = const <String, Object?>{
       'type': 'boolean',
       'description': '只判断已落库的前面游戏进展是否有值得分享的新内容；无新发现、重复小收益或仍有待发分享则false。当前准备执行的动作不算结果。',
@@ -333,7 +343,11 @@ class CedarAgentActionPlanner {
       thinking: thinking,
       effort: thinking ? ReasoningEffort.high : ReasoningEffort.low,
       maxTokens: thinking ? null : 1400,
-      tools: <Map<String, Object?>>[tool],
+      tools: <Map<String, Object?>>[tool, if (puzzleChoices) {
+        'type':'function', 'function':{'name':'puzzle_pause_or_ask',
+          'description':'自己的本地决定。ask 向主人发送具体求助，可问方向或本题答案。keep 留下排除过的思路，稍后再试。询问游戏主持人请使用游戏动作。',
+          'parameters':{'type':'object','properties':{'choice':{'type':'string','enum':['ask','keep']},
+            'text':{'type':'string','description':'ask 填可以直接发给主人的自然对话；keep 填当前谜题、已排除的可能及下次思路。'}},'required':['choice','text']}}}],
       // Match the foreground Agent request contract. DeepSeek's documented
       // function-calling flow lets the model select the supplied tool with
       // `auto`; forcing `required` was a background-only request shape that
@@ -377,14 +391,27 @@ class CedarAgentActionPlanner {
   }) {
     // Local review metadata must never consume one of the six executable
     // argument slots, regardless of JSON property order.
+    if (call.name == 'puzzle_pause_or_ask') {
+      final data = jsonDecode(call.arguments);
+      if (data is! Map || !const {'ask','keep'}.contains(data['choice']) || data['text'] is! String ||
+          (data['text'] as String).trim().isEmpty || (data['text'] as String).length > 600) {
+        throw const CedarAgentActionPlanningException('invalid_puzzle_choice');
+      }
+      return CedarAgentActionDecision(gameId:expectedGameId, action:'', params:{'text':data['text']},
+        mode:CedarParticipationMode.puzzle, invitationApproved:false, localChoice:data['choice'] as String);
+    }
     var executableCall = call;
+    var goal = '';
     var sharePreviousOutcome = false;
     try {
       final decoded = jsonDecode(call.arguments);
       if (decoded is Map) sharePreviousOutcome = decoded['share_previous_outcome'] == true ||
           decoded['share_previous_outcome'] == 'true';
-      if (decoded is Map && decoded.containsKey('arrangement_reviews_json')) {
-        final business = Map<String, dynamic>.from(decoded)..remove('arrangement_reviews_json');
+      if (decoded is Map && decoded['investigation_goal'] is String && (decoded['investigation_goal'] as String).length <= 100) {
+        goal = (decoded['investigation_goal'] as String).trim();
+      }
+      if (decoded is Map && (decoded.containsKey('arrangement_reviews_json') || decoded.containsKey('investigation_goal'))) {
+        final business = Map<String, dynamic>.from(decoded)..remove('arrangement_reviews_json')..remove('investigation_goal');
         executableCall = DeepSeekToolCall(id: call.id, name: call.name, arguments: jsonEncode(business));
       }
     } catch (_) { /* Preserve malformed-call rejection in the normal parser. */ }
@@ -430,6 +457,7 @@ class CedarAgentActionPlanner {
       params: params,
       mode: mode,
       invitationApproved: invitationApproved,
+      investigationGoal: goal,
       sharePreviousOutcome: sharePreviousOutcome,
       arrangementReviews: _parseArrangementReviews(call.arguments),
     );
@@ -2010,6 +2038,7 @@ $selectionCatalog''',
     required _CedarExecutionScope scope,
     bool readOnlyRecovery = false,
   }) async {
+    readOnlyRecovery = readOnlyRecovery || session.waitingReason == '正在核对游戏回合';
     final state = await store.loadState();
     final playProtocol = await store.loadPlayProtocol();
     final shareContext = await CedarLiveSharePolicy(db).planningContext(session, now);
@@ -2033,6 +2062,7 @@ $selectionCatalog''',
       endpoint: endpoint,
       gameId: session.gameId,
       cancellationToken: scope.cancellation,
+      puzzleChoices: session.mode == CedarParticipationMode.puzzle && !readOnlyRecovery && !session.hasContinuationCall,
       acceptsAction: (candidate) {
         final platform =
             CedarPlatformActionPolicy.isPlatformAction(candidate);
@@ -2042,6 +2072,7 @@ $selectionCatalog''',
         return true;
       },
       acceptsDecision: (candidate) {
+        if (CedarPuzzleState.revealsSolution(session.mode, candidate.action, candidate.params)) return false;
         final hydrated = CedarExecutableCallPolicy.hydrateTransportParams(
           planned: candidate.params,
           continuationParamsJson: session.continuationParamsJson,
@@ -2068,7 +2099,7 @@ $selectionCatalog''',
       decisionProblem:(candidate)=>CedarExecutionRepair.issue(session,candidate.action,candidate.params),
       instruction: '''${CedarToyArcadeSkill.prompt}
 
-你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。你拥有且必须使用本请求提供的 cedar_toy_play 函数；只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
+你是 AI 伴侣的后台 Agent，正在推进一局真实 Cedar Toy 游戏。选择一个工具。可用 puzzle_pause_or_ask 时，想求助或留题可选择该工具；正常操作选择 cedar_toy_play。每次只调用一次，不输出正文或自由 JSON。参数必须来自完整指南与本机真实局面，不得猜造游戏、房间、revision、棋步或结果。
 共玩、多人模式必须已有用户邀请/同意；混合模式可以独自开始，但只有用户明确同意后才能进入共玩分支。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
 平台公共 action `rest / announcements / vote` 由 Cedar play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用。若 next_actor=companion，可为缺失事实调用不同的必要查询；局面未变化时不得重复已有的同参数查询。事实足够后选择真实推进动作。服务端 next_call 若存在则是最高优先级；近期用户建议只是参考，不是逐步命令。''',
       contextSections: [
@@ -2085,6 +2116,26 @@ ${arrangements.prompt}'''.trim(),
       ],
     );
     scope.throwIfPreempted();
+    if (decision.localChoice.isNotEmpty) {
+      final ask = decision.localChoice == 'ask';
+      final intent = decision.params['text'] as String;
+      final text = ask ? await _composeRoomDialogue(apiKey: apiKey, endpoint: endpoint, session: session,
+          action: '', params: const {}, intent: intent, puzzleQuestion: true, cancellationToken: scope.cancellation) : intent;
+      scope.throwIfPreempted();
+      if (text.isEmpty) {
+        await store.deferContinuation(gameId: session.gameId, executionId: scope.executionId, delay: const Duration(minutes: 2));
+        return const CedarAutonomyProgress('puzzle_question_not_delivered');
+      }
+      final saved = await store.savePuzzleChoice(session, executionId: scope.executionId, text: text, ask: ask);
+      if (saved && ask) {
+        try {
+          await AndroidBridge.instance.incrementOverlayUnread();
+          await AndroidBridge.instance.postCompanionNotification(title: session.displayName, body: text,
+            messageId:'cedar-puzzle-${scope.executionId}',intentKind:'cedar_puzzle_help',soundKey:'silent');
+        } catch (_) { /* The question is already available in chat. */ }
+      }
+      return CedarAutonomyProgress(saved ? 'puzzle_${decision.localChoice}' : 'planning_or_write_fenced');
+    }
     await arrangementStore.completeReviewed(arrangements, decision.arrangementReviews);
     scope.throwIfPreempted();
     // Participation is session identity. Once established, do not let a fresh
@@ -2393,6 +2444,7 @@ ${arrangements.prompt}'''.trim(),
             outcome: outcome,
             mode: mode,
             nextActor: verification.nextActor,
+            investigationGoal: decision.investigationGoal,
             shareLevel: shareLevel,
             invitationApproved:
                 session.invitationApproved || serverSessionStarted,
@@ -2520,7 +2572,7 @@ ${arrangements.prompt}'''.trim(),
       // classifies whether the real outcome is worth sharing, and fills an
       // actor only for legacy/free-form multiplayer outcomes. Solo games keep
       // advancing unless Cedar explicitly says they ended or must wait.
-      final fallbackActor = mode == CedarParticipationMode.solo
+      final fallbackActor = mode.playsAlone
           ? 'companion'
           : 'wait';
       final shareContext = await CedarLiveSharePolicy(db).planningContext(session, DateTime.now());
@@ -2551,7 +2603,8 @@ $outcomeText''',
           'shared',
           'wait',
           'finished',
-        }.contains(actor) && mode != CedarParticipationMode.solo
+        }.contains(actor) && (!mode.playsAlone || (mode == CedarParticipationMode.puzzle &&
+            (actor == 'finished' || (actor == 'wait' && rawResume > 0))))
             ? actor
             : fallbackActor),
         shareLevel:
@@ -2567,7 +2620,7 @@ $outcomeText''',
       return (
         accepted: null,
         nextActor: structured?.nextActor ??
-            (mode == CedarParticipationMode.solo ? 'companion' : 'wait'),
+            (mode.playsAlone ? 'companion' : 'wait'),
         shareLevel: 'quiet',
         resumeAfterSeconds: structuredResume ?? 0,
       );
@@ -2575,7 +2628,7 @@ $outcomeText''',
       return (
         accepted: null,
         nextActor: structured?.nextActor ??
-            (mode == CedarParticipationMode.solo ? 'companion' : 'wait'),
+            (mode.playsAlone ? 'companion' : 'wait'),
         shareLevel: 'quiet',
         resumeAfterSeconds: structuredResume ?? 0,
       );
@@ -2583,7 +2636,7 @@ $outcomeText''',
       return (
         accepted: null,
         nextActor: structured?.nextActor ??
-            (mode == CedarParticipationMode.solo
+            (mode.playsAlone
                 ? 'companion'
                 : 'wait'),
         shareLevel: 'quiet',
@@ -2613,12 +2666,13 @@ $outcomeText''',
     required String action,
     required Map<String, Object?> params,
     required String intent,
+    bool puzzleQuestion = false,
     GenerationCancellationToken? cancellationToken,
   }) async {
     final prompt = <Map<String, Object?>>[
       <String, Object?>{
         'role': 'system',
-        'content': '''你正在为 AI 伴侣生成一条会直接发进 Cedar 游戏房间的公开聊天。
+        'content': puzzleQuestion ? '以小鲸鱼口吻在 App 私聊里向主人提出一条具体的解谜问题。依据所给意图和已知事实，可问提示或本题答案，只输出简短自然的问题。' : '''你正在为 AI 伴侣生成一条会直接发进 Cedar 游戏房间的公开聊天。
 只输出 1 条简短自然中文，不超过 100 字；可以回应、吐槽、调侃或说这一手的感受。
 不输出情绪标签、动作括号、引号外壳、Markdown、代码、JSON、XML、DSML、工具名或参数。
 不声称尚未成功的动作；如果提到本次坐标/选择，必须与“将提交的真实参数”完全一致。''',
@@ -2660,7 +2714,7 @@ game=${session.gameId}
                 ...prompt,
                 <String, Object?>{
                   'role': 'system',
-                  'content': '刚才的候选格式或完整性不符合房间发言要求。只修正一次，直接输出一条完整的简短中文房间发言，不输出结构化数据。',
+                  'content': puzzleQuestion ? '请直接写出一条完整的简短求助问题。' : '刚才的候选格式或完整性不符合房间发言要求。只修正一次，直接输出一条完整的简短中文房间发言，不输出结构化数据。',
                 },
               ]
             : prompt,
@@ -2670,7 +2724,7 @@ game=${session.gameId}
         thinking: false,
         cancellationToken: cancellationToken,
         requestTimeout: const Duration(seconds: 30),
-        usageLane: gemini ? 'cedar_room_final_reply' : 'cedar_room_dialogue',
+        usageLane: puzzleQuestion ? 'cedar_puzzle_question' : gemini ? 'cedar_room_final_reply' : 'cedar_room_dialogue',
         finalReplyRoute: finalRoute,
         thirdChannelSecure: secureConfig,
       )) {

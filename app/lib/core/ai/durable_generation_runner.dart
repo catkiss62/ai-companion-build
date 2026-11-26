@@ -12,6 +12,7 @@ import 'first_channel_model.dart';
 import '../agent/tool_provenance_policy.dart';
 import '../database/conversation_source_store.dart';
 import '../mcp/cedar_toy_client.dart';
+import '../mcp/cedar_context_intent_judge.dart';
 import '../creative/creative_store.dart';
 import '../agent/turn_execution_store.dart';
 import '../agent/turn_task_intent.dart';
@@ -533,9 +534,22 @@ class DurableGenerationRunner {
               CedarToyArcadeSkill.requestsExternalGameKnowledge(user.content)) ||
           (cedarConfigured && (taskIntent.gameAction == 'play' ||
             (effectiveCedarCertain && const {'act_now','accept'}.contains(effectiveCedarIntent))));
+      final pendingPuzzle = cedarSession;
+      var answeredQuestion = '';
+      if (pendingPuzzle != null && pendingPuzzle.puzzle.questionId.isNotEmpty &&
+          (explicitCedarGameId == pendingPuzzle.gameId || !mentionsCatalogGame) &&
+          (previous.any((message) => message.id == pendingPuzzle.puzzle.questionId) ||
+              explicitCedarGameId == pendingPuzzle.gameId)) {
+        try {
+          if (await CedarContextIntentJudge().answersPuzzle(question: pendingPuzzle.puzzle.note,
+              userText: user.content, cancellationToken: effectiveCancellation)) {
+            answeredQuestion = pendingPuzzle.puzzle.questionId;
+          }
+        } on GenerationCancelledByUserException { rethrow; } catch (_) { /* Retry through the game window. */ }
+      }
       await cedarActivityStore.rememberUserAdvice(
         user.content, allowSessionAdvice: !mentionsCatalogGame,
-        gameId: explicitCedarGameId, sourceId: user.id, sourceAt: user.createdAt,
+        gameId: explicitCedarGameId, sourceId: user.id, sourceAt: user.createdAt, answeredQuestion: answeredQuestion,
       );
       if (!mentionsCatalogGame || explicitCedarGameId.isNotEmpty) {
         cedarState = await cedarActivityStore.loadState();
@@ -649,7 +663,7 @@ class DurableGenerationRunner {
             userText: user.content,
             previousAssistantText: precedingAssistant.content,
             activeGameTitle: cedarSession?.displayName ?? '',
-            activeSoloSession: cedarSession?.mode == CedarParticipationMode.solo &&
+            activeSoloSession: cedarSession?.mode.playsAlone == true &&
                 cedarSession?.continuable == true,
             gap: user.createdAt.difference(precedingAssistant.createdAt),
           );

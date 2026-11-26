@@ -99,6 +99,16 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     widget.onClose();
   }
 
+  Future<void> _changePlayMode(CedarGameSession session, [String? selection]) async {
+    final ok = await store.selectPlayMode(session, preference: selection);
+    if (ok) {
+      await AndroidBridge.instance.wakeBackgroundBrain(reason: 'cedar_play_mode');
+    } else if (mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('当前动作或回合已变化，请查看最新进度')));
+    }
+    await _refresh();
+  }
+
   Future<void> _togglePaused(CedarGameSession session) async {
     if (session.phase == CedarActivityPhase.paused) {
       await store.resume();
@@ -337,7 +347,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
               subtitle: Text(
                 state.activeSession == null
                     ? '当前已暂离；可从旧存档恢复'
-                    : '当前选中：${state.activeSession!.displayName} · ${state.activeSession!.phase.label}',
+                    : '当前选中：${state.activeSession!.displayName}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -369,9 +379,9 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Text('${item.gameId} · ${item.phase.label}'),
+                      subtitle: Text(item.phase.label),
                       trailing: item.gameId == state.activeGameId
-                          ? Text(item.phase == CedarActivityPhase.paused ? '已暂停' : item.phase.label)
+                          ? const Icon(Icons.check_rounded, semanticLabel: '当前活动')
                           : item.gameId == session.gameId
                               ? const Text('查看中')
                               : null,
@@ -419,18 +429,26 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
         ),
         if (_task == null || _task!.historical)
           const Text('当前没有已登记的时长任务'),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [
-            Chip(label: Text(session.phase.label)),
-            Chip(label: Text(session.mode.label)),
-            if (session.nextActor == 'user' || session.nextActor == 'shared')
-              const Chip(
-                avatar: Icon(Icons.person_rounded, size: 17),
-                label: Text('轮到你'),
-              ),
-          ],
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('游玩方式'),
+          trailing: DropdownButton<String>(
+            value: session.puzzle.preference,
+            items: [
+              for (final item in {'auto':'自动（${session.mode.label}）','solo':'她自己玩','co_play':'一起玩','puzzle':'解谜模式'}.entries)
+                DropdownMenuItem(value:item.key, child:Text(item.value)),
+            ],
+            onChanged: state?.execution != null ? null : (value) { if (value != null) _changePlayMode(session, value); },
+          ),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('当前进度'),
+          subtitle: Text(session.phase == CedarActivityPhase.waitingUser && session.puzzle.questionId.isNotEmpty
+              ? '等待你的提示' : session.waitingReason.isNotEmpty ? session.waitingReason :
+              session.mode == CedarParticipationMode.puzzle && session.phase == CedarActivityPhase.active ? '正在解谜' : session.phase.label),
+          trailing: state?.activeGameId == session.gameId && session.canRecheckTurn
+              ? TextButton(onPressed: state?.execution != null ? null : () => _changePlayMode(session),child: const Text('让她继续')) : null,
         ),
         const SizedBox(height: 10),
         Text('分享间隔', style: Theme.of(context).textTheme.labelLarge),
@@ -455,14 +473,11 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
         ),
         const SizedBox(height: 5),
         Text(
-          '单人自主游戏每轮至少 2 分钟；有值得分享的进展才回复，'
+          '${session.mode == CedarParticipationMode.puzzle ? '同一调查目标可连续取证；' : '单人自主游戏每轮至少 2 分钟；'}有值得分享的进展才回复，'
           '两次过程分享最少间隔 ${_pace.shareRounds} 轮，可合并这段时间的重要发现。',
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (session.waitingReason.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(session.waitingReason),
-        ],
+
         if (session.companionCanObserve) ...[
           const SizedBox(height: 8),
           const Text('已挂等房间事件；你在网页落子或发言后，她会自动接收。'),

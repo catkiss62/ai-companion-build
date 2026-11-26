@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../database/app_database.dart';
+import '../database/conversation_source_store.dart';
+import '../models/chat_message.dart';
 import '../database/brain_work_fence.dart';
 import '../database/generation_attempt_fence.dart';
 import '../agent/turn_execution_store.dart';
@@ -23,9 +25,12 @@ import 'cedar_timed_play_task.dart';
 import 'mcp_protocol.dart';
 import 'mcp_turn_state_resolver.dart';
 
+part 'cedar_puzzle_play.dart';
+
 enum CedarParticipationMode {
   unknown('unknown', '待判断'),
   solo('solo', '她自己玩'),
+  puzzle('puzzle', '解谜模式'),
   coPlay('co_play', '和你共玩'),
   multiplayer('multiplayer', '多人游戏'),
   hybrid('hybrid', '混合模式');
@@ -33,6 +38,8 @@ enum CedarParticipationMode {
   const CedarParticipationMode(this.key, this.label);
   final String key;
   final String label;
+
+  bool get playsAlone => this == solo || this == puzzle;
 
   bool get requiresInvitation => this == coPlay || this == multiplayer;
   bool get supportsSharedParticipation =>
@@ -241,6 +248,7 @@ class CedarGameSession {
     required this.phase,
     required this.updatedAt,
     this.gameTitle = '',
+    this.puzzle = const CedarPuzzleState(),
     this.lastAction = '',
     this.lastOutcome = '',
     this.lastOutcomeAt,
@@ -270,6 +278,7 @@ class CedarGameSession {
   final String guide;
   final bool guideComplete;
   final CedarParticipationMode mode;
+  final CedarPuzzleState puzzle;
   final CedarActivityPhase phase;
   final String lastAction;
   final String lastOutcome;
@@ -336,7 +345,7 @@ class CedarGameSession {
   bool get isParkedUnresolvedWrite => phase==CedarActivityPhase.paused && pauseSource=='blocked_unresolved_write';
   bool get canRevisitAfterBudget => phase==CedarActivityPhase.paused &&
     const {'budget_complete', 'solo_variety'}.contains(pauseSource) &&
-    mode==CedarParticipationMode.solo && nextActor=='companion' && !hasContinuationCall && !hasPendingTerminalDelivery;
+    mode.playsAlone && nextActor=='companion' && !hasContinuationCall && !hasPendingTerminalDelivery;
   /// New queries may supply missing facts. Only reuse evidence since the last
   /// accepted mutation; failures never invalidate an already-read snapshot.
   bool repeatsUnchangedRead(String action, Map<String,Object?> params) {
@@ -360,6 +369,12 @@ class CedarGameSession {
     return false;
   }
 
+  bool get canRecheckTurn {
+    if (phase != CedarActivityPhase.waitingUser || hasContinuationCall) return false;
+    final actor = puzzle.serverTurn.isEmpty ? McpTurnStateResolver.resolve(lastOutcome)?.nextActor : puzzle.serverTurn;
+    return !const {'user', 'shared', 'wait', 'finished'}.contains(actor);
+  }
+
   String get displayName => gameTitle.trim().isEmpty ? gameId : gameTitle;
 
   CedarGameSession copyWith({
@@ -367,6 +382,7 @@ class CedarGameSession {
     String? guide,
     bool? guideComplete,
     CedarParticipationMode? mode,
+    CedarPuzzleState? puzzle,
     CedarActivityPhase? phase,
     String? lastAction,
     String? lastOutcome,
@@ -402,6 +418,7 @@ class CedarGameSession {
         guide: guide ?? this.guide,
         guideComplete: guideComplete ?? this.guideComplete,
         mode: mode ?? this.mode,
+        puzzle: puzzle ?? this.puzzle,
         phase: phase ?? this.phase,
         lastAction: lastAction ?? this.lastAction,
         lastOutcome: lastOutcome ?? this.lastOutcome,
@@ -447,6 +464,7 @@ class CedarGameSession {
         'guide': guide,
         'guide_complete': guideComplete,
         'mode': mode.key,
+        if (!puzzle.empty) 'puzzle_play': puzzle.toJson(),
         'phase': phase.key,
         'last_action': lastAction,
         'last_outcome': lastOutcome,
@@ -481,6 +499,7 @@ class CedarGameSession {
       guide: json['guide']?.toString() ?? '',
       guideComplete: json['guide_complete'] == true,
       mode: CedarParticipationMode.fromKey(json['mode']?.toString()),
+      puzzle: CedarPuzzleState.fromJson(json['puzzle_play']),
       phase: CedarActivityPhase.fromKey(json['phase']?.toString()),
       lastAction: json['last_action']?.toString() ?? '',
       lastOutcome: json['last_outcome']?.toString() ?? '',
@@ -1156,6 +1175,7 @@ class CedarToyActivityStore {
     var state = await loadState();
     final previousActiveGameId = state.activeGameId;
     final existing = state.sessions[gameId];
+    final preference = await db.getSetting('cedar_play_mode_$gameId') ?? 'auto';
     final catalogTitle = CedarCatalogParser.titleFor(
       await loadCatalog(),
       gameId,
@@ -1183,7 +1203,8 @@ class CedarToyActivityStore {
             gameTitle: resolvedTitle,
             guide: clean.length <= maxStoredTextChars ? clean : '',
             guideComplete: complete,
-            mode: CedarParticipationMode.unknown,
+            mode: CedarPuzzleState.effective(gameId, preference, CedarParticipationMode.unknown),
+            puzzle: CedarPuzzleState(preference: preference),
             phase: complete
                 ? CedarActivityPhase.guideReady
                 : CedarActivityPhase.failed,
@@ -1620,6 +1641,7 @@ class CedarToyActivityStore {
     required String shareLevel,
     required bool invitationApproved,
     int resumeAfterSeconds = 0,
+    String investigationGoal = '',
     bool roomMessageSent = false,
     String executionId = '',
     bool keepExecution = false,
@@ -1657,6 +1679,10 @@ class CedarToyActivityStore {
           ? latest.message
           : '${latest.author}：${latest.message}';
     }
+    mode = CedarPuzzleState.effective(gameId, existing.puzzle.preference, mode);
+    final explicitTurn = McpTurnStateResolver.resolveStructured(outcome.structuredContent) ??
+        outcome.content.where((block) => block.kind == McpContentKind.text).map((block) => McpTurnStateResolver.resolve(block.text)).nonNulls.firstOrNull;
+    if (mode.playsAlone && explicitTurn == null && const {'user', 'shared'}.contains(nextActor)) nextActor = 'companion';
     final normalizedActor = const <String>{
       'companion', 'user', 'shared', 'wait', 'finished',
     }.contains(nextActor)
@@ -1720,7 +1746,7 @@ class CedarToyActivityStore {
             pendingRoomMessage.isNotEmpty);
     final effectiveInvitationApproved =
         invitationApproved || existing.invitationApproved;
-    final ordinarySolo = mode == CedarParticipationMode.solo &&
+    final ordinarySolo = mode.playsAlone &&
         pendingRoomMessage.isEmpty && existing.ownRoomAliases.isEmpty &&
         !(continuation != null && CedarPlatformActionPolicy.isReadOnly(continuation.action));
     final realtime = !ordinarySolo && CedarServerContinuationPolicy.usesRealtimePace(
@@ -1750,7 +1776,12 @@ class CedarToyActivityStore {
           ? (rawSlot is num && rawSlot == rawSlot.toInt() && rawSlot >= 1 && rawSlot <= 5 ? '${rawSlot.toInt()}' : '') : 'session';
       if (slot.isNotEmpty) arrangementEpochs[slot] = event.id;
     }
+    final puzzle = existing.puzzle.afterAction(
+        mode: mode, goal: investigationGoal, actor: normalizedActor,
+        serverTurn: explicitTurn?.nextActor ?? '', scheduled: scheduledWait || continuation != null,
+        succeeded: !outcome.isError && !CedarPlatformActionPolicy.explicitlyRejected(fullText));
     final next = existing.copyWith(
+      puzzle: puzzle,
       arrangementSaveEpochs: arrangementEpochs,
       mode: mode,
       // An explicit MCP error means this action did not succeed; it is a
@@ -1777,7 +1808,7 @@ class CedarToyActivityStore {
                   ? 120 : boundedResumeSeconds)
               : realtime
                   ? realtimeContinuationGap
-                  : viewingPace.soloStepGap)
+                  : puzzle.quickFollowUp ? const Duration(seconds: 1) : viewingPace.soloStepGap)
           : null,
       clearNextActionAt: !outcome.isError && !shouldContinue,
       continuationAction: continuation?.action,
@@ -2215,6 +2246,7 @@ class CedarToyActivityStore {
   );
 
   Future<void> rememberUserAdvice(String text, {
+    String answeredQuestion = '',
     bool allowSessionAdvice = true,
     String gameId = '',
     String sourceId = '',
@@ -2231,10 +2263,11 @@ class CedarToyActivityStore {
     final correction = scoped && CedarGameCorrection.accepts(text);
     final retract = scoped && CedarGameCorrection.retracts(text,
         gameNames: [session.gameId, session.gameTitle]);
-    if (!switchGame && !correction && !retract &&
+    final replied = answeredQuestion.isNotEmpty && answeredQuestion == session.puzzle.questionId && session.phase == CedarActivityPhase.waitingUser;
+    if (!replied && !switchGame && !correction && !retract &&
         !CedarGameAdvicePolicy.isLikelyAdvice(text)) return;
     final avoid = switchGame && gameId.isEmpty &&
-        session.mode == CedarParticipationMode.solo ? session.gameId : null;
+        session.mode.playsAlone ? session.gameId : null;
     if (!session.continuable && avoid == null && !correction && !retract) return;
     final now = DateTime.now();
     final note = CedarGameAdvicePolicy.bounded(text);
@@ -2250,6 +2283,9 @@ class CedarToyActivityStore {
       switchAwayFromGameId: avoid,
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[session.gameId] = session.copyWith(adviceNotes: notes,
+          puzzle: replied ? CedarPuzzleState(preference: session.puzzle.preference, note: note) : null,
+          phase: replied ? CedarActivityPhase.active : null, nextActor: replied ? 'companion' : null,
+          nextActionAt: replied ? now : null, waitingReason: replied ? '' : null,
           ruleCorrections: corrections, updatedAt: now), updatedAt: now));
   }
 
@@ -2266,7 +2302,7 @@ class CedarToyActivityStore {
       final session = state.activeSession;
       if (session == null || state.execution != null ||
           !state.defersAutonomousGame(session.gameId, now) ||
-          session.mode != CedarParticipationMode.solo ||
+          !session.mode.playsAlone ||
           session.hasContinuationCall || session.hasPendingTerminalDelivery ||
           session.hasPendingRoomMessage || session.ownRoomAliases.isNotEmpty ||
           (await BrainWorkFence.value(txn, '$uncertainWritePrefix${session.gameId}')).isNotEmpty) return false;
@@ -2429,6 +2465,7 @@ pending_room_message=${session.pendingRoomMessage}
 terminal_delivery_pending=${session.hasPendingTerminalDelivery}
 terminal_summary=${session.pendingTerminalSummary}
 recent_game_episode=$recentEpisode
+${session.mode == CedarParticipationMode.puzzle ? '解谜笔记：${session.puzzle.note}；上一调查目标：${session.puzzle.goal}。有新证据可以继续；未取得新线索时避免重复猜测。只有真的通过聊天求助才等待主人。' : ''}
 recent_user_game_advice=${session.adviceNotes.join(' | ')}
 ${includeRuleCorrections ? CedarGameCorrection.prompt(session.ruleCorrections) : ''}
 latest_platform_event=$latestPlatformEvent
@@ -2507,7 +2544,13 @@ ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
     final now = DateTime.now();
     final sessions = Map<String, CedarGameSession>.from(state.sessions);
     for (final entry in state.sessions.entries) {
-      final session = entry.value;
+      var session = entry.value;
+      if (CedarPuzzleState.knownGames.contains(session.gameId) &&
+          session.puzzle.preference == 'auto' && session.mode != CedarParticipationMode.puzzle) {
+        session = session.copyWith(mode: CedarParticipationMode.puzzle);
+        sessions[entry.key] = session;
+        changed = true;
+      }
       final actor = McpTurnStateResolver.resolve(session.lastOutcome);
       if (session.mode.supportsSharedParticipation &&
           session.invitationApproved &&
@@ -2542,10 +2585,12 @@ ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
           continue;
         }
       }
-      if (session.mode == CedarParticipationMode.solo &&
+      if (session.mode.playsAlone &&
           session.continuable &&
           session.phase != CedarActivityPhase.paused &&
-          actor == null &&
+          actor == null && session.puzzle.serverTurn.isEmpty &&
+          session.puzzle.questionId.isEmpty && !session.hasContinuationCall &&
+          session.phase == CedarActivityPhase.waitingUser &&
           const <String>{'user', 'shared'}.contains(session.nextActor)) {
         // Repair the historical local classifier bug. In a solo activity the
         // companion remains the player unless Cedar supplied an explicit

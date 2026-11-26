@@ -675,8 +675,8 @@ class AgentToolPlanner {
       };
       properties['participation_mode'] = const <String, Object?>{
         'type': 'string',
-        'enum': <String>['solo', 'co_play', 'multiplayer', 'hybrid', 'unknown'],
-        'description': '只根据完整真实指南判断：她自己玩、与用户共玩、多人、混合或无法判断。',
+        'enum': <String>['solo', 'co_play', 'multiplayer', 'hybrid', 'puzzle', 'unknown'],
+        'description': '只根据完整真实指南判断：她自己玩、与用户共玩、多人、混合、盲玩推理解谜或无法判断。',
       };
       properties['invitation_approved'] = const <String, Object?>{
         'type': 'boolean',
