@@ -2,7 +2,7 @@
 
 ## 当前接班快照
 
-- **v0.42.262+506 / schema67 已实现**。五项修复本地 821 项回归通过，23 项发布流程校验通过，CI 与签名 APK 待核验。见文末「+506 五项修复」。
+- **v0.42.262+506 / schema67 已交付**。五项修复本地 821 项通过。文档、系统、APK 构建与签名检查均通过。待 Redmi 自然游玩、真实愿望和实际提醒验证。见文末「+506 五项修复」。
 
 - +506 开工，基线 b5b9826。游戏厅、照片愿望和工作委托恢复五项一次交付，沿用 +505 已验证的正常路径。
 
@@ -2091,3 +2091,7 @@ v0.42.246+490 / schema67 已实现。会话与选项编号修正后 Android 15 �
 - 工作模式参考 LangGraph 任务持久化与 OpenAI Agents SDK 已完成工具的恢复处理。已有回执原样保留，重试时核对原参数；真实日历按本委托、同一提醒 ID 最后生效的改期或取消记录核对。一个提醒只创建一次、取消后不能复活，旧版单项和多项记录都可按此恢复。不同目标分别完成，继续识别外部修改。报告和 HTML 已读回验证，响铃已发起而结果未知时不重放，这些路径复用既有代码并回归，未增设模型调用。
 - 确认修复前故障与正常对照后，先运行临时 SQLite/模拟 MCP 复现测试 6 项通过。随后将异常与对照整合进原有测试文件。本地 78 文件 821 项全部通过，包含先建后改、先建后取消、外部改动、文件交付及音频恢复。发布流程测试首次使用 unittest 未收集脚本用例，改用仓库脚本入口，23 项通过。
 - 状态为产品代码及本地验证完成，CI、覆盖签名与手机上的自然续局、真实愿望、真实提醒分别记录。
+
++506 交付核验。源码 e5147a7b7b8bf2b5150c2ec3bccbd9dd13618445。[文档交接](https://github.com/catkiss62/ai-companion-build/actions/runs/46075543124)、[系统回归](https://github.com/catkiss62/ai-companion-build/actions/runs/46075543209)、[APK 构建与签名](https://github.com/catkiss62/ai-companion-build/actions/runs/46075543159)全部通过。首次 Android 模拟器 SDK 下载的 ZIP 无法读取，未进入测试。等待首次运行结束，重跑失败作业后原生模拟器测试、打包前 Flutter 全套、包身份与覆盖签名检查通过。未改动产品代码以绕过失败。
+[签名 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a3535da1a192d28979f)，823288582 字节，SHA-256 `9def887d47f343edb43a6434b8ea61df744c1fda286a5d88d183355f9c0efe98`。单一版本覆盖安装。Redmi 真机反馈待观察。
+参考 [LangGraph 任务持久化与重试](https://docs.langchain.com/oss/python/langgraph/functional-api) 和 [OpenAI Agents SDK 执行结果与恢复](https://openai.github.io/openai-agents-python/results/)。
