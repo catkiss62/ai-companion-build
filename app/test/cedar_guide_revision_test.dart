@@ -162,6 +162,42 @@ void main() {
     store.recordPlay(gameId:'puzzle_box',action:'look',mode:CedarParticipationMode.puzzle,
       nextActor:'wait',shareLevel:'quiet',invitationApproved:false,outcome:nextCall(action,params));
 
+
+  test('revised guide puts the retirement verb ahead of the action',() async {
+    plannedGame='puzzle_box'; firstAction='legacy_move';
+    await store.recordGuide(gameId:plannedGame,guide:'独立解谜。legacy_move 移动；look 查看局面。');
+    final old=await pending('legacy_move',{'room_id':'R7'});
+    await store.save(old.copyWith(nextActor:'companion'));
+    final revised=await store.recordGuide(gameId:plannedGame,
+      guide:'独立解谜。已移除 legacy_move。walk 移动；look 查看当前局面。');
+    expect(revised.continuationNeedsReview,true);
+    expect(revised.permitsRevisedCall('legacy_move',{}),false);
+    final result=await engine.continueDue(now:await makeDue(revised));
+    expect(arcade.plays,['look'],reason:result.state);
+  });
+
+  for (final testCase in ['common_description','flag_equals','flag_space','safe_flag']) {
+    test('MCP dispatch $testCase',() async {
+      final guide=jsonEncode({'actions':[{'name':'read_page',
+        'description': testCase=='common_description' ? '可以阅读线索，也可以查看完整谜底' : '翻书',
+        'parameters':{'properties':{'page':{'oneOf':[
+          {'const':'notes','description':'阅读线索'},
+          {'const':'last_leaf','description':'揭晓完整谜底'}]}}}}]});
+      await store.recordGuide(gameId:'puzzle_box', guide:guide);
+      final action=testCase=='common_description'?'read_page':'cmd';
+      final args=<String,Object?>{if(action=='read_page') 'page':'notes' else
+        'command':switch(testCase){'flag_equals'=>'read_page --page=last_leaf',
+          'safe_flag'=>'read_page --page notes', _=>'read_page --page last_leaf'}};
+      final result=await engine.continueDue(now:await makeDue(await pending(action,args)));
+      if(testCase=='flag_space'||testCase=='flag_equals') {
+        expect(arcade.plays,isEmpty);
+      }else {
+        expect(arcade.plays,[action], reason:result.state);
+        expect(arcade.received.single,containsPair(args.keys.single,args.values.single));
+      }
+    });
+  }
+
   for(final page in ['notes','last_leaf']) {
     test('shared navigation verifies chosen option before dispatch: $page',() async {
       final guide=jsonEncode({'actions':[{'name':'read_page','description':'翻书','parameters':{

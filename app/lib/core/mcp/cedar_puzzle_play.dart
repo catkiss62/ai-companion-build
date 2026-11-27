@@ -88,8 +88,23 @@ class CedarPuzzleState {
     final command = raw.split(RegExp(r'\s+')).first;
     final selections = <String,Object?>{...params};
     if (action == 'cmd') {
-      for (final match in RegExp(r'(?:^|\s)(?:--)?(page|section|view|tab|topic|mode)\s*(?:=|:)\s*["\x27]?([\w-]+)', caseSensitive:false).allMatches(raw)) {
-        selections[match[1]!.toLowerCase()] = match[2];
+      // Tokenize quoted values before interpreting flags. A player's quoted
+      // guess can itself contain spaces or text that resembles an option.
+      final tokens = RegExp(r"""(?:[^\s"'=]+|=|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')""")
+          .allMatches(raw).map((m) => m[0]!).toList();
+      for (var i = 1; i < tokens.length; i++) {
+        final flag = RegExp(r'^(--)?([A-Za-z_][\w-]*)(:?)$').firstMatch(tokens[i]);
+        if (flag == null || i + 1 >= tokens.length) continue;
+        final equals = tokens[i + 1] == '=';
+        if (flag[1] == null && !equals && flag[3]!.isEmpty) continue;
+        if (equals) i++;
+        if (i + 1 >= tokens.length || tokens[i + 1].startsWith('--')) continue;
+        final value = tokens[++i];
+        selections[flag[2]!.toLowerCase()] = value.replaceFirst(RegExp(r"""^["']"""), '')
+            .replaceFirst(RegExp(r"""["']$"""), '');
+      }
+      for (final m in RegExp(r'(?:^|\s)(?:--)?(page|section|view|tab|topic|mode):([\w-]+)', caseSensitive:false).allMatches(raw)) {
+        selections.putIfAbsent(m[1]!.toLowerCase(), () => m[2]);
       }
       final page = RegExp(r'^(?:read|open|view|browse)(?:[_-](?:page|book|section))?\s+(\w+)$',caseSensitive:false).firstMatch(raw);
       if (page != null) selections.putIfAbsent('page', () => page[1]);
@@ -109,8 +124,18 @@ class CedarPuzzleState {
           .any((k) => value[k] is String && _describesReveal(value[k] as String));
     }
 
-    bool selectedOption(Object? spec, Object? chosen) {
-      if (spec is List) return spec.any((item) => selectedOption(item, chosen));
+    // Only a matched choice in a selector with an explicitly documented
+    // spoiler sibling can disambiguate a multi-purpose action description.
+    bool selectedOrdinaryBranch = false;
+    bool hasDescription(Object? item) => item is String && item.trim().isNotEmpty ||
+        item is Map && const ['description','desc','summary','label','title','说明','描述']
+            .any((key) => item[key] is String && (item[key] as String).trim().isNotEmpty);
+
+    bool selectedOption(Object? spec, Object? chosen, {bool spoilerSibling = false}) {
+      if (spec is List) {
+        final mixed = spec.any(described);
+        return spec.any((item) => selectedOption(item, chosen, spoilerSibling: mixed));
+      }
       if (spec is! Map) return false;
       if (chosen is Map) {
         final properties = spec['properties'] ?? spec;
@@ -119,20 +144,28 @@ class CedarPuzzleState {
       }
       if (chosen is List) return chosen.any((item) => selectedOption(spec, item));
       if (chosen == null) return false;
-      if (described(spec[chosen.toString()])) return true;
-      if (const ['const','value','id','name'].any((key) => spec[key] == chosen) &&
-          described(spec)) return true;
+      final named = spec[chosen.toString()];
+      if (described(named)) return true;
+      if (hasDescription(named) && spec.values.any(described)) selectedOrdinaryBranch = true;
+      if (const ['const','value','id','name'].any((key) => spec[key] == chosen)) {
+        if (described(spec)) return true;
+        if (spoilerSibling && hasDescription(spec)) selectedOrdinaryBranch = true;
+      }
       return const ['oneOf','anyOf','options','choices','values','enum']
           .any((key) => selectedOption(spec[key], chosen));
     }
 
     bool actionEntry(Object? item) {
-      if (described(item)) return true;
-      if (item is! Map) return false;
+      if (item is! Map) return described(item);
+      selectedOrdinaryBranch = false;
       for (final key in const ['parameters','params','inputSchema','arguments','properties']) {
         if (selectedOption(item[key], selections)) return true;
       }
-      return false;
+      if (!described(item)) return false;
+      final description = const ['description','desc','summary','label','title','说明','描述']
+          .map((k) => item[k]).whereType<String>().join(' ');
+      final alternatives = RegExp(r'也可|或者|或是|或查看|或阅读|或揭|可选|分别|也能|either|\bor\b',caseSensitive:false);
+      return !(selectedOrdinaryBranch && alternatives.hasMatch(description));
     }
 
     bool structured(Object? node) {

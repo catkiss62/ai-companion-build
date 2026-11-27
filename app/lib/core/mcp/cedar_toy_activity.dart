@@ -337,7 +337,12 @@ class CedarGameSession {
     if (verb.isEmpty) return false;
     final label = RegExp.escape(verb);
     final retired = RegExp('(?<![A-Za-z0-9_])$label(?![A-Za-z0-9_])[`"\x27\\s：（）():=-]*(?:已?停用|已?废弃|已移除|不再支持|deprecated|removed|disabled)', caseSensitive:false);
-    if (retired.hasMatch(guide)) return false;
+    final retiredBeforeName = RegExp(
+      '(?<![A-Za-z0-9_未不])(?:已(?:经)?|现已)?(?:移除|删除|废弃|弃用|停用|不再支持|removed|deprecated|disabled)'
+      '(?:了|的)?[ \\t]*(?:(?:动作|命令|指令|接口|action|command)[ \\t]*)?[:：]?[ \\t]*[`"\x27]?$label(?![A-Za-z0-9_])',
+      caseSensitive: false,
+    );
+    if (retired.hasMatch(guide) || retiredBeforeName.hasMatch(guide)) return false;
     if (!RegExp('(?<![A-Za-z0-9_])$label(?![A-Za-z0-9_])', caseSensitive:false).hasMatch(guide)) return false;
     return nextActor == 'companion' || CedarPlatformActionPolicy.isReadOnlyCall(action, params);
   }
