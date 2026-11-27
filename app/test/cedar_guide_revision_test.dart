@@ -63,6 +63,7 @@ void main() {
   var decisions = 0;
   var plannedGame = 'mystery_fixture';
   var firstAction = 'show_solution';
+  var proposedParams=<String,Object?>{};
   setUp(() async {
     db = await AppDatabase.createForTesting(databaseFactoryFfi);
     addTearDown(db.closeForTesting);
@@ -73,14 +74,14 @@ void main() {
     arcade = _Arcade();
     decisions = 0;
     plannedGame='mystery_fixture';
-    firstAction='show_solution';
+    firstAction='show_solution'; proposedParams={};
     final ai = DeepSeekClient(
       streamClientFactory: () => MockClient((r) async {
         final action = decisions++ == 0 ? firstAction : 'look';
         final arguments = {
           'game': plannedGame,
           'action': action,
-          'params_json': '{}',
+          'params_json': jsonEncode(proposedParams),
           'participation_mode': 'puzzle',
           'invitation_approved': false,
           'share_previous_outcome': false,
@@ -162,6 +163,26 @@ void main() {
     store.recordPlay(gameId:'puzzle_box',action:'look',mode:CedarParticipationMode.puzzle,
       nextActor:'wait',shareLevel:'quiet',invitationApproved:false,outcome:nextCall(action,params));
 
+
+  for (final explicitOther in [true,false]) {
+    test('guide change preserves current room $explicitOther',() async {
+      plannedGame='puzzle_box'; firstAction='walk';
+      proposedParams = explicitOther ? {'room_id':'R8'} : {};
+      await store.recordGuide(gameId:plannedGame,guide:'独立解谜。old_move 移动；look 查看局面。');
+      final old=await pending('old_move',{'room_id':'R7'});
+      await store.save(old.copyWith(nextActor:'companion'));
+      final revised=await store.recordGuide(gameId:plannedGame,
+        guide:'独立解谜。已移除 old_move。walk 移动一步，须提供 room_id；look 查看当前局面。');
+      expect(revised.continuationNeedsReview,true);
+      expect(jsonDecode(revised.continuationParamsJson)['room_id'],'R7');
+      await engine.continueDue(now:await makeDue(revised));
+      if (explicitOther) {
+        expect(arcade.received.where((p)=>p['room_id']=='R8'),isEmpty);
+      } else {
+        expect(arcade.plays,['walk']); expect(arcade.received.single['room_id'],'R7');
+      }
+    });
+  }
 
   test('revised guide puts the retirement verb ahead of the action',() async {
     plannedGame='puzzle_box'; firstAction='legacy_move';

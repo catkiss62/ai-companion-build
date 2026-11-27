@@ -26,6 +26,7 @@ class CompanionWish {
     this.lastIntentionAt,
     this.lastIntentionSource = '',
     this.intentionNotBeforeAt,
+    this.autoPausedAt,
     this.deadline,
     this.manualHold = false,
     this.protectSoloArchive = false,
@@ -53,6 +54,7 @@ class CompanionWish {
       lastIntentionAt,
       intentionNotBeforeAt,
       deadline;
+  final DateTime? autoPausedAt;
   final bool manualHold, legacy, protectSoloArchive;
   bool get active => state == 'active';
   bool get terminal =>
@@ -93,6 +95,7 @@ class CompanionWish {
       (actionAttemptAt == null ||
           now.difference(actionAttemptAt!) >= const Duration(hours: 2));
   CompanionWish copyWith({
+    DateTime? autoPausedAt,
     String? state,
     String? progress,
     double? interest,
@@ -117,6 +120,7 @@ class CompanionWish {
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     state: state ?? this.state,
+    autoPausedAt: state == null ? this.autoPausedAt : autoPausedAt,
     gameId: gameId,
     nextStep: nextStep,
     progress: progress ?? this.progress,
@@ -167,6 +171,7 @@ class CompanionWish {
     'last_intention_source': lastIntentionSource,
     'intention_not_before_at': intentionNotBeforeAt?.millisecondsSinceEpoch,
     'deadline': deadline?.millisecondsSinceEpoch,
+    if (autoPausedAt != null) 'auto_paused_at': autoPausedAt!.millisecondsSinceEpoch,
     'manual_hold': manualHold,
     if (protectSoloArchive) 'protect_solo_archive': true,
     'legacy': legacy,
@@ -203,6 +208,7 @@ class CompanionWish {
       lastIntentionSource: text('last_intention_source'),
       intentionNotBeforeAt: date('intention_not_before_at'),
       deadline: date('deadline'),
+      autoPausedAt: date('auto_paused_at'),
       manualHold: m['manual_hold'] == true,
       protectSoloArchive: m['protect_solo_archive'] == true ||
           (text('state') == 'active' && text('last_intention_source') == 'local_user'),

@@ -332,6 +332,15 @@ class CedarGameSession {
   static const revisedContinuationScope = 'guide_revision_check';
   bool get continuationNeedsReview => continuationWaitScope == revisedContinuationScope;
   bool permitsRevisedCall(String action, Map<String, Object?> params) {
+    if (continuationParamsJson.isNotEmpty) {
+      final scoped = CedarExecutableCallPolicy.hydrateTransportParams(
+        planned: const {}, continuationParamsJson: continuationParamsJson, lastOutcome: '',
+      );
+      for (final key in const ['room_id', 'session_id', 'match_id']) {
+        if (scoped[key] != null && params[key] != null &&
+            scoped[key].toString() != params[key].toString()) return false;
+      }
+    }
     if (!continuationNeedsReview) return true;
     final verb = action == 'cmd' ? (params['command']?.toString() ?? '').trim().split(RegExp(r'\s+')).first : action;
     if (verb.isEmpty) return false;

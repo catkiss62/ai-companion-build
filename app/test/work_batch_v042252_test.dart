@@ -47,6 +47,33 @@ void main() {
     toolCalls: [if (c != null) c],
   );
 
+  for(final resume in [false,true]) {
+    test('separate cancellation receipts across restart $resume',() async {
+      final db=await AppDatabase.createForTesting(databaseFactoryFfi);
+      addTearDown(db.closeForTesting); mock((_)async=>true);
+      WorkHostActions host(String order,String goal)=>WorkHostActions(db,order,'T',WorkHostActions.requested(goal),GenerationCancellationToken(),goal:goal);
+      const create='明天九点提醒我喝水，十点提醒我取快递';
+      final day=DateTime.now().add(const Duration(days:2)).toIso8601String().substring(0,10);
+      final creator=host('initial',create);
+      for(final (title,hour) in [('喝水','09'),('取快递','10')]){
+        await creator.execute({'action':'remind','text':title,'local_time':'${day}T$hour:00'});
+      }
+      expect(await CalendarReminderStore(db).load(),hasLength(2));
+      const task='取消喝水提醒，取消取快递提醒';
+      final first=host('cancel-both',task);
+      final a=await first.execute({'action':'cancel','target':'喝水'});
+      final use=resume?host('cancel-both',task):first;
+      if(resume) await use.verifyExisting();
+      expect(use.confirmed, isNot(contains('cancel')));
+      final b=await use.execute({'action':'cancel','target':'取快递'});
+      final result=await ResearchCommission.run(goal:task,context:[],workspace:await workspace(),
+        host:use, cancellation:GenerationCancellationToken(),progress:(_,__) {},plan:(_)async=>plan());
+      expect(await CalendarReminderStore(db).load(),isEmpty);
+      expect(b['id'],isNot(a['id'])); expect(b['reused'],false);
+      expect(result['end'],'planner_finished');
+    });
+  }
+
   test(
     'compound reminders survive partial resume; named changes stay scoped',
     () async {

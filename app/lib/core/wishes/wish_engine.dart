@@ -35,8 +35,8 @@ class WishEngine {
   static const generationKey = 'companion_wish_generation_v2';
   static const diagnosticKey = 'companion_wish_last_review_v2';
   static const fingerprintKey = 'companion_wish_sources_v2';
-  static const upgradeKey = 'companion_wish_review_v10_completed';
-  static const upgradeAttemptKey = 'companion_wish_review_v10_attempt';
+  static const upgradeKey = 'companion_wish_review_v11_completed';
+  static const upgradeAttemptKey = 'companion_wish_review_v11_attempt';
   static const upgradeRetry = Duration(minutes: 5);
   static String anon(String id) => sha256.convert(utf8.encode(id)).toString().substring(0,12);
   static const reviewGap = Duration(hours: 2);
@@ -144,7 +144,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (evidence.isEmpty) {
         return upgradeOnly && await store.save(wishes, expected: raw, fence: fence,
             sourceGuard: batch.matches, extra: {upgradeKey: '1', diagnosticKey: jsonEncode({
-              'status':'reviewed','upgrade_review':true,'contract':10,'source_count':0,
+              'status':'reviewed','upgrade_review':true,'contract':11,'source_count':0,
               'at':instant.millisecondsSinceEpoch,'decisions':[
                 for (final w in wishes.where((w) => w.active && WishReviewMaterial.reviewable(w)))
                   {'wish_hash':anon(w.id),'result':'unchanged','reason':'no_new_evidence','state':w.state}
@@ -159,7 +159,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
               generationGap.inMilliseconds;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":10,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+            utf8.encode(jsonEncode({"contract":11,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       // An updates-only review cannot consume the next opportunity to propose
@@ -240,6 +240,40 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         },expectedSettings:{WishStore.stateKey:raw},workFence:fence,sourceGuard:batch.matches);
         return false;
       }
+      final repairedIds = <String>{};
+      if (upgradeOnly) {
+        final updates = List<Map>.from(payload['updates'] as List);
+        final byId = {for (final item in evidence) item.id: item};
+        final byWish = {for (final w in wishes) w.id: w};
+        final needsRepair = updates.where((row) {
+          final wish = byWish[row['id']];
+          if (wish?.completionKind != 'user_photo' || row['state'] != 'completed' ||
+              byId[row['evidence_id']]?.kind != 'user_text') return false;
+          final photo = row['supporting_photo'];
+          return row['confirms_photo_meets_criterion'] == null || photo is! Map ||
+              photo['evidence_id'] is! String || photo['quote'] is! String;
+        }).toList();
+        if (needsRepair.isNotEmpty) {
+          final ids = needsRepair.map((row) => row['id'] as String).toSet();
+          final subset = wishes.where((w) => ids.contains(w.id)).toList();
+          final sources = {for (final w in subset) for (final e in batch.groups[w.id] ?? <WishEvidence>[]) e.id:e,
+            for (final row in needsRepair) if (byId[row['evidence_id']] != null)
+              byId[row['evidence_id']]!.id:byId[row['evidence_id']]!};
+          // One repair for this batch, restricted to the structurally incomplete items.
+          repairedIds.addAll(ids);
+          Map<String,dynamic>? repair;
+          try {
+            repair = await reviewer({'now':instant.toIso8601String(), 'can_generate':false,
+              'repair_reason':'photo_confirmation_fields_missing',
+              ...WishReviewMaterial.forReviewer(subset,batch.groups),
+              'sources':sources.values.map((e)=>e.toJson()).toList()});
+          } catch (_) { /* Keep the original unconfirmed decision. */ }
+          if (repair != null && WishReviewMaterial.responseError(subset,repair,sources.keys.toSet()) == null) {
+            final replacements = {for (final row in (repair['updates'] as List).whereType<Map>()) row['id']:row};
+            payload = {...payload, 'updates':[for (final row in updates) replacements[row['id']] ?? row]};
+          }
+        }
+      }
       final decisions = <Map<String, Object?>>[];
       final proposalDiagnostic = <String, Object?>{};
       final updated = WishPolicy.apply(
@@ -268,7 +302,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 10, 'source_count': evidence.length,
+            'contract': 11, 'source_count': evidence.length,
             'source_kinds': {for (final kind in evidence.map((e) => e.kind).toSet())
               kind: evidence.where((e) => e.kind == kind).length},
             'active_routes': {for (final route in ['game', 'user', 'aspiration'])
@@ -278,6 +312,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'can_generate': canGenerate,
             'generation_gate': upgradeOnly ? 'upgrade_review_only' : canGenerate ? 'open' :
                 (wishes.where((w) => w.active).length >= 4 ? 'capacity' : 'cooldown'),
+            if (repairedIds.isNotEmpty) 'photo_repair_attempted': repairedIds.map(anon).toList(),
             'decisions': decisions.take(16).toList(),
             'new_proposal': proposalDiagnostic,
           }),
@@ -513,7 +548,8 @@ class WishPolicy {
       return w.copyWith(state: 'expired', updatedAt: now);
     }
     if (now.difference(w.updatedAt) >= const Duration(days: 30)) {
-      return w.copyWith(state: 'paused', updatedAt: now);
+      return w.copyWith(state: 'paused', updatedAt: now,
+          autoPausedAt: w.updatedAt.add(const Duration(days: 30)));
     }
     return w;
   }
@@ -705,7 +741,9 @@ class WishPolicy {
         return reject('decision_predates_intention');
       // Objective progress cannot resume a self-paused wish. A newer explicit
       // user refusal can still put that wish on manual hold.
-      if (w.state == 'paused' && !userDecision)
+      final completedBeforePause = state == 'completed' && w.autoPausedAt != null &&
+          !e.at.isAfter(w.autoPausedAt!);
+      if (w.state == 'paused' && !userDecision && !completedBeforePause)
         return reject('self_resume_required');
       if (w.evidenceIds.contains(e.id) && (photo == null || w.evidenceIds.contains(photo.id))) return reject('duplicate_evidence');
       if (w.active && state != 'active') activeCount--;

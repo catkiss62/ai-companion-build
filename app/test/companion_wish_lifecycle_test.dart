@@ -616,6 +616,43 @@ void main() {
       expect(calls,2);
     });
 
+    for(final scenario in ['valid','missing_support','unchanged','aged','aged_late','repair_exhausted']) {
+      test('photo evidence upgrade and automatic pause $scenario',() async {
+        final store=WishStore(db);await store.initialize();
+        final w=CompanionWish(id:'blue',goal:'看蓝色积木成品',reason:'想看完成样子',
+          route:'user',completionKind:'user_photo',criterion:'亲自展示拼完的模型',
+          createdAt:at,updatedAt:at);
+        expect(await store.save([w],expected:(await db.getSetting(WishStore.stateKey))!,
+          fence:(await db.captureBrainWorkFence())!),true);
+        final p=at.subtract(const Duration(days:1));
+        await db.insertMessageWithAttachments(ChatMessage(id:'img',role:'user',content:'模型照片',createdAt:p),[
+          MessageAttachment(id:'piece',messageId:'img',kind:'image',originalPath:'',thumbnailPath:'',
+            width:1,height:1,byteSize:0,mimeType:'image/png',source:'gallery',
+            visionStatus:'completed',visionSummary:'蓝色积木成品',createdAt:p)]);
+        const clarify='上次那张就是拼完的模型';
+        await db.insertMessage(ChatMessage(id:'clar',role:'user',content:clarify,createdAt:at.add(Duration(days:scenario=='aged_late'?31:1))));
+        final now=at.add(Duration(days:scenario.startsWith('aged')?32:3));var calls=0;
+        final engine=WishEngine(db,reviewer:(m) async {
+          calls++;
+          expect((m['sources'] as List).map((e)=>e['id']),containsAll(['photo:img:piece','chat:clar']));
+          return {'updates':[scenario=='unchanged'?
+            {'id':'blue','state':'unchanged','reason_code':'target_ambiguous','evidence_ids':['chat:clar']}:
+            {'id':'blue','state':'completed','evidence_id':'chat:clar','quote':clarify,
+             'confidence':.96,'same_target':true,'observed':true,
+             if(scenario!='repair_exhausted' && (scenario!='missing_support' || calls==2)) ...{'confirms_photo_meets_criterion':true,
+               'supporting_photo':{'evidence_id':'photo:img:piece','quote':'蓝色积木成品'}}}]};
+        });
+        expect(await engine.maybeRefresh(now:now,upgradeOnly:true),true);
+        final diag=jsonDecode((await db.getSetting(WishEngine.diagnosticKey))!);
+        final decision=diag['decisions'].single;
+        final live=(await store.load()).single;
+        expect(await db.getSetting(WishEngine.upgradeKey),'1');
+        expect(await engine.maybeRefresh(now:now.add(const Duration(days:1)),upgradeOnly:true),true);
+        expect(calls,{'missing_support','repair_exhausted'}.contains(scenario)?2:1);
+        expect(live.state,scenario=='aged_late'?'paused':{'repair_exhausted','unchanged'}.contains(scenario)?'active':'completed');
+        expect(decision['reason'],isNotEmpty);
+      });
+    }
     test('empty upgrade completes without model work', () async {
       var calls = 0;
       final engine = WishEngine(db, reviewer: (_) async {calls++; return null;});
