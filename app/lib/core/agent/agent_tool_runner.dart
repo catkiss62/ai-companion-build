@@ -782,7 +782,7 @@ class AgentToolRunner {
           errorCode: 'cedar_guide_refresh_required', continuationRecommended: true);
     }
     final guide = persisted?.guide ?? _cedarGuidesByScopeAndGame['$scope|$game'] ?? '';
-    final serverContinuation = persisted?.gameId == game &&
+    final serverContinuation = persisted?.gameId == game && persisted?.continuationNeedsReview != true &&
         CedarServerContinuationPolicy.authorizesExactAction(
           action: action,
           continuationAction: persisted!.continuationAction,
@@ -879,6 +879,12 @@ class AgentToolRunner {
       continuationParamsJson: persisted?.continuationParamsJson ?? '',
       lastOutcome: persisted?.lastOutcome ?? '',
     );
+
+    if (persisted != null && !persisted.permitsRevisedCall(action, params)) {
+      return const AgentToolResult(toolId:'cedar_toy.play',status:AgentToolStatus.blocked,
+        displayText:'规则已更新，正在核对游戏回合',promptData:'请按最新指南只读查询当前局面，使用新回包的下一步。',
+        errorCode:'cedar_guide_recheck',continuationRecommended:true);
+    }
     if (CedarPuzzleState.revealsSolution(mode, action, params, guide: guide)) {
       return const AgentToolResult(toolId:'cedar_toy.play', status: AgentToolStatus.blocked,
         displayText:'人类攻略留给主人查看', promptData:'选择玩家调查、提交自己的推断或向主人求助。', continuationRecommended:true);

@@ -18,6 +18,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _Arcade extends CedarToyClient {
   _Arcade() : super(token: 'ctai_v1_synthetic');
+  final received = <Map<String,Object?>>[];
+  McpToolOutcome? nextResult;
   final plays = <String>[];
   final guides = <String>[];
   String guide = '独立解谜。look 调查，open_book 揭晓完整谜底。';
@@ -41,6 +43,8 @@ class _Arcade extends CedarToyClient {
     GenerationCancellationToken? cancellationToken,
   }) async {
     plays.add(action);
+    received.add(params);
+    if(nextResult != null) { final result=nextResult!; nextResult=null; return result; }
     return const McpToolOutcome(
       isError: false,
       content: [McpContentBlock(kind: McpContentKind.text, text: '游戏已结束')],
@@ -57,6 +61,8 @@ void main() {
   late _Arcade arcade;
   late CedarToyAutonomyEngine engine;
   var decisions = 0;
+  var plannedGame = 'mystery_fixture';
+  var firstAction = 'show_solution';
   setUp(() async {
     db = await AppDatabase.createForTesting(databaseFactoryFfi);
     addTearDown(db.closeForTesting);
@@ -66,11 +72,13 @@ void main() {
     store = CedarToyActivityStore(db);
     arcade = _Arcade();
     decisions = 0;
+    plannedGame='mystery_fixture';
+    firstAction='show_solution';
     final ai = DeepSeekClient(
       streamClientFactory: () => MockClient((r) async {
-        final action = decisions++ == 0 ? 'show_solution' : 'look';
+        final action = decisions++ == 0 ? firstAction : 'look';
         final arguments = {
-          'game': 'mystery_fixture',
+          'game': plannedGame,
           'action': action,
           'params_json': '{}',
           'participation_mode': 'puzzle',
@@ -144,6 +152,51 @@ void main() {
     );
     return now;
   }
+
+  McpToolOutcome nextCall(String action, Map<String,Object?> params) => McpToolOutcome(
+    isError:false, content:const [McpContentBlock(kind:McpContentKind.text,text:'等待新的局面')],
+    structuredContent:{'next_actor':'wait','wait_scope':'current_request_only',
+      'next_call':{'game':'puzzle_box','action':action,'params':params}});
+
+  Future<CedarGameSession> pending(String action,Map<String,Object?> params) =>
+    store.recordPlay(gameId:'puzzle_box',action:'look',mode:CedarParticipationMode.puzzle,
+      nextActor:'wait',shareLevel:'quiet',invitationApproved:false,outcome:nextCall(action,params));
+
+  for(final page in ['notes','last_leaf']) {
+    test('shared navigation verifies chosen option before dispatch: $page',() async {
+      final guide=jsonEncode({'actions':[{'name':'read_page','description':'翻书','parameters':{
+        'properties':{'page':{'oneOf':[{'const':'notes','description':'阅读线索'},
+          {'const':'last_leaf','description':'揭晓完整谜底'}]}}}}]});
+      await store.recordGuide(gameId:'puzzle_box',guide:guide);
+      final s=await pending('read_page',{'page':page});
+      final result=await engine.continueDue(now:await makeDue(s));
+      if(page=='notes') {
+        expect(arcade.received.single['page'],page);
+      } else {
+        expect(result.state,'puzzle_continuation_withheld');
+        expect(arcade.plays,isEmpty);
+      }
+    });
+  }
+
+  test('revised rules recheck the same room then accept fresh server extension',() async {
+    plannedGame='puzzle_box'; firstAction='legacy_move';
+    await store.recordGuide(gameId:plannedGame,guide:'独立解谜。legacy_move 移动；look 查看局面。');
+    final old=await pending('legacy_move',{'room_id':'R7'});
+    final revised=await store.recordGuide(gameId:plannedGame,
+      guide:'独立解谜。legacy_move 已停用；walk 移动；look 查看局面，可传 room_id。');
+    expect(revised.id,old.id);
+    expect(revised.nextActor,old.nextActor);
+    expect(revised.continuationNeedsReview,true);
+    arcade.nextResult=nextCall('server_extension',{'room_id':'R7'});
+    final result=await engine.continueDue(now:await makeDue(revised));
+    expect(arcade.plays,['look'],reason:result.state);
+    expect(arcade.received.single['room_id'],'R7');
+    final fresh=(await store.load())!;
+    expect(fresh.continuationNeedsReview,false);
+    await engine.continueDue(now:await makeDue(fresh));
+    expect(arcade.plays,['look','server_extension']);
+  });
 
   test(
     'first move applies the mode from the same decision; retry can investigate',

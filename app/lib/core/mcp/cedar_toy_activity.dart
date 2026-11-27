@@ -329,6 +329,19 @@ class CedarGameSession {
       (nextActor == 'companion' ||
           nextActor.isEmpty ||
           (nextActor == 'wait' && nextActionAt != null));
+  static const revisedContinuationScope = 'guide_revision_check';
+  bool get continuationNeedsReview => continuationWaitScope == revisedContinuationScope;
+  bool permitsRevisedCall(String action, Map<String, Object?> params) {
+    if (!continuationNeedsReview) return true;
+    final verb = action == 'cmd' ? (params['command']?.toString() ?? '').trim().split(RegExp(r'\s+')).first : action;
+    if (verb.isEmpty) return false;
+    final label = RegExp.escape(verb);
+    final retired = RegExp('(?<![A-Za-z0-9_])$label(?![A-Za-z0-9_])[`"\x27\\s：（）():=-]*(?:已?停用|已?废弃|已移除|不再支持|deprecated|removed|disabled)', caseSensitive:false);
+    if (retired.hasMatch(guide)) return false;
+    if (!RegExp('(?<![A-Za-z0-9_])$label(?![A-Za-z0-9_])', caseSensitive:false).hasMatch(guide)) return false;
+    return nextActor == 'companion' || CedarPlatformActionPolicy.isReadOnlyCall(action, params);
+  }
+
   bool get hasContinuationCall => continuationAction.trim().isNotEmpty;
   bool get hasPendingRoomMessage => pendingRoomMessage.trim().isNotEmpty;
   bool get hasPendingTerminalDelivery =>
@@ -1243,6 +1256,9 @@ class CedarToyActivityStore {
             guideComplete: complete,
             guideCheckedAt: now,
             useRevisedGuide: changed || existing.useRevisedGuide,
+            continuationWaitScope: changed && existing.hasContinuationCall &&
+                existing.continuationWaitScope != 'write_reconcile_once'
+                ? CedarGameSession.revisedContinuationScope : null,
             mode: changed ? CedarPuzzleState.effective(gameId, existing.puzzle.preference,
                 CedarPuzzleState.declaredMode(clean), revised: true) : existing.mode,
             phase: existing.phase == CedarActivityPhase.completed ||
@@ -2511,7 +2527,7 @@ mode=${session.mode.key}
 phase=${session.phase.key}
 next_actor=${session.nextActor}
 invitation_approved=${session.invitationApproved}
-continuation_action=${session.continuationAction}
+continuation_action=${session.continuationNeedsReview ? '原续步已失效，请按新指南核对局面' : session.continuationAction}
 continuation_params=${session.continuationParamsJson}
 pending_room_message=${session.pendingRoomMessage}
 terminal_delivery_pending=${session.hasPendingTerminalDelivery}

@@ -1872,6 +1872,10 @@ $selectionCatalog''',
   }) async {
     final refreshed = await _refreshPlayingGuide(now, client, store, session, scope);
     if (refreshed != null) return refreshed;
+    if (session.continuationNeedsReview) {
+      return _advanceSessionLocked(now: now, apiKey: apiKey, endpoint: endpoint, client: client,
+        store: store, session: session, scope: scope, readOnlyRecovery: session.nextActor != 'companion');
+    }
     var action = _identifier(session.continuationAction);
     // This exact action and parameter object came from Cedar's signed Outcome.
     // Requiring a compact human guide to repeat it can strand a valid room.
@@ -2108,8 +2112,9 @@ $selectionCatalog''',
           lastOutcome: session.lastOutcome,
         );
         if (CedarPuzzleState.revealsSolution(mode, candidate.action, hydrated, guide: session.guide)) return false;
+        if (!session.permitsRevisedCall(candidate.action, hydrated)) return false;
         if (readOnlyRecovery && !CedarPlatformActionPolicy.isReadOnlyCall(candidate.action, hydrated)) return false;
-        if (session.nextActor == 'companion' && session.repeatsUnchangedRead(candidate.action, hydrated)) return false;
+        if (!session.continuationNeedsReview && session.nextActor == 'companion' && session.repeatsUnchangedRead(candidate.action, hydrated)) return false;
         if (CedarSaveSlotPolicy.blocksAutonomousAction(
           guide: session.guide,
           lastOutcome: session.lastOutcome,
@@ -2255,7 +2260,8 @@ ${arrangements.prompt}'''.trim(),
     if (CedarPuzzleState.revealsSolution(mode, action, params, guide: session.guide)) {
       return const CedarAutonomyProgress('puzzle_action_withheld');
     }
-    if (!platformAction &&
+    if (!session.permitsRevisedCall(action, params)) return const CedarAutonomyProgress('guide_recheck_required');
+    if (!platformAction && !session.continuationNeedsReview &&
         session.nextActor == 'companion' &&
         session.repeatsUnchangedRead(action, params)) {
       await store.deferContinuation(
@@ -2290,7 +2296,7 @@ ${arrangements.prompt}'''.trim(),
       );
     }
     var roomMessage = '';
-    if (!platformAction &&
+    if (!platformAction && !session.continuationNeedsReview &&
         sharedRuntime &&
         _guideSupportsParameter(session.guide, action, 'message')) {
       roomMessage = await _composeRoomDialogue(

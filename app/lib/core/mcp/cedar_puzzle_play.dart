@@ -86,6 +86,14 @@ class CedarPuzzleState {
     if (_revealName.hasMatch(raw.toLowerCase().replaceAll(RegExp(r'\s+'), '_')))
       return true;
     final command = raw.split(RegExp(r'\s+')).first;
+    final selections = <String,Object?>{...params};
+    if (action == 'cmd') {
+      for (final match in RegExp(r'(?:^|\s)(?:--)?(page|section|view|tab|topic|mode)\s*(?:=|:)\s*["\x27]?([\w-]+)', caseSensitive:false).allMatches(raw)) {
+        selections[match[1]!.toLowerCase()] = match[2];
+      }
+      final page = RegExp(r'^(?:read|open|view|browse)(?:[_-](?:page|book|section))?\s+(\w+)$',caseSensitive:false).firstMatch(raw);
+      if (page != null) selections.putIfAbsent('page', () => page[1]);
+    }
     final label = RegExp.escape(command);
     // Match an action entry, not examples or an answer supplied by the player.
     final entry = RegExp(
@@ -94,32 +102,59 @@ class CedarPuzzleState {
           '(?![a-z0-9_-])[\x60"\']?\\s*(?:\\([^()\\n]{0,100}\\))?\\s*[:：=|—–-]?\\s*([^；;。，,、|\\n]{1,140})',
       caseSensitive: false,
     );
+    bool described(Object? value) {
+      if (value is String) return _describesReveal(value);
+      if (value is! Map) return false;
+      return const ['description','desc','summary','label','title','说明','描述']
+          .any((k) => value[k] is String && _describesReveal(value[k] as String));
+    }
+
+    bool selectedOption(Object? spec, Object? chosen) {
+      if (spec is List) return spec.any((item) => selectedOption(item, chosen));
+      if (spec is! Map) return false;
+      if (chosen is Map) {
+        final properties = spec['properties'] ?? spec;
+        return properties is Map && chosen.entries.any((e) =>
+            selectedOption(properties[e.key], e.value));
+      }
+      if (chosen is List) return chosen.any((item) => selectedOption(spec, item));
+      if (chosen == null) return false;
+      if (described(spec[chosen.toString()])) return true;
+      if (const ['const','value','id','name'].any((key) => spec[key] == chosen) &&
+          described(spec)) return true;
+      return const ['oneOf','anyOf','options','choices','values','enum']
+          .any((key) => selectedOption(spec[key], chosen));
+    }
+
+    bool actionEntry(Object? item) {
+      if (described(item)) return true;
+      if (item is! Map) return false;
+      for (final key in const ['parameters','params','inputSchema','arguments','properties']) {
+        if (selectedOption(item[key], selections)) return true;
+      }
+      return false;
+    }
+
     bool structured(Object? node) {
       if (node is List) return node.any(structured);
       if (node is! Map) return false;
-      bool described(Object? value) {
-        if (value is String) return _describesReveal(value);
-        if (value is! Map) return false;
-        return [
-          'description',
-          'desc',
-          'summary',
-          'label',
-          'title',
-          '说明',
-          '描述',
-        ].any(
-          (k) => value[k] is String && _describesReveal(value[k] as String),
-        );
+      if (actionEntry(node[command])) return true;
+      if (const ['name','id','action','command'].any((k) => node[k] == command)) {
+        return actionEntry(node);
       }
-
-      if (described(node[command])) return true;
-      if (['name', 'id', 'action', 'command'].any((k) => node[k] == command) &&
-          described(node))
-        return true;
       return node.values.any((v) => (v is Map || v is List) && structured(v));
     }
 
+    // Values of navigation selectors identify destinations. Free-form guesses
+    // and questions can contain the same words without requesting an answer.
+    for (final key in const ['page','section','view','tab','topic','mode']) {
+      final value = selections[key];
+      if (value is String && RegExp(r'^(?:solution|walkthrough|answer_key|spoiler|谜底|标准答案|完整攻略)$',
+          caseSensitive:false).hasMatch(value)) return true;
+    }
+    if (guide.trimLeft().startsWith('{') || guide.trimLeft().startsWith('[')) {
+      try { return structured(jsonDecode(guide)); } on FormatException { /* Mixed guide. */ }
+    }
     for (final line in const LineSplitter().convert(guide)) {
       final clean = line.trim();
       if (clean.startsWith('{') || clean.startsWith('[')) {
@@ -130,10 +165,12 @@ class CedarPuzzleState {
           /* mixed text */
         }
       }
-      if (entry
-          .allMatches(clean.replaceAll('**', ''))
-          .any((m) => _describesReveal(m.group(1)!)))
-        return true;
+      for (final match in entry.allMatches(clean.replaceAll('**', ''))) {
+        if (!_describesReveal(match.group(1)!)) continue;
+        // In text guides each action variant may have its own parenthesized selector.
+        final qualifier = RegExp(r'\((\w+)\s*[:=]\s*["\x27`]?([\w-]+)').firstMatch(match[0]!);
+        if (qualifier == null || selections[qualifier[1]]?.toString() == qualifier[2]) return true;
+      }
     }
     return false;
   }
