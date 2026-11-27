@@ -2,6 +2,8 @@
 
 ## 当前接班快照
 
+- **v0.42.257+501 / schema67 已交付。** 游戏厅 +500 和包含两批改动的 +501 各自三项 CI、签名和包版本校验通过。+501 可直接覆盖安装。尚待该手机首次升级愿望补查与自然游玩验证。见文末「+501 交付复核」。
+
 - **v0.42.257+501 / schema67** 第二批已实现。本地跨模块 510 项与发布身份 23 项通过。CI 与 Redmi 验证分别登记在文末「+501 愿望升级复核与工作模式」。
 
 - +501 第二批开工。基线 62fd0e7。补查旧愿望的照片与后续用户说明，同时复验 +497 的四项工作模式问题。
@@ -1954,3 +1956,11 @@ v0.42.246+490 / schema67 已实现。会话与选项编号修正后 Android 15 �
 覆盖升级后首次进入前台，以本机已有记录查找愿望照片和后续澄清；本次只复核、不新建。按待核照片愿望有界检索并复验来源资格与版本，补足普通近期窗口。聊天占用、请求异常和资料变化后可重试；成功提交状态和完成标记在同一事务，无可复核项不调用模型。跨进程重复启动不会重复完成补查。此流程尊重本机愿望开关及工作权限。
 工作模式：取消和改期绑定实际动作分句、会话归属和唯一目标。附件限定时，隔离历史、文件索引、外部检索与无关 Markdown；具名输出文件能在本机核对，规划器不读取其正文作资料。报告交付与恢复均核对用户指定文件及写回回执。结果图明确否定覆盖“不要发最终结果截图”，未指定时沿用原策略。
 验证：用模拟照片与用户澄清、258 条后续对话、SQLite 和模拟复核器检验过升级补查、失败重试、重启幂等、空愿望及证据不匹配。工作模式覆盖缺少待取消目标时保留已有提醒、未授权 Markdown 内容未出现在下一轮材料、错名报告未写入、正确写回，以及明确禁图和默认结果图。收紧提醒匹配曾使旧调用方省略目标的改期失败，恢复该调用方式并重跑。两批合并后的本地定向 Flutter 套件共 510 项，发布身份/流程 23 项通过；愿望历史验证脚本通过。静态分析无错误，启动恢复原有可空回调返回值提示尚存。未操作真实游戏或用户手机，实际存档愿望是否结案等待安装后观察。
+
+## +501 交付复核
+
++500 源码 `62fd0e79e06cfd8eb37d34cd27f98aed9426f42b`。[交接检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45942400143)、[系统逻辑检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45942400147)、[构建与签名](https://github.com/catkiss62/ai-companion-build/actions/runs/45942400160)均通过。[签名 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-28d2b81e92107d91be80)，823254038 字节，SHA-256 `6ed7987b64db415eaa3209cf871c02382813378f28967b7a4bb724c514c4e71c`。
+
++501 源码 `0dd023147a5e6d6784e95aed7ff4361155a8aad5`。[交接检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45946341826)、[构建与签名](https://github.com/catkiss62/ai-companion-build/actions/runs/45946341857)、[系统逻辑检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45946341752)均通过。[签名 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0aafe99a847edd39ffac)，823268074 字节，SHA-256 `f0dbaee7defd0b27aaa9d23551e2a8b8115e3b81c61340c5288594a28feab9ba`。
+
+当前开发分支 `agent/v042107-review-recovery`。本地模拟与构建验证已完成。下一步由真实存档在覆盖安装后首次进入前台复核待办愿望，游戏厅等待自然游玩；不把 CI 或模拟存档登记成 Redmi 真机通过。
