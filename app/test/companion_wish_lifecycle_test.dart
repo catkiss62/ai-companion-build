@@ -216,6 +216,34 @@ void main() {
     },
   );
 
+  test('photo clarification needs matching quotes, dates, and observed result', () {
+    final w = wish(route: 'user', kind: 'user_photo');
+    final text = event(kind:'user_text', text:'那张图就是完整成品');
+    final photo = WishEvidence(id:'p', kind:'user_photo', text:'视觉识别：完整的模型',
+      at:at.subtract(const Duration(days: 2)));
+    String check({WishEvidence? support, WishEvidence? main, Map overrides = const {}, bool hold = false}) {
+      final result = WishPolicy.apply(wishes:[hold ? wish(route:'user',kind:'user_photo',hold:true) : w],
+        evidence:[main ?? text, if (support != null) support], catalogIds:{}, canGenerate:false,
+        now:at.add(const Duration(days: 1)), payload:{'updates':[{
+          'id':'w','evidence_id':'e','state':'completed','quote':'那张图就是完整成品',
+          'observed':true,'same_target':true,'confidence':.98,'confirms_photo_meets_criterion':true,
+          'supporting_photo':{'evidence_id':'p','quote':'完整的模型'}, ...overrides,
+        }]});
+      return result.single.state;
+    }
+    expect(check(support:photo), 'completed');
+    expect(check(), 'active');
+    expect(check(support:photo,hold:true), 'active');
+    expect(check(support:photo,overrides:{'observed':false}), 'active');
+    expect(check(support:photo,overrides:{'same_target':false}), 'active');
+    expect(check(support:photo,overrides:{'confirms_photo_meets_criterion':false}), 'active');
+    expect(check(support:photo,overrides:{'supporting_photo':{'evidence_id':'p','quote':'别的物体'}}), 'active');
+    expect(check(support:WishEvidence(id:'p',kind:'web_read',text:photo.text,at:photo.at)), 'active');
+    expect(check(support:WishEvidence(id:'p',kind:'user_photo',text:photo.text,
+      at:text.at.add(const Duration(minutes:1)))), 'active');
+    expect(check(support:photo,main:event(kind:'user_text',text:text.text,time:at)), 'active');
+  });
+
   group('durable SQLite lifecycle', () {
     late AppDatabase db;
     setUp(() async {
@@ -464,6 +492,69 @@ void main() {
         isFalse,
       );
       expect(await WishStore(db).prompt(), '');
+    });
+    test('upgrade rechecks archived chat evidence once across retries and restarts', () async {
+      final store = WishStore(db);
+      await store.initialize();
+      final item = CompanionWish(id: 'w', goal: '想看完整灯塔模型',
+        reason: '看看拼起来的样子', route: 'user', completionKind: 'user_photo',
+        criterion: '用户展示完整的灯塔模型', createdAt: at, updatedAt: at);
+      expect(await store.save([item], expected: (await db.getSetting(WishStore.stateKey))!,
+        fence: (await db.captureBrainWorkFence())!), isTrue);
+      final photoAt = at.subtract(const Duration(days: 3));
+      await db.insertMessageWithAttachments(ChatMessage(id: 'old', role: 'user',
+        content: '灯塔拼好了', createdAt: photoAt), [
+        MessageAttachment(id: 'image', messageId: 'old', kind: 'image', originalPath: '',
+          thumbnailPath: '', byteSize: 0, width: 1, height: 1, mimeType: 'image/png',
+          source: 'gallery', visionStatus: 'completed', visionSummary: '桌上摆着灯塔模型',
+          createdAt: photoAt),
+      ]);
+      const clarification = '之前那张灯塔模型照片就是完整成品';
+      await db.insertMessage(ChatMessage(id: 'clarify', role: 'user', content: clarification,
+        createdAt: at.add(const Duration(hours: 1))));
+      for (var i = 0; i < 258; i++) {
+        await db.insertMessage(ChatMessage(id: 'later-$i', role: 'user', content: '无关闲聊',
+          createdAt: at.add(Duration(days: 16, seconds: i))));
+      }
+      final now = at.add(const Duration(days: 17));
+      await db.setSetting(WishEngine.attemptKey, '${now.millisecondsSinceEpoch}');
+      var calls = 0;
+      final engine = WishEngine(db, reviewer: (material) async {
+        calls++;
+        expect(material['can_generate'], false);
+        final ids = (material['sources'] as List).map((e) => e['id']).toSet();
+        expect(ids, containsAll(['photo:old:image', 'chat:clarify']));
+        if (calls == 1) return null;
+        return {'updates': [{
+          'id':'w', 'state':'completed','evidence_id':'chat:clarify','quote':clarification,
+          'same_target':true,'observed':true,'confidence':.96,
+          'confirms_photo_meets_criterion':true,
+          'supporting_photo':{'evidence_id':'photo:old:image','quote':'桌上摆着灯塔模型'},
+        }]};
+      });
+      await db.tryAcquireLocalLease('chat_turn_lease', holdFor: const Duration(minutes: 2));
+      expect(await engine.maybeRefresh(now: now, upgradeOnly: true), false);
+      expect(calls, 0);
+      await db.releaseLocalLease('chat_turn_lease');
+      expect(await engine.maybeRefresh(now: now, upgradeOnly: true), false);
+      expect(await db.getSetting(WishEngine.upgradeKey), isNot('1'));
+      expect(await engine.maybeRefresh(now: now, upgradeOnly: true), false);
+      expect(calls, 1);
+      expect(await engine.maybeRefresh(now: now.add(WishEngine.upgradeRetry), upgradeOnly: true), true);
+      expect((await store.load()).single.state, 'completed');
+      expect((await store.load()).single.evidenceIds, containsAll(['photo:old:image','chat:clarify']));
+      expect(await db.getSetting(WishEngine.upgradeKey), '1');
+      expect(await WishEngine(db, reviewer: (_) => throw StateError('already done'))
+        .maybeRefresh(now: now, upgradeOnly:true), true);
+      expect(calls, 2);
+    });
+
+    test('empty upgrade completes without model work', () async {
+      var calls = 0;
+      final engine = WishEngine(db, reviewer: (_) async {calls++; return null;});
+      expect(await engine.maybeRefresh(now: at, upgradeOnly:true), true);
+      expect(calls, 0);
+      expect(await db.getSetting(WishEngine.upgradeKey), '1');
     });
     test('sticker observations never enter user photo evidence', () async {
       await db.insertMessageWithAttachments(

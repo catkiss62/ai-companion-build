@@ -180,6 +180,13 @@ class CommissionSession {
     }
     // The current directory can change between turns. Keep the transcript
     // and current goal as a stable prefix, then append the fresh catalog.
+    final attachmentsOnly = ResearchCommission.attachmentOnly(effectiveGoal);
+    if (attachmentsOnly) {
+      context.clear();
+      priorRepositories.clear();
+      previousTargets.clear();
+      savedReadmes.clear();
+    }
     final offline = ResearchCommission.offline(effectiveGoal);
     final requestedActions = recentContext ? <String>{} : WorkHostActions.requested(effectiveGoal).difference(omitted);
     // A workspace JSON can be imported or edited outside the app. Only the
@@ -202,7 +209,7 @@ class CommissionSession {
       if (omitted.isNotEmpty) {'role':'user','content':'本轮已取消这些播放动作：${omitted.map((a)=>WorkHostActions.labels[a]).join("、")}，继续其余目标。'},
       if (requestedActions.isNotEmpty) {'role': 'user', 'content':
         '原始任务的手机本地时间：${DateTime.fromMillisecondsSinceEpoch(started)}。本次执行的本地时间：${DateTime.now()}。可执行操作：${host.allowed.join("、")}。${deferred.isEmpty ? "" : "整理后响铃由宿主在最终正文生成后执行。"}须取得宿主回执才能报告完成。'},
-      if (documents.isNotEmpty)
+      if (documents.isNotEmpty && !attachmentsOnly)
         {
           'role': 'user',
           'content':

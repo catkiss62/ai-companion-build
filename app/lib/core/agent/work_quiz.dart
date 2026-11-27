@@ -19,7 +19,7 @@ class WorkQuiz {
   static const example = 'https://zodiacgalore.com/quizzes/which-element/';
   static bool photosAllowed(String goal, {bool finalResult = false}) {
     var allowed = true;
-    final decisions = RegExp(r'(?:不要|不用|无需|不必|别|不需要|禁止|不发|不附)(?:给我|再|发送|发|附上|保存|提供|任何|结果|页面|附|的|一张|每题|每道题)*截(?:图|屏)|只(?:要|看|需|需要|给我|告诉我|发给我|发)?(?:文字|文本)(?:结果|回复|汇报)?|(?:最后|最终|结果页?|完成后)(?:请|再|要|发|给我|附上)*截(?:图|屏)');
+    final decisions = RegExp(r'(?:不要|不用|无需|不必|别|不需要|禁止|不发|不附)(?:给我|再|发送|发|附上|保存|提供|任何|最终|最后|完成后|结果页?|页面|附|的|一张|每题|每道题)*截(?:图|屏)|只(?:要|看|需|需要|给我|告诉我|发给我|发)?(?:文字|文本)(?:结果|回复|汇报)?|(?:最后|最终|结果页?|完成后)(?:请|再|要|发|给我|附上)*截(?:图|屏)');
     for (final match in decisions.allMatches(goal)) {
       if (finalResult && RegExp(r'每题|每道题').hasMatch(match[0]!)) continue;
       allowed = RegExp(r'^(?:最后|最终|结果|完成后)').hasMatch(match[0]!);

@@ -212,7 +212,7 @@ class WorkHostActions {
       )
       .toList();
 
-  Future<String> _target(List entries, String latest, Map args) async {
+  Future<String> _target(String action, List entries, String latest, Map args) async {
     final owned = <Map>[];
     for (final item in entries.whereType<Map>()) {
       final id = item['id'];
@@ -230,28 +230,35 @@ class WorkHostActions {
           owned.add(item);
       }
     }
-    final matches = owned
-        .where(
-          (item) =>
-              (item['title'] as String).isNotEmpty &&
-              goal.contains(item['title'] as String),
-        )
-        .toList();
+    final clauses = goal.split(RegExp(
+      r'[，,。；;！!\n]|(?:并且|然后|但是|同时|并|再)(?=(?:请|帮我|把|将|取消|撤销|删除|关闭|保留|修改|调整|不要|别))',
+    ));
+    final subjects = <Set<String>>[];
+    for (final clause in clauses.where((part) => requested(part).contains(action))) {
+      final beforeTime = clause.split(RegExp(r'改到|改成|改为|推迟到|提前到')).first;
+      final subject = beforeTime.trim()
+          .replaceFirst(RegExp(r'^(?:(?:请|帮我|麻烦|把|将|取消|撤销|删除|关闭|修改|调整|一下|掉)\s*)+'), '')
+          .replaceFirst(RegExp(r'(?:取消|撤销|删除|关掉|一下|掉|了)+$'), '').trim();
+      String unquote(String s) => s.replaceFirst(RegExp(r'^[「“"]'), '')
+          .replaceFirst(RegExp(r'[」”"]$'), '').trim();
+      subjects.add({
+        unquote(subject),
+        unquote(subject.replaceFirst(RegExp(r'的?(?:提醒|闹钟)$'), '')),
+        unquote(subject.replaceFirst(RegExp(r'^(?:提醒|闹钟)\s*'), '')),
+      });
+    }
     final target = args['target'];
-    if (matches.length == 1 &&
-        (target == null || target == matches.single['title']))
+    final matches = owned.where((item) =>
+        (goal.trim().isEmpty || subjects.any((s) => s.contains(item['title']))) &&
+        (target == null || target == item['title'])).toList();
+    if ((target != null || subjects.length == 1) && matches.length == 1) {
       return matches.single['id'] as String;
-    final subject = goal
-        .split(RegExp(r'改到|改成|改为|推迟到|提前到'))
-        .first
-        .replaceAll(
-          RegExp(r'请|帮我|把|将|取消|撤销|删除|关闭|提醒|闹钟|设置|建立|修改|调整|一下|掉|了|[。！!\s]'),
-          '',
-        );
-    final generic = RegExp(
-      r'^(?:刚才|刚刚|刚设好?|上次|最近|最新|最后)?(?:的)?(?:上一个|最后一个|那个|这个|那条|上一条|这条)?(?:的)?$',
-    ).hasMatch(subject);
-    if (matches.isNotEmpty || target != null || !generic) {
+    }
+    final recentReference = RegExp(
+      r'^(?:刚才|刚刚|刚设好?|上次|最近|最新|最后)?的?(?:上一个|最后一个|那个|这个|那条|上一条|这条)?的?$',
+    );
+    final generic = goal.trim().isEmpty || subjects.length == 1 && subjects.single.any(recentReference.hasMatch);
+    if (target != null || !generic) {
       throw const FormatException('未能唯一确定本会话中点名的提醒，请核对原提醒标题');
     }
     if (latest.isEmpty || !owned.any((e) => e['id'] == latest))
@@ -312,7 +319,7 @@ class WorkHostActions {
             ? (items.isEmpty
                   ? 'work-$order'
                   : 'work-$order-${items.length + 1}')
-            : await _target(entries, prior, args));
+            : await _target(action, entries, prior, args));
     final index = entries.indexWhere((e) => e is Map && e['id'] == id);
     Map? entry;
     if (receipt != null) {

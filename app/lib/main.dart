@@ -1,5 +1,6 @@
 import 'core/platform/live2d_user_defaults.dart';
 import 'core/creative/creative_worker.dart';
+import 'core/wishes/wish_engine.dart';
 import 'core/ai/deepseek_balance.dart';
 import 'core/diagnostics/daily_spend.dart';
 import 'core/desire/daily_wake_store.dart';
@@ -46,7 +47,7 @@ class _StartupRecoveryRoot extends StatefulWidget {
   State<_StartupRecoveryRoot> createState() => _StartupRecoveryRootState();
 }
 
-class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> with WidgetsBindingObserver {
   final List<_StartupStep> _steps = <_StartupStep>[
     const _StartupStep('Flutter 首帧', _StartupStepState.pending),
     const _StartupStep('打开数据库并检查恢复', _StartupStepState.pending),
@@ -57,7 +58,39 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
   Timer? _creativeTimer;
 
   @override
-  void dispose() { _creativeTimer?.cancel(); super.dispose(); }
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _creativeTimer?.cancel();
+    _wishRetry?.cancel();
+    super.dispose();
+  }
+
+  Timer? _wishRetry;
+  bool _checkingWishes = false;
+  bool get _foreground => WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _wishRetry?.cancel();
+    if (state == AppLifecycleState.resumed && _ready) unawaited(_reviewOldWishes());
+  }
+
+  Future<void> _reviewOldWishes() async {
+    if (_checkingWishes || !_foreground || !mounted) return;
+    _checkingWishes = true;
+    var complete = false;
+    try {
+      complete = await WishEngine(AppDatabase.instance).maybeRefresh(upgradeOnly: true);
+    } catch (error, stack) {
+      await UnhandledErrorRecorder(runtime: 'foreground').record(error, stack, 'wish_upgrade');
+    } finally {
+      _checkingWishes = false;
+      if (!complete && mounted && _foreground) {
+        _wishRetry?.cancel();
+        _wishRetry = Timer(WishEngine.upgradeRetry, _reviewOldWishes);
+      }
+    }
+  }
 
   bool _running = false;
   bool _ready = false;
@@ -67,6 +100,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _markDone(0);
@@ -119,6 +153,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
         _ready = true;
         _running = false;
       });
+      unawaited(_reviewOldWishes());
     } on TimeoutException catch (error) {
       _failCurrent('初始化超时：${error.message ?? '某个启动步骤没有在限定时间内完成'}');
     } catch (error, stackTrace) {

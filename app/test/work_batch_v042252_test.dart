@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:ai_companion_localfirst/core/agent/work_turn_details.dart';
 import 'dart:io';
+import 'package:ai_companion_localfirst/core/agent/work_text_reference.dart';
 import 'package:ai_companion_localfirst/core/agent/commission_workspace.dart';
 import 'package:ai_companion_localfirst/core/agent/workspace_archive.dart';
 import 'package:ai_companion_localfirst/core/agent/work_quiz.dart';
@@ -86,6 +87,9 @@ void main() {
         resumed.execute({...drink, 'local_time': '${day}T09:15'}),
         throwsFormatException,
       );
+      await expectLater(host('protected','保留喝水提醒，取消取快递提醒')
+          .execute({'action':'cancel'}), throwsFormatException);
+      expect((await CalendarReminderStore(db).load()).single.title, '喝水');
       await resumed.execute(parcel);
       expect(resumed.confirmed, {'remind'});
       expect(await host('one', goal).verifyExisting(), hasLength(2));
@@ -204,6 +208,11 @@ void main() {
       }
       clicks = 0;
       captures = 0;
+      final textOnly = await run('做完这个测试，不要发最终结果截图');
+      expect(textOnly['summary'], '官网摘要');
+      expect(textOnly.containsKey('photos'), false);
+      expect(captures, 0);
+      clicks = 0;
       wall = true;
       expect((await run('不要截图 做测试'))['error'], isNotNull);
       expect(captures, 0);
@@ -220,6 +229,40 @@ void main() {
       expect(WorkQuiz.photosAllowed('不需要每题截图', finalResult: true), true);
     },
   );
+
+  test('attachment scope and named report apply to planner input and resumed receipts', () async {
+    final ws = await workspace();
+    await ws.write('报告-无关.md', 'PRIVATE_WORKSPACE_MARKER');
+    await ws.write('报告-周报.md', 'PRIVATE_DESTINATION_MARKER');
+    const goal = '只根据这份附件，请更新并保存报告-周报.md';
+    final receipts = <Map<String,Object?>>[];
+    Future<Map> run(List<DeepSeekToolCall> ops, {List<Map> prior = const []}) {
+      var round = 0;
+      return ResearchCommission.run(goal: goal, context: [
+        {'role':'user', 'content':'PRIVATE_WORKSPACE_MARKER'},
+      ], workspace: ws,
+        priorReports: prior, reference: WorkTextSnapshot('素材.txt', 'SELECTED_INPUT'),
+        cancellation: GenerationCancellationToken(), progress: (_, __) {},
+        onToolResult: receipts.add,
+        plan: (messages) async {
+          final visible = jsonEncode(messages);
+          expect(visible, isNot(contains('PRIVATE_WORKSPACE_MARKER')));
+          expect(visible, isNot(contains('PRIVATE_DESTINATION_MARKER')));
+          return plan(round < ops.length ? ops[round++] : null);
+        });
+    }
+    DeepSeekToolCall save(String title) => call('workspace_save',
+        {'kind':'报告', 'title':title, 'body':'据附件更新'});
+    await expectLater(run([
+      call('workspace_read', {'name':'报告-无关.md'}), save('随笔'),
+    ]), throwsStateError);
+    expect(await ws.list(), isNot(contains('报告-随笔.md')));
+    expect(await ws.read('报告-周报.md'), 'PRIVATE_DESTINATION_MARKER');
+    await run([call('workspace_read', {'name':'报告-周报.md'}), save('周报')],
+      prior: receipts.where((r) => r.containsKey('reportTarget')).toList());
+    expect(await ws.read('报告-周报.md'), '据附件更新');
+    expect(receipts.any((r) => r['saved'] == '报告-周报.md'), true);
+  });
 
   test(
     'report write failure remains pending until a verified write succeeds',

@@ -1,9 +1,63 @@
+import 'package:sqflite/sqflite.dart';
 import 'companion_wish.dart';
 
 /// Retrieval only: these hints never decide a wish's state. Keep actual nearby
 /// dialogue so a reference like "that wish" has a subject. Model + evidence
 /// validation still decide whether this is a considered change of intention.
 class WishEvidenceWindow {
+  /// Fetch candidate message IDs. The caller rehydrates their provenance and
+  /// rechecks revisions before committing a decision.
+  static Future<Set<String>> photoWishMessages(DatabaseExecutor txn,
+      List<CompanionWish> wishes, DateTime now) async {
+    final ids = <String>{};
+    final pending = wishes.where((w) => w.route == 'user' &&
+        w.completionKind == 'user_photo' && !w.manualHold && !w.legacy &&
+        (w.active || w.state == 'expired' || w.state == 'paused')).toList()
+      ..sort((a, b) {
+        if (a.active != b.active) return a.active ? -1 : 1;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+    for (final w in pending.take(8)) {
+      final end = w.deadline != null && w.deadline!.isBefore(now) ? w.deadline! : now;
+      if (!end.isAfter(w.createdAt)) continue;
+      for (final id in w.sourceIds) {
+        if (id.startsWith('chat:')) ids.add(id.substring(5));
+        if (id.startsWith('photo:') && id.lastIndexOf(':') > 5) {
+          ids.add(id.substring(6, id.lastIndexOf(':')));
+        }
+      }
+      final words = <String>{};
+      for (final match in RegExp(r'[\u3400-\u9fff]+|[a-zA-Z0-9]{2,}').allMatches('${w.goal} ${w.criterion}')) {
+        final word = match[0]!;
+        if (word.length < 2) continue;
+        if (RegExp(r'^[a-zA-Z0-9]').hasMatch(word)) { words.add(word); continue; }
+        for (var i = 0; i + 2 <= word.length; i++) {
+          words.add(word.substring(i, i + 2));
+        }
+      }
+      final terms = words.take(48).toList();
+      String score(String column) => ['0', for (final _ in terms) '(instr($column, ?) > 0)'].join(' + ');
+      final photoRows = await txn.rawQuery('''
+        SELECT m.id, MAX(${score("coalesce(a.vision_summary,'') || ' ' || m.content")}) AS relevance
+        FROM message_attachments a JOIN messages m ON m.id = a.message_id
+        WHERE m.role = 'user' AND m.created_at <= ? AND a.kind = 'image'
+        AND a.vision_status = 'completed' AND a.source NOT GLOB 'user_sticker:*'
+        AND a.source NOT GLOB 'assistant_*' AND a.source NOT GLOB 'mcp/*'
+        GROUP BY m.id ORDER BY relevance DESC, abs(m.created_at - ?) ASC, m.id LIMIT 6
+      ''', [...terms, end.millisecondsSinceEpoch, w.createdAt.millisecondsSinceEpoch]);
+      final textRows = await txn.rawQuery('''
+        SELECT id, (${score('content')}) +
+          (instr(content,'愿望') > 0) * 3 +
+          ((instr(content,'那张') > 0 OR instr(content,'之前') > 0 OR instr(content,'上次') > 0)
+           AND (instr(content,'就是') > 0 OR instr(content,'已经') > 0 OR instr(content,'完整') > 0)) * 4 AS relevance
+        FROM messages WHERE role = 'user' AND created_at > ? AND created_at <= ?
+        AND length(trim(content)) > 0 ORDER BY relevance DESC, created_at DESC, id LIMIT 6
+      ''', [...terms, w.createdAt.millisecondsSinceEpoch, end.millisecondsSinceEpoch]);
+      ids.addAll([...photoRows, ...textRows].map((r) => r['id'] as String));
+    }
+    return ids;
+  }
+
   static List<WishEvidence> select(List<WishEvidence> all, List<CompanionWish> wishes) {
     final chat = all.where((e) => e.kind == 'user_text' || e.kind == 'assistant_text').toList()
       ..sort((a, b) => a.at.compareTo(b.at));
