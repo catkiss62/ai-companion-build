@@ -245,15 +245,26 @@ class WishEvidence {
     required this.text,
     required this.at,
     this.gameId = '',
+    this.caption,
+    this.vision,
     this.timeKnown = true,
   });
   final String id, kind, text, gameId;
   final DateTime at;
   final bool timeKnown;
+  final String? caption, vision;
+
+  bool quotesVision(String quote) {
+    final actual = vision ?? (text.startsWith('视觉识别：') ? text.substring('视觉识别：'.length) : '');
+    final words = quote.replaceFirst(RegExp(r'^视觉识别：'), '').trim();
+    return words.isNotEmpty && actual.contains(words);
+  }
   Map<String, Object?> toJson() => {
     'id': id,
     'kind': kind,
-    'text': text,
+    if (vision == null) 'text': text,
+    if (vision != null) 'vision': vision,
+    if (caption != null && caption!.isNotEmpty) 'caption': caption,
     'at': timeKnown ? at.toIso8601String() : null,
     'event_time_known': timeKnown,
     if (!timeKnown) 'recorded_at': at.toIso8601String(),

@@ -35,7 +35,10 @@ void main() {
     await db.insertMessage(ChatMessage(id:'fact',role:'user',content:'今天聊起那只猫',createdAt:now));
     final engine = WishEngine(db,reviewer:(material) async {
       expect(material['can_generate'],false);
-      return {'solo_archive':[
+      return {'updates': [
+        for (final w in [joint,user,unclear])
+          {'id':w.id,'state':'unchanged','reason_code':'no_new_evidence','evidence_ids':[]},
+      ],'solo_archive':[
         for(final w in [solo,user,completed,held]) {'id':w.id,'quote':w.goal,'solo':true},
         {'id':joint.id,'quote':joint.goal,'solo':true},
       ]};

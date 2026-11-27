@@ -38,35 +38,54 @@ class ResearchCommission {
         !advice.hasMatch(part) && action.hasMatch(part.replaceAll(existingPage, '网站')));
   }
 
-  static bool attachmentOnly(String goal) => RegExp(
+  static final _attachmentRestriction = RegExp(
     r'(?:只|仅)(?:允许|需要|能|可)?(?:基于|依据|根据|使用|用|看|读|参考)(?:我(?:提供|上传)的|这份|这些|这个|所选|本地|现有|所附|上传的|给的)*(?:附件|文件|旧资料)',
-  ).hasMatch(goal);
+  );
+  static bool attachmentOnly(String goal) {
+    var restricted = false;
+    for (final match in _attachmentRestriction.allMatches(goal)) {
+      final before = goal.substring(0, match.start).trimRight();
+      restricted = !RegExp(r'(?:不要|不用|不必|无需|不能|不可|不得|不应|别|不|禁止|避免)(?:再|一直)?$').hasMatch(before);
+    }
+    return restricted;
+  }
 
   static bool offline(String goal) => attachmentOnly(goal) || RegExp(
     r'(?:不需要|不允许|不要|不用|不必|无需|禁止|别|不得|不能)(?:再|去|主动)?(?:联网|上网|网络搜索|外部检索)|离线(?:完成|整理|处理)',
   ).hasMatch(goal);
 
-  static bool needsReport(String goal) {
-    final action = RegExp(
-      r'(?:保存|写入|存为|另存|输出|生成|交付|写成|写一份|创建|修改|更新|覆盖).{0,24}(?:报告|markdown|\.md\b)|(?:报告|markdown|\.md\b).{0,16}(?:保存|写入|写回|更新|修改|另存|落盘)',
-      caseSensitive:false,
-    );
-    return goal.split(RegExp(r'[，,。；;！!\n]')).any((clause) =>
-        action.hasMatch(clause) && !RegExp(r'(?:不要|无需|不用|不必|先别|别)(?:另行|再)?(?:保存|写|输出|生成|修改|更新|交付)|如何|怎么保存').hasMatch(clause));
-  }
+  static const _reportVerb =
+      r'保存|写入|写回|存为|另存|输出|生成|交付|写成|写一份|创建|修改|更新|覆盖|落盘';
+  static final _reportAction = RegExp(
+    '(?:$_reportVerb).{0,24}(?:报告|markdown|\\.md\\b)|(?:报告|markdown|\\.md\\b).{0,18}(?:$_reportVerb)',
+    caseSensitive: false,
+  );
+  static final _reportExcluded = RegExp(
+      '(?:不要|无需|不用|不必|先别|别)(?:另行|再)?(?:$_reportVerb|写)|如何|怎么保存');
+  static final _clauses = RegExp(r'[，,。；;！!\n]');
+  static bool _writesReport(String part) => _reportAction.hasMatch(part) && !_reportExcluded.hasMatch(part);
+  static bool needsReport(String goal) => goal.split(_clauses).any(_writesReport);
 
   static Set<String> reportTargets(String goal) {
     final names = RegExp(r'报告-[\u3400-\u9fffA-Za-z0-9 _-]{1,75}\.md',caseSensitive:false);
     final result = <String>{};
-    for (final part in goal.split(RegExp(r'[，,。；;！!\n]'))) {
-      final writes = RegExp(r'修改|更新|覆盖|另存|存为|交付|输出|生成|写入|写回|保存').allMatches(part).toList();
-      if (writes.isEmpty || !needsReport(part)) continue;
+    var namingOutput = false;
+    for (final part in goal.split(_clauses)) {
+      final writesHere = _writesReport(part);
+      final explicitName = RegExp(r'^\s*(?:(?:输出|交付|报告|目标)(?:文件)?名|文件名|命名|取名)(?:称)?\s*(?:是|为|用|叫|写作|[:：])?');
+      final inherits = namingOutput && explicitName.hasMatch(part);
+      if (!writesHere && !inherits) {
+        if (part.trim().isNotEmpty) namingOutput = false;
+        continue;
+      }
+      namingOutput = true;
+      final writes = RegExp(_reportVerb).allMatches(part).toList();
       for (final m in names.allMatches(part)) {
         final before = part.substring(0,m.start);
         final after = part.substring(m.end);
         if (RegExp(r'^[」”》`\s]*(?:另存|存为|作为参考|作为资料)').hasMatch(after)) continue;
         final lastWrite = writes.where((w)=>w.start < m.start).lastOrNull;
-        if (lastWrite != null && !RegExp(r'参考|读取|根据|依据').hasMatch(before.substring(lastWrite.end)) ||
+        if (inherits || lastWrite != null && !RegExp(r'参考|读取|根据|依据').hasMatch(before.substring(lastWrite.end)) ||
             RegExp(r'^[」”》`\s]*(?:进行|做)?(?:更新|修改|保存|写回|覆盖)').hasMatch(after) ||
             RegExp(r'(?:把|将)[「“《`\s]*$').hasMatch(before)) result.add(m[0]!);
       }

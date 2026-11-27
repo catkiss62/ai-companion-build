@@ -172,6 +172,8 @@ void main() {
       guide:'独立解谜。已移除 legacy_move。walk 移动；look 查看当前局面。');
     expect(revised.continuationNeedsReview,true);
     expect(revised.permitsRevisedCall('legacy_move',{}),false);
+    expect(revised.copyWith(guide:'没有移除 legacy_move，仍可使用。')
+      .permitsRevisedCall('legacy_move',{}),true);
     final result=await engine.continueDue(now:await makeDue(revised));
     expect(arcade.plays,['look'],reason:result.state);
   });

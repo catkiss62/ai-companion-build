@@ -35,9 +35,10 @@ class WishEngine {
   static const generationKey = 'companion_wish_generation_v2';
   static const diagnosticKey = 'companion_wish_last_review_v2';
   static const fingerprintKey = 'companion_wish_sources_v2';
-  static const upgradeKey = 'companion_wish_review_v9_completed';
-  static const upgradeAttemptKey = 'companion_wish_review_v9_attempt';
+  static const upgradeKey = 'companion_wish_review_v10_completed';
+  static const upgradeAttemptKey = 'companion_wish_review_v10_attempt';
   static const upgradeRetry = Duration(minutes: 5);
+  static String anon(String id) => sha256.convert(utf8.encode(id)).toString().substring(0,12);
   static const reviewGap = Duration(hours: 2);
   static const generationGap = Duration(hours: 12);
 
@@ -83,7 +84,7 @@ updates 只评估给定愿望的资料；旧创建的愿望也须评估。按来
 客观结果或用户决定：{id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
 她自己的处置：{id,state,progress,evidence_id,quote,confidence,same_target,self_decision:true,speech_act:"considered_decision",reason,expressed}。三个自主处置字段必填，不能只写state。
 机制处置：{id,state:"paused"或"abandoned",evidence_id,quote,confidence,same_target:true,self_decision:true,speech_act:"mechanism_review",reason,mechanic_incompatible:true,permanent_constraint:true,temporary_block:false}。只针对原有 game 愿望：完整已知指南或真实游戏结果明确说明原 criterion 依赖的机制不存在、不可重复或无法达到时，可自行暂停/放下，保留原条件和历史，不需要先在聊天编造一段决定。引用该游戏的 game_guide/game_result 原文，confidence 至少0.90，reason 解释明确规则怎样与原条件冲突。缺少资料、指南没提、临时冷却、缺钱、未解锁、参数错误、网络错误或一次失败都不是永久不兼容；不因此处置。不把状态查询次数当成长阶段，不为完成而放宽原目标，不将处置标completed/satisfied。game_guide 只是约束资料，不能作为新愿望的经历来源。用户手动暂停/放下仍不能自动改变。
-无变化就不写 update。state 可 active/paused/abandoned/completed/satisfied，各状态遵守下面的来源规则。用户拒绝/暂停时可以暂停或放弃；手动暂停绝不自动复活。尊重用户不想做，不劝说、不催。
+每条 active 愿望必须按原 id 返回唯一判断。先读本条的 candidate_evidence 与原条件，再按需查共享资料。候选只是检索结果；须核对对象、范围、日期与归属。照片的 caption 是用户附言，vision 是识图原文，支持照片的 quote 必须逐字摘自 vision。符合原条件时按客观结果格式提交 completed；无充分依据改变状态时，返回形如 {"id":"原ID","state":"unchanged","reason_code":"insufficient_evidence","evidence_ids":[]} 的对象。reason_code 可选 missing_original_photo、missing_user_confirmation、target_ambiguous、new_result_required、insufficient_evidence、criterion_unmet、no_new_evidence；选最具体的原因。evidence_ids 填判断时实际参考的来源 ID，无可引用来源可留空。不为填表猜测或降低条件。state 可 active/paused/abandoned/completed/satisfied，各状态遵守下面的来源规则。用户拒绝/暂停时可以暂停或放弃；手动暂停绝不自动复活。尊重用户不想做，不劝说、不催。
 照片愿望还有一种完成方式：创建后用户主动澄清以前发的某张照片已经符合原条件。主证据为这次用户原话，同时输出 supporting_photo:{evidence_id,quote} 引用那张真实用户照片的视觉识别原文，confirms_photo_meets_criterion:true。确认两者指向同一对象、范围、时间；如果要求的是重新制作、再次展示或以后的新经历，则先前照片不满足条件。含糊指代、猜测或将来的承诺不足以完成。其余完成必须是 created_at 之后的实际结果，匹配原 criterion 的对象、归属、时间和范围。quote 必须逐字来自指定资料并足够说明结果。observed=true 仅已发生结果；用户计划、答应、假设、愿望、工具尝试、读指南、助手自述都不是完成。证据不够保持 active，progress 只记已知进展/障碍，禁止写已经实现。不得修改 criterion 降低标准。aspiration 不按客观 completed 完成，可依下述规则主观满足。
 自主处置：可以根据她对已有具体愿望的认真表达，提出 self_decision=true 的 active/paused/abandoned/satisfied 更新。必须引用 assistant_text，reason（4~240字）解释意愿变化，speech_act=considered_decision；玩笑、撒娇、假设、引用、角色扮演或随口宣称完成不算处置决定。没有明确意愿变化则不更新，也不为了展示自主性频繁改变。用户手动暂停/放下不可自行恢复。
 paused=自己暂时不想追求，abandoned=不再追求原目标，active=明确重新想追求自己暂放的目标；satisfied=主观向往已得到满足，仅适用于 aspiration。游戏结果等客观目标，如果她认真表示已经不想继续证明/追求原目标，使用abandoned表示自主放下（并不等于失败），不能当作客观达成或satisfied。单说心情变好、随口“完成了”而没有意愿变化则不算。不要因为没有游戏回执而漏掉明确的自主放下。允许引用旧对话中的决定，不要求她在本轮再说一遍；结合相邻对话与at判断指代和先后，不能把旧决定覆盖更新的意愿。不得把“霸占靠垫、催吃饭”等玩笑新增为真实目标；原有新愿望生成规则保持。原 criterion 不变。
@@ -142,7 +143,13 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       final evidence = batch.evidence;
       if (evidence.isEmpty) {
         return upgradeOnly && await store.save(wishes, expected: raw, fence: fence,
-            sourceGuard: batch.matches, extra: {upgradeKey: '1'});
+            sourceGuard: batch.matches, extra: {upgradeKey: '1', diagnosticKey: jsonEncode({
+              'status':'reviewed','upgrade_review':true,'contract':10,'source_count':0,
+              'at':instant.millisecondsSinceEpoch,'decisions':[
+                for (final w in wishes.where((w) => w.active && WishReviewMaterial.reviewable(w)))
+                  {'wish_hash':anon(w.id),'result':'unchanged','reason':'no_new_evidence','state':w.state}
+              ],
+            })});
       }
       final generationAt =
           int.tryParse(await db.getSetting(generationKey) ?? '') ?? 0;
@@ -152,7 +159,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
               generationGap.inMilliseconds;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":9,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+            utf8.encode(jsonEncode({"contract":10,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       // An updates-only review cannot consume the next opportunity to propose
@@ -182,29 +189,55 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         sourceGuard: batch.matches,
       ))
         return false;
+      final groupedIds = batch.groups.values.expand((g)=>g).map((e)=>e.id).toSet();
       Map<String, dynamic>? payload;
       try {
         payload = await reviewer({
           'now': instant.toIso8601String(),
           'can_generate': canGenerate,
-          ...WishReviewMaterial.wishes(wishes),
+          ...WishReviewMaterial.forReviewer(wishes, batch.groups),
           'catalog': batch.catalog,
           'known_game_guides': batch.guides,
           'sources': evidence.map((e) => e.kind == 'game_guide' ? <String, Object?>{
             'id': e.id, 'kind': e.kind, 'game_id': e.gameId,
             'text_location': 'known_game_guides', 'event_time_known': false,
-          } : e.toJson()).toList(),
+          } : groupedIds.contains(e.id) ? {'id':e.id,'kind':e.kind,'text_location':'wishes.candidate_evidence'} : e.toJson()).toList(),
         });
       } catch (_) {
         payload = null;
       }
-      if (payload == null || upgradeOnly && payload['updates'] is! List) {
+      if (payload == null) {
         await db.setSettingsAtomically({
           diagnosticKey: jsonEncode({
             'status': 'unavailable',
             'at': instant.millisecondsSinceEpoch,
           }),
         }, workFence: fence);
+        return false;
+      }
+      
+      final candidateIds = {
+        for (final entry in batch.groups.entries) anon(entry.key):
+          [for (final e in entry.value) {'id':anon(e.id),'kind':e.kind}],
+      };
+      final invalid = WishReviewMaterial.responseError(wishes,payload,evidence.map((e)=>e.id).toSet(),
+          archived: WishPolicy.archiveIds(wishes, payload));
+      if (invalid != null) {
+        final proposals = payload['updates'];
+        final received = proposals is List
+            ? proposals.whereType<Map>().map((v) => v['id']).whereType<String>().toSet()
+            : <String>{};
+        final archived = WishPolicy.archiveIds(wishes,payload);
+        await db.setSettingsAtomically({
+          diagnosticKey: jsonEncode({'status':'incomplete_review','at':instant.millisecondsSinceEpoch,
+            'upgrade_review':upgradeOnly,'reason':invalid,'candidate_sources':candidateIds,
+            'unreviewed_wishes':[for (final w in wishes)
+              if (w.active && WishReviewMaterial.reviewable(w) && !received.contains(w.id) &&
+                  !archived.contains(w.id)) anon(w.id)],
+          }),
+          // A malformed model response follows the ordinary two-hour backoff.
+          if (upgradeOnly) currentAttemptKey:'${instant.add(reviewGap - upgradeRetry).millisecondsSinceEpoch}',
+        },expectedSettings:{WishStore.stateKey:raw},workFence:fence,sourceGuard:batch.matches);
         return false;
       }
       final decisions = <Map<String, Object?>>[];
@@ -230,11 +263,12 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           diagnosticKey: jsonEncode({
             'status': 'reviewed',
             'upgrade_review': upgradeOnly,
+            'candidate_sources':candidateIds,
             'at': instant.millisecondsSinceEpoch,
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 9, 'source_count': evidence.length,
+            'contract': 10, 'source_count': evidence.length,
             'source_kinds': {for (final kind in evidence.map((e) => e.kind).toSet())
               kind: evidence.where((e) => e.kind == kind).length},
             'active_routes': {for (final route in ['game', 'user', 'aspiration'])
@@ -242,7 +276,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'reviewable_wishes': (WishReviewMaterial.wishes(wishes)['wishes'] as List).length,
             'dedup_history': (WishReviewMaterial.wishes(wishes)['wish_history'] as List).length,
             'can_generate': canGenerate,
-            'generation_gate': canGenerate ? 'open' :
+            'generation_gate': upgradeOnly ? 'upgrade_review_only' : canGenerate ? 'open' :
                 (wishes.where((w) => w.active).length >= 4 ? 'capacity' : 'cooldown'),
             'decisions': decisions.take(16).toList(),
             'new_proposal': proposalDiagnostic,
@@ -286,7 +320,9 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       limit: wishes.isEmpty ? 64 : 256,
       notBefore: now.subtract(const Duration(days: 14)), notAfter: now);
     final materials = {for (final item in recent) item.message.id: item};
-    final targets = await WishEvidenceWindow.photoWishMessages(txn, wishes, now);
+    final targetMessages = await WishEvidenceWindow.photoWishMessages(txn, wishes, now);
+    final targets = targetMessages.values.expand((v)=>v).toSet();
+    final sourceIdsByMessage = <String,List<String>>{};
     for (final id in targets.difference(materials.keys.toSet())) {
       final item = await ConversationSourceStore.captureMaterial(txn, id);
       if (item != null) materials[id] = item;
@@ -296,7 +332,10 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       final m = material.message, source = material.source;
       if (!source.mayGrow || source.stamp.ingestSeq <= 0) continue;
       if (m.content.trim().isNotEmpty && (m.isUser || m.isAssistant)) {
-        if (m.isUser && targets.contains(m.id)) targetEvidence.add('chat:${m.id}');
+        if (m.isUser && targets.contains(m.id)) {
+          targetEvidence.add('chat:${m.id}');
+          (sourceIdsByMessage[m.id] ??= []).add('chat:${m.id}');
+        }
         add(WishEvidence(id: 'chat:${m.id}', kind: m.isUser ? 'user_text' : 'assistant_text',
           text: clip(m.content, 650), at: m.createdAt), source.toJson(), source.matches);
       }
@@ -304,9 +343,14 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         for (final a in m.attachments.where((a) => a.isImage && a.visionCompleted &&
             !a.source.startsWith('user_sticker:') && !a.source.startsWith('assistant_') &&
             !a.source.startsWith('mcp/'))) {
-          if (targets.contains(m.id)) targetEvidence.add('photo:${m.id}:${a.id}');
+          if (targets.contains(m.id)) {
+            targetEvidence.add('photo:${m.id}:${a.id}');
+            (sourceIdsByMessage[m.id] ??= []).add('photo:${m.id}:${a.id}');
+          }
+          final caption = clip(m.content, 350);
+          final vision = clip(a.visionSummary, 900);
           add(WishEvidence(id: 'photo:${m.id}:${a.id}', kind: 'user_photo',
-            text: clip('附言：${m.content}\n视觉识别：${a.visionSummary}', 1100), at: m.createdAt),
+            text: '附言：$caption\n视觉识别：$vision', caption: caption, vision: vision, at: m.createdAt),
             source.toJson(), source.matches);
         }
       }
@@ -426,7 +470,10 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
     final catalogRaw = await BrainWorkFence.value(txn, CedarToyActivityStore.catalogSettingKey);
     final catalog = CedarCatalogParser.parse(catalogRaw)
         .map((e) => <String, Object?>{'id': e.id, 'title': e.title}).toList();
-    return _WishMaterialBatch(evidence: selected, catalog: catalog, guides: guides,
+    return _WishMaterialBatch(groups: WishReviewMaterial.candidates(wishes, selected, {
+      for (final entry in targetMessages.entries)
+        entry.key: [for (final id in entry.value) ...?sourceIdsByMessage[id]],
+    }), evidence: selected, catalog: catalog, guides: guides,
       manifest: [for (final e in selected) [e.toJson(), stamps[e.id]]], guards: [
         for (final e in selected) guards[e.id]!,
         (handle) async => await BrainWorkFence.value(handle, CedarToyActivityStore.catalogSettingKey) == catalogRaw,
@@ -444,7 +491,8 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
 }
 
 class _WishMaterialBatch {
-  const _WishMaterialBatch({required this.evidence, required this.catalog,
+  final Map<String,List<WishEvidence>> groups;
+  const _WishMaterialBatch({required this.groups, required this.evidence, required this.catalog,
     required this.guides, required this.manifest, required this.guards});
   final List<WishEvidence> evidence;
   final List<Map<String, Object?>> catalog, guides;
@@ -475,6 +523,18 @@ class WishPolicy {
     r'(?:和|跟|与|陪|邀请|约|等)(?:主人|用户|你)|(?:主人|用户|你)(?:和我|陪我|帮我|教我|带我)|'
     r'咱们|我们(?:俩|一起|共同)|一起|一同|共同|双人|共玩|合玩|联机对战',
   );
+
+  static Set<String> archiveIds(List<CompanionWish> wishes, Map payload) {
+    final proposed = {
+      for (final row in (payload['solo_archive'] is List ? payload['solo_archive'] as List : const []).whereType<Map>())
+        if (row['solo'] == true && row['id'] is String) row['id']:row['quote'],
+    };
+    return {for (final w in wishes)
+      if (!w.legacy && !w.manualHold && !w.protectSoloArchive &&
+          !_sharedGoal.hasMatch(w.goal) && !_sharedGoal.hasMatch(w.criterion) &&
+          (w.active || w.state == 'paused') && (w.route == 'game' || w.route == 'aspiration') &&
+          w.goal.isNotEmpty && proposed[w.id] == w.goal) w.id};
+  }
 
   static bool duplicates(String a, String b) {
     Set<String> grams(String s) {
@@ -508,17 +568,10 @@ class WishPolicy {
         m[k] is String && (m[k] as String).length <= max
         ? (m[k] as String).trim()
         : '';
-    final solo = {
-      for (final row in (payload['solo_archive'] is List ? payload['solo_archive'] as List : const []).whereType<Map>())
-        if (row['solo'] == true && row['id'] is String) row['id']: row['quote'],
-    };
+    final archived = archiveIds(wishes,payload);
     var activeCount = wishes.where((w) => w.active).length;
     final result = wishes.map((w) {
-      if (!w.legacy && !w.manualHold && !w.protectSoloArchive &&
-          !_sharedGoal.hasMatch(w.goal) && !_sharedGoal.hasMatch(w.criterion) &&
-          (w.active || w.state == 'paused') &&
-          (w.route == 'game' || w.route == 'aspiration') &&
-          w.goal.isNotEmpty && solo[w.id] == w.goal) {
+      if (archived.contains(w.id)) {
         if (w.active) activeCount--;
         decisions?.add({'result': 'archived', 'reason': 'solo_goal'});
         return w.copyWith(state: 'archived_solo', updatedAt: now);
@@ -527,8 +580,16 @@ class WishPolicy {
       final requested = u?['state']?.toString() ?? '';
       void note(String reason, {String? applied}) {
         decisions?.add({
+          if (u != null) 'reviewed_sources': [
+            for (final id in <String>{
+              if (u['evidence_id'] is String) u['evidence_id'] as String,
+              if (u['supporting_photo'] is Map && u['supporting_photo']['evidence_id'] is String)
+                u['supporting_photo']['evidence_id'] as String,
+              if (u['evidence_ids'] is List) ...(u['evidence_ids'] as List).whereType<String>(),
+            }.take(12)) sha256.convert(utf8.encode(id)).toString().substring(0,12),
+          ],
           'wish_hash': sha256.convert(utf8.encode(w.id)).toString().substring(0, 12),
-          'requested': const {'active','paused','abandoned','completed','satisfied'}.contains(requested) ? requested : (u == null ? 'none' : 'invalid'),
+          'requested': const {'active','paused','abandoned','completed','satisfied','unchanged'}.contains(requested) ? requested : (u == null ? 'none' : 'invalid'),
           'result': applied == null ? 'unchanged' : 'applied',
           'reason': reason,
           'state': applied ?? w.state,
@@ -541,6 +602,10 @@ class WishPolicy {
       }
       if ((!w.active && w.state != 'expired' && w.state != 'paused') || w.manualHold || w.legacy) {
         return reject(w.manualHold ? 'manual_hold' : w.legacy ? 'legacy_protected' : 'terminal_state');
+      }
+      if (u['state'] == 'unchanged') {
+        note(text(u,'reason_code',40));
+        return w;
       }
       final e = byId[u['evidence_id']];
       final quote = text(u, 'quote', 1200);
@@ -567,7 +632,8 @@ class WishPolicy {
       }
       if (!e.at.isAfter(w.createdAt) || e.at.isAfter(now) ||
           (w.deadline != null && e.at.isAfter(w.deadline!))) return reject('source_time');
-      if (quote.length < 3 || !e.text.contains(quote)) return reject('quote_mismatch');
+      if (quote.length < 3 || (e.kind == 'user_photo' && u['state'] == 'completed'
+          ? !e.quotesVision(quote) : !e.text.contains(quote))) return reject('quote_mismatch');
       if (u['same_target'] != true) return reject('target_unconfirmed');
       if (u['confidence'] is! num || (u['confidence'] as num) < .85) return reject('low_confidence');
       if (w.state == 'expired' && u['state'] != 'completed') return reject('expired');
@@ -625,8 +691,7 @@ class WishPolicy {
           if (photo == null || photo.kind != 'user_photo') return reject('missing_original_photo');
           if (!photo.timeKnown || photo.at.isAfter(e.at)) return reject('photo_time');
           final quote = support['quote'];
-          final vision = photo.text.split('视觉识别：').last;
-          if (quote is! String || quote.trim().length < 3 || !vision.contains(quote)) {
+          if (quote is! String || quote.trim().length < 3 || !photo.quotesVision(quote)) {
             return reject('photo_quote_mismatch');
           }
         }

@@ -423,7 +423,7 @@ void main() {
       final gates = <bool>[];
       final engine = WishEngine(db, reviewer: (material) async {
         gates.add(material['can_generate'] == true);
-        return {'updates': []};
+        return {'updates':[{'id':'w','state':'unchanged','reason_code':'no_new_evidence','evidence_ids':[]}]};
       });
       await engine.maybeRefresh(now: at);
       await engine.maybeRefresh(now: at.add(const Duration(hours: 3)));
@@ -509,6 +509,7 @@ void main() {
           source: 'gallery', visionStatus: 'completed', visionSummary: '桌上摆着灯塔模型',
           createdAt: photoAt),
       ]);
+      await db.setSetting('companion_wish_review_v9_completed','1');
       const clarification = '之前那张灯塔模型照片就是完整成品';
       await db.insertMessage(ChatMessage(id: 'clarify', role: 'user', content: clarification,
         createdAt: at.add(const Duration(hours: 1))));
@@ -524,6 +525,9 @@ void main() {
         expect(material['can_generate'], false);
         final ids = (material['sources'] as List).map((e) => e['id']).toSet();
         expect(ids, containsAll(['photo:old:image', 'chat:clarify']));
+        final group=(material['wishes'] as List).single['candidate_evidence'] as List;
+        expect(group.singleWhere((v)=>v['id']=='photo:old:image')['vision'],'桌上摆着灯塔模型');
+        expect(group.singleWhere((v)=>v['id']=='chat:clarify')['text'],clarification);
         if (calls == 1) return null;
         return {'updates': [{
           'id':'w', 'state':'completed','evidence_id':'chat:clarify','quote':clarification,
@@ -547,6 +551,69 @@ void main() {
       expect(await WishEngine(db, reviewer: (_) => throw StateError('already done'))
         .maybeRefresh(now: now, upgradeOnly:true), true);
       expect(calls, 2);
+    });
+
+    test('long caption keeps verified visual evidence separate',() async {
+      final w=wish(route:'user',kind:'user_photo');
+      final photoAt=at.subtract(const Duration(days:3));
+      await db.insertMessageWithAttachments(ChatMessage(id:'old-img',role:'user',
+        content:'仅在附言里出现的描述'+('甲'*1150),createdAt:photoAt),[
+        MessageAttachment(id:'p',messageId:'old-img',kind:'image',originalPath:'',
+          thumbnailPath:'',byteSize:0,width:1,height:1,mimeType:'image/png',source:'gallery',
+          visionStatus:'completed',visionSummary:'视觉里独有的模型轮廓',createdAt:photoAt)]);
+      final after=at.add(const Duration(hours:2));
+      await db.insertMessage(ChatMessage(id:'explain',role:'user',content:'那张照片就是成品',createdAt:after));
+      final material=await WishEngine(db).collect(after,wishes:[w]);
+      final p=material.singleWhere((v)=>v.kind=='user_photo');
+      expect(p.caption!.length,350);
+      expect(p.vision,'视觉里独有的模型轮廓');
+      String verify(String quote) => WishPolicy.apply(wishes:[w],evidence:material,catalogIds:{},
+        now:after,canGenerate:false,payload:{'updates':[{
+          'id':'w','evidence_id':'chat:explain','state':'completed','quote':'那张照片就是成品',
+          'observed':true,'same_target':true,'confidence':.97,'confirms_photo_meets_criterion':true,
+          'supporting_photo':{'evidence_id':p.id,'quote':quote}}]}).single.state;
+      expect(verify('视觉里独有的模型轮廓'),'completed');
+      expect(verify('仅在附言里出现的描述'),'active');
+    });
+    test('wrong wish ID leaves upgrade pending with its own reason',() async {
+      await seed();
+      await db.insertMessage(ChatMessage(id:'u-new',role:'user',content:'已看到结果',
+          createdAt:at.add(const Duration(hours:1))));
+      final engine=WishEngine(db,reviewer:(_)async=>{'updates':[{'id':'unknown_id',
+        'state':'completed','evidence_id':'chat:u-new','quote':'已看到结果'}]});
+      expect(await engine.maybeRefresh(now:at.add(const Duration(hours:2)),upgradeOnly:true),false);
+      expect(await db.getSetting(WishEngine.upgradeKey),isNot('1'));
+      final diag=jsonDecode((await db.getSetting(WishEngine.diagnosticKey))!);
+      expect(diag['reason'],'unknown_wish_id');
+    });
+
+    test('upgrade distinguishes missing row from a reviewed unmet criterion',() async {
+      await seed();
+      final now = at.add(const Duration(hours:2));
+      await db.insertMessage(ChatMessage(id:'seen',role:'user',content:'还在等新的结果',createdAt:now));
+      await db.setSetting('companion_wish_review_v9_completed','1');
+      var calls=0;
+      final engine=WishEngine(db,reviewer:(_) async {
+        calls++;
+        return {'updates': [if(calls>1) {
+          'id':'w','state':'unchanged','reason_code':'criterion_unmet','evidence_ids':['chat:seen']
+        }]};
+      });
+      expect(await engine.maybeRefresh(now:now,upgradeOnly:true),false);
+      final first=jsonDecode((await db.getSetting(WishEngine.diagnosticKey))!);
+      expect(first['reason'],'missing_wish_review');
+      expect(await engine.maybeRefresh(now:now.add(WishEngine.upgradeRetry),upgradeOnly:true),false);
+      expect(calls,1);
+      expect(await engine.maybeRefresh(now:now.add(WishEngine.reviewGap),upgradeOnly:true),true);
+      final last=jsonDecode((await db.getSetting(WishEngine.diagnosticKey))!);
+      final decision=last['decisions'].single;
+      expect(decision['requested'],'unchanged');
+      expect(decision['reason'],'criterion_unmet');
+      expect(decision['reviewed_sources'].single,matches(RegExp(r'^[0-9a-f]{12}$')));
+      expect(last['candidate_sources'],contains(decision['wish_hash']));
+      expect((await WishStore(db).load()).single.active,true);
+      expect(await engine.maybeRefresh(now:now.add(const Duration(days:1)),upgradeOnly:true),true);
+      expect(calls,2);
     });
 
     test('empty upgrade completes without model work', () async {

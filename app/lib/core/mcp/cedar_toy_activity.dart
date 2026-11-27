@@ -342,7 +342,9 @@ class CedarGameSession {
       '(?:了|的)?[ \\t]*(?:(?:动作|命令|指令|接口|action|command)[ \\t]*)?[:：]?[ \\t]*[`"\x27]?$label(?![A-Za-z0-9_])',
       caseSensitive: false,
     );
-    if (retired.hasMatch(guide) || retiredBeforeName.hasMatch(guide)) return false;
+    final negated = RegExp(r'(?:没有|并未|尚未|不会|不应|不要|避免|未|勿|never|not|without)\s*$',caseSensitive:false);
+    if (retired.hasMatch(guide) || retiredBeforeName.allMatches(guide)
+        .any((m) => !negated.hasMatch(guide.substring(0,m.start)))) return false;
     if (!RegExp('(?<![A-Za-z0-9_])$label(?![A-Za-z0-9_])', caseSensitive:false).hasMatch(guide)) return false;
     return nextActor == 'companion' || CedarPlatformActionPolicy.isReadOnlyCall(action, params);
   }

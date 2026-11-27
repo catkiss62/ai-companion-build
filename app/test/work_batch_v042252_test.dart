@@ -264,6 +264,29 @@ void main() {
     expect(receipts.any((r) => r['saved'] == '报告-周报.md'), true);
   });
 
+  for (final goal in ['生成并保存报告，文件名是报告-周报.md','创建报告-周报.md','请更新并保存报告-周报.md']) {
+    test('named report must be written $goal',() async {
+      final ws = await workspace();
+      var round=0;
+      final result=ResearchCommission.run(goal:goal,workspace:ws,context:[],
+        cancellation:GenerationCancellationToken(),progress:(_,__) {},
+        plan:(_) async => plan(round++ == 0 ? call('workspace_save',
+          {'kind':'报告','title':'错名','body':'合成资料测试'}) : null));
+      await expectLater(result,throwsStateError);
+      expect(await ws.list(),isNot(contains('报告-错名.md')));
+      expect(ResearchCommission.reportTargets(goal), {'报告-周报.md'});
+    });
+  }
+  test('attachments used alongside web inputs',() {
+    expect(ResearchCommission.offline('只根据附件写报告'),true);
+    expect(ResearchCommission.offline('不要只根据附件，也不要联网'),true);
+    expect(ResearchCommission.attachmentOnly('不要只根据附件，也不要联网'),false);
+    expect(ResearchCommission.reportTargets('生成并保存报告，读取报告-资料.md做参考'),isEmpty);
+    expect(ResearchCommission.reportTargets('把报告-甲.md另存为报告-乙.md'), {'报告-乙.md'});
+    expect(ResearchCommission.offline('结合附件和网上资料写报告'),false);
+    expect(ResearchCommission.offline('不要只根据附件，还要联网对照'),false);
+  });
+
   test(
     'report write failure remains pending until a verified write succeeds',
     () async {

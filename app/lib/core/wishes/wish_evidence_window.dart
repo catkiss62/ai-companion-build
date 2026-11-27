@@ -7,9 +7,9 @@ import 'companion_wish.dart';
 class WishEvidenceWindow {
   /// Fetch candidate message IDs. The caller rehydrates their provenance and
   /// rechecks revisions before committing a decision.
-  static Future<Set<String>> photoWishMessages(DatabaseExecutor txn,
+  static Future<Map<String,Set<String>>> photoWishMessages(DatabaseExecutor txn,
       List<CompanionWish> wishes, DateTime now) async {
-    final ids = <String>{};
+    final byWish = <String,Set<String>>{};
     final pending = wishes.where((w) => w.route == 'user' &&
         w.completionKind == 'user_photo' && !w.manualHold && !w.legacy &&
         (w.active || w.state == 'expired' || w.state == 'paused')).toList()
@@ -20,6 +20,7 @@ class WishEvidenceWindow {
     for (final w in pending.take(8)) {
       final end = w.deadline != null && w.deadline!.isBefore(now) ? w.deadline! : now;
       if (!end.isAfter(w.createdAt)) continue;
+      final ids = byWish[w.id] = <String>{};
       for (final id in w.sourceIds) {
         if (id.startsWith('chat:')) ids.add(id.substring(5));
         if (id.startsWith('photo:') && id.lastIndexOf(':') > 5) {
@@ -55,7 +56,7 @@ class WishEvidenceWindow {
       ''', [...terms, w.createdAt.millisecondsSinceEpoch, end.millisecondsSinceEpoch]);
       ids.addAll([...photoRows, ...textRows].map((r) => r['id'] as String));
     }
-    return ids;
+    return byWish;
   }
 
   static List<WishEvidence> select(List<WishEvidence> all, List<CompanionWish> wishes) {
