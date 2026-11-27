@@ -27,6 +27,21 @@ class MonthlyRestDays {
     return '【用户手动登记的月度排班】$monthLabel：$schedule 仅适用于这个月。当前聊天里用户说的临时调班或请假优先。仅在相关时参考。';
   }
 
+  static const _enabledKey = 'user_rest_days_enabled_v1';
+  static Future<bool> enabled(AppDatabase db) async =>
+      await db.getSetting(_enabledKey) != '0';
+
+  static Future<void> setEnabled(AppDatabase db, bool value) =>
+      db.setSetting(_enabledKey, value ? '1' : '0');
+
+  static Future<MonthlyRestDays?> forPrompt(
+    AppDatabase db,
+    DateTime date,
+  ) async {
+    if (!await enabled(db)) return null;
+    return read(db, date);
+  }
+
   static Future<MonthlyRestDays> read(AppDatabase db, DateTime date) async {
     final unknown = MonthlyRestDays(date, null);
     final raw = await db.getSetting(unknown.key);

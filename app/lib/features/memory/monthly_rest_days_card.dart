@@ -18,6 +18,9 @@ class _MonthlyRestDaysCardState extends State<MonthlyRestDaysCard>
   Set<int> draft = {};
   Timer? rollover;
   bool busy = false;
+  bool? shareRoster;
+  bool switchBusy = false;
+  String? switchError;
   String? error;
 
   @override
@@ -25,6 +28,26 @@ class _MonthlyRestDaysCardState extends State<MonthlyRestDaysCard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _syncMonth(first: true);
+    _updateSwitch();
+  }
+
+  Future<void> _updateSwitch([bool? value]) async {
+    if (switchBusy) return;
+    setState(() => switchBusy = true);
+    try {
+      if (value != null) await MonthlyRestDays.setEnabled(widget.db, value);
+      final actual = value ?? await MonthlyRestDays.enabled(widget.db);
+      if (mounted)
+        setState(() {
+          shareRoster = actual;
+          switchError = null;
+        });
+    } catch (_) {
+      if (mounted)
+        setState(() => switchError = value == null ? '开关读取失败' : '开关保存失败，请重试');
+    } finally {
+      if (mounted) setState(() => switchBusy = false);
+    }
   }
 
   void _syncMonth({bool first = false}) {
@@ -110,10 +133,36 @@ class _MonthlyRestDaysCardState extends State<MonthlyRestDaysCard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '本月休息日 · ${month.year}年${month.month}月',
-              style: Theme.of(context).textTheme.titleMedium,
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '本月休息日 · ${month.year}年${month.month}月',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              subtitle: Text(
+                shareRoster == false ? '聊天不使用排班，已选日期保留。' : '让她在聊天时参考我的排班',
+              ),
+              value: shareRoster ?? false,
+              onChanged: shareRoster == null || switchBusy
+                  ? null
+                  : _updateSwitch,
             ),
+            if (switchError != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      switchError!,
+                      style: TextStyle(color: colors.error),
+                    ),
+                  ),
+                  if (shareRoster == null)
+                    TextButton(
+                      onPressed: _updateSwitch,
+                      child: const Text('重试'),
+                    ),
+                ],
+              ),
             if (error != null)
               Text(error!, style: TextStyle(color: colors.error)),
             if (record == null && error != null)
@@ -123,7 +172,7 @@ class _MonthlyRestDaysCardState extends State<MonthlyRestDaysCard>
             else ...[
               Text(
                 record.days == null
-                    ? '排班未知。选好休息日后保存，她就能记住。'
+                    ? '排班未知。请选好本月休息日后保存。'
                     : changed
                     ? '有未保存的修改'
                     : '排班已确认 · ${draft.length} 天休息',

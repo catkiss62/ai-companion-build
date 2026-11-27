@@ -70,6 +70,46 @@ void main() {
     },
   );
 
+  test(
+    'disabled roster omits both unknown and saved schedules from both chat modes',
+    () async {
+      final date = DateTime(2028, 2, 11);
+      expect(await MonthlyRestDays.enabled(db), isTrue);
+      await MonthlyRestDays.setEnabled(db, false);
+      for (final selected in [
+        null,
+        <int>[],
+        [4, 22],
+      ]) {
+        await MonthlyRestDays(date, selected).save(db);
+        for (final mode in PromptGenerationMode.values) {
+          final built = await PromptBuilder(db).buildChatPrompt(
+            latestUserText: '今天休息吗',
+            recent: [],
+            desire: DesireSnapshot(),
+            thoughts: [],
+            mode: mode,
+            now: date,
+            nsfwActive: false,
+            nsfwReferenceActive: false,
+          );
+          expect(
+            built.messages.map((m) => m['content']).join(),
+            isNot(contains('用户手动登记的月度排班')),
+          );
+        }
+      }
+      expect((await MonthlyRestDays.read(db, date)).days, [4, 22]);
+      expect(await MonthlyRestDays.forPrompt(db, DateTime(2028, 3)), isNull);
+      await MonthlyRestDays.setEnabled(db, true);
+      expect((await MonthlyRestDays.forPrompt(db, date))!.days, [4, 22]);
+      expect(
+        (await MonthlyRestDays.forPrompt(db, DateTime(2028, 3)))!.days,
+        isNull,
+      );
+    },
+  );
+
   testWidgets('calendar keeps draft private until saved and permits reset', (
     tester,
   ) async {
@@ -97,6 +137,14 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 60));
     });
     await tester.pump();
+    expect(find.text('排班已确认 · 1 天休息'), findsOneWidget);
+    await tester.tap(find.byType(Switch));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+    });
+    await tester.pump();
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    expect(await tester.runAsync(() => MonthlyRestDays.enabled(db)), isFalse);
     expect(find.text('排班已确认 · 1 天休息'), findsOneWidget);
     await tester.tap(find.text('恢复为排班未知'));
     await tester.runAsync(() async {

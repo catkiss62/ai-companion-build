@@ -511,7 +511,7 @@ class PromptBuilder {
     final userFacts = worldBookContext.hasRoleplay
         ? const RememberedUserFacts([])
         : await RememberedUserFactsStore(db).load();
-    final restDays = worldBookContext.hasRoleplay ? null : await MonthlyRestDays.read(db, instant);
+    final restDays = worldBookContext.hasRoleplay ? null : await MonthlyRestDays.forPrompt(db, instant);
     // Fresh-topic generation still verifies its selected source against local
     // facts, but never receives unrelated works as extra conversation material.
     final creativeRead = !worldBookContext.hasRoleplay
