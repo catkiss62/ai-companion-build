@@ -59,12 +59,15 @@ void main() {
         await creator.execute({'action':'remind','text':title,'local_time':'${day}T$hour:00'});
       }
       expect(await CalendarReminderStore(db).load(),hasLength(2));
-      const task='取消喝水提醒，取消取快递提醒';
+      final task=resume?'取消喝水和取快递提醒':'取消喝水提醒，取消取快递提醒';
       final first=host('cancel-both',task);
       final a=await first.execute({'action':'cancel','target':'喝水'});
       final use=resume?host('cancel-both',task):first;
       if(resume) await use.verifyExisting();
       expect(use.confirmed, isNot(contains('cancel')));
+      final replay=await use.execute({'action':'cancel','target':'喝水'});
+      expect(replay['id'],a['id']); expect(replay['reused'],true);
+      expect(use.confirmed,isNot(contains('cancel')));
       final b=await use.execute({'action':'cancel','target':'取快递'});
       final result=await ResearchCommission.run(goal:task,context:[],workspace:await workspace(),
         host:use, cancellation:GenerationCancellationToken(),progress:(_,__) {},plan:(_)async=>plan());

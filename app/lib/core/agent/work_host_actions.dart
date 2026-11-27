@@ -213,7 +213,7 @@ class WorkHostActions {
       )
       .toList();
 
-  List<Set<String>> _subjects(String action) {
+  List<Set<String>> _subjects(String action, Set<String> knownTitles) {
     final clauses = goal.split(RegExp(
       r'[，,。；;！!\n]|(?:并且|然后|但是|同时|并|再)(?=(?:请|帮我|把|将|取消|撤销|删除|关闭|保留|修改|调整|不要|别))',
     ));
@@ -225,21 +225,23 @@ class WorkHostActions {
           .replaceFirst(RegExp(r'(?:取消|撤销|删除|关掉|一下|掉|了)+$'), '').trim();
       String unquote(String s) => s.replaceFirst(RegExp(r'^[「“"]'), '')
           .replaceFirst(RegExp(r'[」”"]$'), '').trim();
-      final titles = unquote(subject.replaceFirst(RegExp(r'的?(?:提醒|闹钟)$'), '')).split(RegExp(r'、|以及'));
-      if (titles.length > 1) {
-        subjects.addAll(titles.map((title) => {unquote(title)}));
-        continue;
+      Set<String> aliases(String title) => {
+        unquote(title),
+        unquote(title.replaceFirst(RegExp(r'的?(?:提醒|闹钟)$'), '')),
+        unquote(title.replaceFirst(RegExp(r'^(?:提醒|闹钟)\s*'), '')),
+      };
+      final whole = aliases(subject);
+      final parts = subject.split(RegExp(r'、|以及|和|与'));
+      if (parts.length > 1 && !whole.any(knownTitles.contains)) {
+        subjects.addAll(parts.map(aliases));
+      } else {
+        subjects.add(whole);
       }
-      subjects.add({
-        unquote(subject),
-        unquote(subject.replaceFirst(RegExp(r'的?(?:提醒|闹钟)$'), '')),
-        unquote(subject.replaceFirst(RegExp(r'^(?:提醒|闹钟)\s*'), '')),
-      });
     }
     return subjects;
   }
 
-  Future<String> _target(String action, List entries, String latest, Map args) async {
+  Future<String> _target(List<Set<String>> subjects, List entries, String latest, Map args) async {
     final owned = <Map>[];
     for (final item in entries.whereType<Map>()) {
       final id = item['id'];
@@ -257,7 +259,6 @@ class WorkHostActions {
           owned.add(item);
       }
     }
-    final subjects = _subjects(action);
     final target = args['target'];
     final matches = owned.where((item) =>
         (goal.trim().isEmpty || subjects.any((s) => s.contains(item['title']))) &&
@@ -304,7 +305,10 @@ class WorkHostActions {
         ? null
         : int.tryParse(declared) ??
               '零一二三四五六七八九十'.indexOf(declared.replaceAll('两', '二'));
-    final targets = action == 'remind' ? const <Set<String>>[] : _subjects(action);
+    final targets = action == 'remind' ? const <Set<String>>[] : _subjects(action, {
+      for (final entry in entries.whereType<Map>()) if (entry['title'] is String) entry['title'] as String,
+      for (final receipt in items) if (receipt['target_title'] is String) receipt['target_title'] as String,
+    });
     final count = action == 'remind' ? explicitCount ?? clauses.toSet().length :
         targets.map((s) => (s.toList()..sort()).join('|')).toSet().length;
     final multiple = count > 1;
@@ -341,7 +345,7 @@ class WorkHostActions {
             ? (items.isEmpty
                   ? 'work-$order'
                   : 'work-$order-${items.length + 1}')
-            : await _target(action, entries, prior, args));
+            : await _target(targets, entries, prior, args));
     final index = entries.indexWhere((e) => e is Map && e['id'] == id);
     final targetTitle = index >= 0 ? entries[index]['title'] : null;
     Map? entry;
