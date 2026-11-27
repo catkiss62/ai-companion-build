@@ -1,7 +1,7 @@
 status=success
-run_id=45923653840
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45923653840
-head_sha=8975ca7eb65752bc638fe66322e8d7a491d35d8a
+run_id=45942400160
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45942400160
+head_sha=62fd0e79e06cfd8eb37d34cd27f98aed9426f42b
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-337dd00ff5357a9f495d9bd5939453259d64c30ecbabddc9201f9029fa4fd519  AI-Companion-v0.42.255-499-Monthly-Roster-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-37bdd7f854e4a6487103
+6ed7987b64db415eaa3209cf871c02382813378f28967b7a4bb724c514c4e71c  AI-Companion-v0.42.256-500-Game-Guide-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-28d2b81e92107d91be80
