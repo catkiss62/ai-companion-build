@@ -129,7 +129,7 @@ publish_to: 'none'
 # Historical validator compatibility: version: 0.42.165+409
 # Previous release: version: 0.42.228+472
 # Historical validator compatibility: version: 0.42.245+489
-version: 0.42.253+497
+version: 0.42.254+498
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

@@ -21,6 +21,7 @@ import '../mood/mood_service.dart';
 import '../history/conversation_history_reader.dart';
 import '../memory/conversation_recall_policy.dart';
 import '../memory/remembered_user_facts.dart';
+import '../memory/monthly_rest_days.dart';
 import '../agent/agent_tool.dart';
 import '../autonomy/public_web_prompt_policy.dart';
 import 'dialogue_expression_plan.dart';
@@ -510,6 +511,7 @@ class PromptBuilder {
     final userFacts = worldBookContext.hasRoleplay
         ? const RememberedUserFacts([])
         : await RememberedUserFactsStore(db).load();
+    final restDays = worldBookContext.hasRoleplay ? null : await MonthlyRestDays.read(db, instant);
     // Fresh-topic generation still verifies its selected source against local
     // facts, but never receives unrelated works as extra conversation material.
     final creativeRead = !worldBookContext.hasRoleplay
@@ -520,6 +522,7 @@ class PromptBuilder {
     recallTrace?.section('dated_history', datedHistory);
     if (backgroundRecall != null) recallTrace?.section('background_recall', backgroundRecall.prompt(instant));
     if (userFacts.items.isNotEmpty) recallTrace?.section('remembered_user_facts', userFacts.prompt);
+    if (restDays != null) recallTrace?.section('monthly_rest_days', restDays.prompt);
     final messages = <Map<String, Object?>>[
       {
         'role': 'system',
@@ -551,6 +554,7 @@ $roleplayContinuity''',
         {'role': 'system', 'content': _agentToolResultSection(agentToolResults)},
       if (userFacts.items.isNotEmpty)
         {'role': 'system', 'content': userFacts.prompt},
+      if (restDays != null) {'role': 'system', 'content': restDays.prompt},
       {'role': 'system', 'content': _operationalTruthContract()},
       if (!worldBookContext.hasRoleplay)
         const {'role': 'system', 'content': UserAddressPolicy.dialogue},

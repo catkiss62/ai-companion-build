@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'monthly_rest_days_card.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/memory/remembered_user_facts.dart';
@@ -160,6 +161,8 @@ class _RememberedUserFactsPageState extends State<RememberedUserFactsPage> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 16),
+              MonthlyRestDaysCard(AppDatabase.instance),
             ],
           ),
   );
