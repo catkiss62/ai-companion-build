@@ -2,6 +2,8 @@
 
 ## 当前接班快照
 
+- **v0.42.259+503 / schema67 已交付。** 游戏厅 +502、愿望与工作模式 +503 各自三项 CI、版本和签名验证通过，+503 同时包含两批。实际愿望与自然游玩待 Redmi 观察，见文末「+503 交付复核」。
+
 - **+503 愿望逐项复核和工作模式已实现，两批合并定向 454 项通过。** CI 与 Redmi 上的实际愿望结果分别登记，见文末「+503 愿望证据与报告交付」。
 
 - +503 愿望单与工作模式第二批开工。基线 dfc42ef，按愿望、资料范围和报告目标定向复验。
@@ -2001,3 +2003,11 @@ v0.42.246+490 / schema67 已实现。会话与选项编号修正后 Android 15 �
 新版独立标记使旧版已补查但未结的愿望再评估一次。漏答、重复或错误愿望编号、无效状态和引用有单独诊断；批次格式错误不提交愿望或消耗升级标记，按普通两小时窗口退避。正常明确未满足可以完成本次复核，旧状态保留。升级测试使用合成长历史和较早照片，验证不必新增消息及重启不重复。这里未对真实存档直接标记完成。
 工作模式共用报告动词，并把后续明确的输出文件名与写入/读回要求绑定。“创建报告”与分句指定文件名均校验，参考文件和自由命名另行处理。识别“不要只根据附件”中否定的限定词，明确禁网仍生效。组合复验还加入“没有移除该动作”的游戏指南对照，使否定的移除声明保留合法动作。
 验证：两批合并本地 Flutter 定向 454 项通过。模拟 MCP 实际派发、SQLite 愿望候选/补查、匿名引用、工作区文件名和资料范围均有回归。旧归档夹具旧格式只返回 solo_archive，严格逐项复核首次拒绝这一响应；将确实符合归档条件的条目计为已处置，其余活跃项显式说明未变化，重跑保留了恢复及共同目标的原始断言。发布身份流程 23 项和历史愿望校验通过，定点静态分析无错误，游戏厅旧有一处多余空值比较提示。真实手机愿望结果、自然游戏进展待观察。
+
+## +503 交付复核
+
++502 源码 `dfc42ef201af9210fadf33b585caae822f2f3c13`。[交接检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45977591945)、[系统逻辑检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45977591897)、[APK 构建与签名](https://github.com/catkiss62/ai-companion-build/actions/runs/45977591946)均通过。[签名 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f36284edbf7fb4ed07fb)，823269578 字节，SHA-256 `c9342d0ab39b960620b2e1be385e8f87a9c90874249eaf99e176a29706cfc1dc`。
+
++503 源码 `05a9b1b88453e632714c79ffc137393fa61b2146`。[交接检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45982931087)、[系统逻辑检查](https://github.com/catkiss62/ai-companion-build/actions/runs/45982930778)、[APK 构建与签名](https://github.com/catkiss62/ai-companion-build/actions/runs/45982930752)均通过。[签名 APK](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c7559e3880452dee84b)，823278486 字节，SHA-256 `9333f982416716c0623ebd787ecdfff320adbf9113d41c778e586a7c7114a6b8`。
+
+下一步为覆盖安装 +503 后查看本机愿望单与自然游戏进展。若愿望维持原状，诊断可区分逐项判断的原因、遗漏条目以及候选与实用来源。本地定向与远端构建均已完成，尚无本版本的 Redmi 实测记录。
