@@ -1,7 +1,7 @@
 status=success
-run_id=45890691995
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45890691995
-head_sha=8e462b5a9fd999960b0957f008d0d20afd346798
+run_id=45923653840
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/45923653840
+head_sha=8975ca7eb65752bc638fe66322e8d7a491d35d8a
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-d9a59b3cb6ea37da74a1091eb285910379040b43fe305e1719d91f6252fb17f8  AI-Companion-v0.42.253-497-QQ-Recovery-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb89b7c211d1089f0031
+337dd00ff5357a9f495d9bd5939453259d64c30ecbabddc9201f9029fa4fd519  AI-Companion-v0.42.255-499-Monthly-Roster-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-37bdd7f854e4a6487103
