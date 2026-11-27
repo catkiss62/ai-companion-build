@@ -32,6 +32,44 @@ void main() {
   });
   tearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, null));
+  for (final standby in [false, true]) {
+    test('QQ resumes only after restore is consistent; standby=$standby', () async {
+      final folder = await Directory.systemTemp.createTemp('qq-restore-');
+      final db = await AppDatabase.createForTesting(databaseFactoryFfi);
+      final journal = SnapshotRestoreJournal(folder);
+      final coordinator = SnapshotRestoreCoordinator(db, _Preferences(folder), journal: journal);
+      const qq = MethodChannel('ai_companion/qq_private_control');
+      final order = <String>[];
+      final bridge = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      bridge.setMockMethodCallHandler(qq, (call) async {
+        order.add(call.method);
+        if (call.method == 'stop') {
+          expect(call.arguments['reason'], 'snapshot_restore');
+          expect(await db.brainWorkAllowed(), isFalse);
+        } else if (call.method == 'finishSnapshotRestore') {
+          expect(await db.getSetting(SnapshotRestoreCoordinator.pendingKey), '');
+          expect(call.arguments['workAllowed'], !standby);
+        }
+        return null;
+      });
+      try {
+        final result = await coordinator.install(
+          prepare: (_) async => SnapshotInstallPlan([]),
+          commitDatabase: (runtime) async {
+            expect(order, ['stop']);
+            await db.setSettingsAtomically({...runtime, 'active_brain': standby ? '0':'1'});
+            order.add('commit');
+          },
+        );
+        expect(result.recoveryPending, false);
+        expect(order, ['stop','commit','finishSnapshotRestore']);
+      } finally {
+        bridge.setMockMethodCallHandler(qq, null);
+        await db.closeForTesting();
+        await folder.delete(recursive:true);
+      }
+    });
+  }
   const committedCuts = {'afterDatabase', 'duringCleanup', 'afterConsistentMarker'};
   for (final cut in [
     'afterBackupFreeze', 'duringPrepare', 'beforeJournal', 'afterJournal', 'afterFirstRename', 'afterFirstTree', 'partialPreferences',

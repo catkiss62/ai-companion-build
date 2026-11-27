@@ -82,6 +82,17 @@ class SnapshotRestoreCoordinator {
     }
   }
 
+  static Future<void> resumeLocalQq(AppDatabase db) async {
+    try {
+      await const MethodChannel('ai_companion/qq_private_control')
+          .invokeMethod<void>('finishSnapshotRestore', {'workAllowed': await db.brainWorkAllowed()});
+    } on MissingPluginException {
+      // A headless engine can finish file recovery; the next UI entry resumes QQ.
+    } on PlatformException {
+      // Native retains the local preference and retries on visible entry.
+    }
+  }
+
   Future<bool> recoverIfPending() => SharedMediaLock.run(_recoverIfPending, db: db);
 
   Future<bool> _recoverIfPending() async {
@@ -93,6 +104,7 @@ class SnapshotRestoreCoordinator {
       // The media lock excludes journal creation/prepare in another engine.
       // Only a proven old-process ordinary backup may be unfrozen here.
       await db.recoverAbandonedBackupFreeze();
+      await resumeLocalQq(db);
       return true;
     }
     if (!await db.tryAcquireLocalLease(leaseKey,
@@ -150,6 +162,7 @@ class SnapshotRestoreCoordinator {
             expectedSettings: {'transfer_lock_owner': owner});
       }
     }
+    await resumeLocalQq(db);
   }
 
   Future<SnapshotCommitOutcome> install({

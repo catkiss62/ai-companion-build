@@ -58,17 +58,25 @@ void main() {
     return ThirdChannelConfig(enabled: true, baseUrl: 'http://127.0.0.1:${server.port}/v1', apiKey: 'synthetic-third');
   }
 
+  test('legacy model default and custom model round trip', () {
+    expect(ThirdChannelConfig.decode('{"enabled":false}').requestedModel, ThirdChannelConfig.defaultModel);
+    expect(const ThirdChannelConfig(modelName:' ').requestedModel, ThirdChannelConfig.defaultModel);
+    const custom = ThirdChannelConfig(modelName:'  another-model  ');
+    expect(ThirdChannelConfig.decode(custom.encode()).requestedModel, 'another-model');
+  });
   test('actual HTTP SSE preserves split UTF8, comments, optional data space and separate reasoning', () async {
     final config = await gateway((request, _) async {
       final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map;
-      expect(body['model'], ThirdChannelConfig.model); expect(body['stream'], true);
+      expect(body['model'], 'custom-v2'); expect(body['stream'], true);
       final bytes = utf8.encode(': ping\n\n${complete('你好，小鲸鱼')}');
       for (final byte in bytes) { request.response.add([byte]); await request.response.flush(); }
     });
     final records = <ThirdChannelUsage>[];
     final client = ThirdChannelClient(onUsage: (u, _, __) async => records.add(u));
     try {
-      final result = await client.complete(config: config, messages: [{'role': 'user', 'content': 'fixture'}]);
+      final custom = ThirdChannelConfig.decode(jsonEncode({...jsonDecode(config.encode()) as Map, 'model':'custom-v2'}));
+      final result = await client.complete(config: custom, messages: [{'role': 'user', 'content': 'fixture'}]);
+      expect(result.completion()['model'],'custom-v2');
       expect(result.content, '你好，小鲸鱼'); expect(result.reasoning, '内部思考');
       expect(records.single.output, 3); expect(records.single.reasoning, 7); expect(records.single.total, 21);
     } finally { client.close(); }

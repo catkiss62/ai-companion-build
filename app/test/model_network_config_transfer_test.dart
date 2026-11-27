@@ -23,6 +23,15 @@ void main() {
     },
   };
 
+  test('import retains the configured third-channel model name', () {
+    final payload = validPayload();
+    (payload['secure'] as Map)['third_connection'] = jsonEncode({
+      'enabled':true, 'base_url':'https://example.test/v1', 'api_key':'fixture', 'model':'custom-v2',
+    });
+    final decoded = ModelNetworkConfigTransfer.parse(jsonEncode(payload));
+    expect(jsonDecode(decoded.secure['third_connection']!)['model'], 'custom-v2');
+  });
+
   test('page export shape preserves API credentials and only page-owned keys', () {
     final payload = validPayload();
     (payload['secure'] as Map<String, String>)['jev_api_key'] = 'secret';
@@ -47,6 +56,7 @@ void main() {
     expect(decoded.settings['creative_work_effort'], 'max');
     expect(jsonDecode(decoded.secure['work_connection']!), {'mode': 'follow'});
     expect(jsonDecode(decoded.secure['third_connection']!)['enabled'], false);
+    expect(jsonDecode(decoded.secure['third_connection']!)['model'], 'gemini-3.8-flash');
     expect(decoded.settings['app_qwen_vision_enabled_v1'], '1');
   });
 

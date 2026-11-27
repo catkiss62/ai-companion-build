@@ -11,6 +11,7 @@ class FinalReplyRoute {
   final bool secondChannelEnabled;
   Object? _failure;
   Object? _thirdFailure;
+  String thirdModelName = '';
   bool usedThirdChannel = false;
   bool thirdChannelIncomplete = false;
   bool get thirdChannelAvailable => _thirdFailure == null;

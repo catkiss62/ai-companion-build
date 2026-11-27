@@ -10,7 +10,6 @@ import '../../core/agent/agent_self_reader.dart';
 import '../../core/ai/deepseek_balance.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/final_reply_route.dart';
-import '../../core/ai/third_channel_config.dart';
 import '../../core/ai/final_reply_failure_policy.dart';
 import '../../core/ai/first_channel_model.dart';
 import '../../core/ai/memory_extractor.dart';
@@ -270,7 +269,7 @@ class MemoryBenchmark {
         try { text = await request(true); } catch (e) { _check(); if (route.thirdChannelIncomplete) rethrow; route.recordFailure(e); }
       }
       text ??= await request(false);
-      return {'text':text,'provider':route.currentProvider,'model':route.usedThirdChannel?ThirdChannelConfig.model:writerModel,'third_used':route.usedThirdChannel};
+      return {'text':text,'provider':route.currentProvider,'model':route.usedThirdChannel?route.thirdModelName:writerModel,'third_used':route.usedThirdChannel};
     } finally {
       if (route.thirdAttempted) externalCalls.add('第三通道：价格未核实');
     }

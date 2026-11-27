@@ -207,7 +207,7 @@ class DeepSeekClient {
       await _onUsage?.call(DeepSeekUsageEvent(lane: usageLane, executionId: usageExecutionId,
         inputTokens: usage.input, outputTokens: usage.output, reasoningTokens: usage.reasoning,
         cacheHitTokens: 0, cacheMissTokens: 0, streaming: true, promptShape: shape,
-        provider: 'third_channel', modelHash: sha256.convert(utf8.encode(ThirdChannelConfig.model)).toString(),
+        provider: 'third_channel', modelHash: sha256.convert(utf8.encode(config.requestedModel)).toString(),
         endpointHash: sha256.convert(utf8.encode(config.endpoint.toString())).toString(), usageLatencyMs: elapsed));
     });
     _thirdClients.add(client);
@@ -215,6 +215,7 @@ class DeepSeekClient {
       final result = await client.complete(config: config, messages: prompt, tools: tools,
         toolChoice: toolChoice, maxTokens: maxTokens ?? 8192,
         cancellation: cancellationToken, current: valid, onDiagnostic: route.onThirdDiagnostic);
+      route.thirdModelName = config.requestedModel;
       route.usedThirdChannel = true;
       route.thirdChannelIncomplete = result.incomplete;
       return result;

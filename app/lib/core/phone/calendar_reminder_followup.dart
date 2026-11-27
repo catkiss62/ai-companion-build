@@ -236,7 +236,7 @@ class CalendarReminderFollowup {
         }
         text ??= await request(finalChannel: false);
         if (finalRoute.usedThirdChannel) {
-          model = 'gemini-3.8-flash';
+          model = finalRoute.thirdModelName;
           await db.setSettingsAtomically({'calendar_last_final_provider_notice': ''}, workFence: fence);
         }
       } catch (_) {

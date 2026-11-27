@@ -279,6 +279,7 @@ class _TransferPageState extends State<TransferPage> {
       final generation = pending != null
           ? await db.activatePendingImportedBrain(expectedSnapshotId: pending.snapshotId)
           : await db.forceLocalBrainTakeover();
+      await SnapshotRestoreCoordinator.resumeLocalQq(db);
       try {
         await _syncRemindersSafely();
           await android.reconcileOverlayAfterTakeover();

@@ -60,6 +60,7 @@ class _ModelNetworkSettingsPageState
   final _aiWangYouApiKey = TextEditingController();
   final _aiWangYouEndpoint = TextEditingController();
   final _aiWangYouModel = TextEditingController();
+  final _thirdModel = TextEditingController();
   final _thirdKey = TextEditingController();
   final _thirdBase = TextEditingController();
   bool _thirdEnabled = false, _testingThird = false, _revealThird = false;
@@ -203,7 +204,7 @@ class _ModelNetworkSettingsPageState
     _aiWangYouModel.text = await _secure.readAiWangYouModel();
     final third = await _secure.readThirdChannel();
     _thirdKey.text = third.apiKey; _thirdBase.text = third.baseUrl; _thirdEnabled = third.enabled;
-    _thirdEffort=third.reasoningEffort;
+    _thirdEffort=third.reasoningEffort; _thirdModel.text = third.requestedModel;
     _qwenEnabled = await _db.getSetting(RoutedVisionClient.qwenEnabledKey) != '0';
     _visionKey.text = await _secure.readVisionApiKey() ?? '';
     _visionEndpoint.text = await _secure.readVisionEndpoint();
@@ -337,14 +338,14 @@ class _ModelNetworkSettingsPageState
   Future<void> _saveThird(InlineFeedback feedback) async {
     try {
       await _secure.writeThirdChannel(ThirdChannelConfig(enabled: _thirdEnabled,
-        baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort));
+        modelName: _thirdModel.text, baseUrl: _thirdBase.text, apiKey: _thirdKey.text,effort:_thirdEffort));
       await _db.wakeRetryableGenerationJobs();
       if (mounted) setState(() => feedback.brief = '第三通道配置已保存。');
     } catch (error) { if (mounted) setState(() => feedback.persistent = '第三通道保存失败：$error'); }
   }
 
   Future<void> _testThird(InlineFeedback feedback) async {
-    final tested = ThirdChannelConfig(enabled: _thirdEnabled, baseUrl: _thirdBase.text,
+    final tested = ThirdChannelConfig(enabled: _thirdEnabled, modelName: _thirdModel.text, baseUrl: _thirdBase.text,
       apiKey: _thirdKey.text, effort: _thirdEffort);
     setState(() { _testingThird = true; feedback.persistent = '正在测试输入框配置的短请求…'; });
     final client = ThirdChannelClient();
@@ -771,7 +772,7 @@ class _ModelNetworkSettingsPageState
     _aiWangYouEndpoint.dispose();
     _aiWangYouModel.dispose();
     _visionKey.dispose();
-    _thirdKey.dispose(); _thirdBase.dispose();
+    _thirdModel.dispose(); _thirdKey.dispose(); _thirdBase.dispose();
     _visionEndpoint.dispose();
     _visionModel.dispose();
     _tavilyKey.dispose();
@@ -972,7 +973,9 @@ class _ModelNetworkSettingsPageState
                         decoration: const InputDecoration(labelText: '网关 Base URL',
                           hintText: 'http://电脑局域网地址:8045/v1', border: OutlineInputBorder())),
                       const SizedBox(height: 12),
-                      const Text('固定模型：gemini-3.8-flash。两个账号的切换由网关完成；这里只填写一组地址和 Key。'),
+                      TextField(controller: _thirdModel, autocorrect: false, enableSuggestions: false,
+                        decoration: const InputDecoration(labelText: '模型名称', hintText: ThirdChannelConfig.defaultModel,
+                          helperText: '填写网关支持的模型名，留空使用默认模型。', border: OutlineInputBorder())),
                       const SizedBox(height:12),
                       DropdownButtonFormField<String>(value:_thirdEffort,
                         decoration:const InputDecoration(labelText:'第三通道思考强度',border:OutlineInputBorder()),

@@ -27,6 +27,7 @@ class QqPrivateService : Service() {
     private val main = Handler(Looper.getMainLooper())
     private var alive = false
     private var dartReady = false
+    private var stoppingForRestore = false
     private var failures = 0
     private var retryPending = false
     private var recoveryGeneration = 0L
@@ -186,6 +187,7 @@ class QqPrivateService : Service() {
         disposeRuntime()
         main.removeCallbacksAndMessages(null)
         super.onDestroy()
+        if (stoppingForRestore) maybeRecover(applicationContext)
     }
 
     companion object {
@@ -208,6 +210,7 @@ class QqPrivateService : Service() {
         }
         fun setAutoReconnect(context: Context, value: Boolean) {
             recordPreference(context, value, "user_setting")
+            if (!value) prefs(context).edit().remove("resumeAfterRestore").apply()
             if (!value) live?.let { service ->
                 val wasRecovering = service.retryPending
                 service.recoveryGeneration++
@@ -223,6 +226,17 @@ class QqPrivateService : Service() {
             if (!autoReconnect(context) || !enabled(context) || live != null || prefs(context).getBoolean("blocked", false)) return
             try { launchService(context) } catch (_: Throwable) { /* Retry on the next visible App entry. */ }
         }
+        fun finishRestore(context: Context, workAllowed: Boolean) {
+            val p = prefs(context)
+            if (!p.getBoolean("restoreInProgress", false) && !p.getBoolean("resumeAfterRestore", false)) return
+            val resume = p.getBoolean("resumeAfterRestore", false) &&
+                autoReconnect(context) && !p.getBoolean("blocked", false)
+            val edit = p.edit().remove("restoreInProgress")
+            if (resume && workAllowed) edit.putBoolean("enabled", true)
+            if (!resume || workAllowed) edit.remove("resumeAfterRestore")
+            edit.apply()
+            if (resume && workAllowed) maybeRecover(context)
+        }
         fun wakeOptions() {live?.channel?.invokeMethod("optionsChanged",null)}
         fun wakeWork(cid: String) { if (cid.matches(Regex("[a-f0-9]{64}"))) live?.channel?.invokeMethod("maintenance", cid) }
         fun snapshot(context: Context): Map<String, Any> {
@@ -232,7 +246,8 @@ class QqPrivateService : Service() {
                 "task" to p.getString("task", "idle").orEmpty())
         }
         fun start(context: Context) {
-            prefs(context).edit().putBoolean("enabled", true).putBoolean("blocked", false).apply()
+            check(!prefs(context).getBoolean("restoreInProgress", false)) { "snapshot_restore_in_progress" }
+            prefs(context).edit().remove("resumeAfterRestore").putBoolean("enabled", true).putBoolean("blocked", false).apply()
             try {
                 launchService(context)
             } catch (error: Throwable) {
@@ -247,10 +262,18 @@ class QqPrivateService : Service() {
         fun stop(context: Context, preservePreference: Boolean = false, reason: String = "explicit_stop", done: () -> Unit) {
             live?.let { it.recoveryGeneration++ }
             // Internal restart cannot rewrite the user's durable preference.
-            if (!preservePreference) recordPreference(context, false,
+            val restoring = reason == "snapshot_restore"
+            if (restoring) live?.stoppingForRestore = true
+            if (!preservePreference && !restoring) recordPreference(context, false,
                 if (reason in setOf("explicit_stop", "snapshot_restore", "unbind")) reason else "explicit_stop")
-            // Explicit close and snapshot restore revoke automatic connection consent too.
-            prefs(context).edit().apply {
+            // The pending restart is local consent, never a field in imported archives.
+            val p = prefs(context)
+            val resume = autoReconnect(context) && !p.getBoolean("blocked", false)
+            p.edit().apply {
+                if (restoring) {
+                    putBoolean("restoreInProgress", true)
+                    putBoolean("resumeAfterRestore", resume)
+                } else remove("resumeAfterRestore")
                 putBoolean("enabled", false)
                 putString("connection", "stopped")
             }.apply()
@@ -285,6 +308,10 @@ class QqPrivateBridge(context: Context, engine: FlutterEngine) {
                     "renderSketch" -> QqSvgRenderer.reply(call.argument<String>("svg"),result)
                     "wakeOptions" -> { QqPrivateService.wakeOptions();result.success(null) }
                     "wakeWork" -> { QqPrivateService.wakeWork(call.argument<String>("cid").orEmpty()); result.success(null) }
+                    "finishSnapshotRestore" -> {
+                        QqPrivateService.finishRestore(app, call.argument<Boolean>("workAllowed") == true)
+                        result.success(null)
+                    }
                     "snapshot" -> result.success(QqPrivateService.snapshot(app))
                     "start" -> { QqPrivateService.start(app); result.success(null) }
                     "setAutoReconnect" -> {

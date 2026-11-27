@@ -32,14 +32,14 @@ class ThirdChannelUsage {
 
 class ThirdChannelResponse {
   const ThirdChannelResponse({required this.content, required this.reasoning,
-    required this.finishReason, required this.toolCalls, required this.usage});
-  final String content, reasoning, finishReason;
+    this.modelName = ThirdChannelConfig.defaultModel, required this.finishReason, required this.toolCalls, required this.usage});
+  final String content, reasoning, finishReason, modelName;
   final List<Map<String, Object?>> toolCalls;
   final ThirdChannelUsage usage;
   bool get incomplete => finishReason == 'length' || finishReason == 'content_filter';
   Map<String, Object?> completion() => {'choices': [{'message': {'role': 'assistant',
     'content': content, if (toolCalls.isNotEmpty) 'tool_calls': toolCalls},
-    'finish_reason': finishReason}], 'model': ThirdChannelConfig.model,
+    'finish_reason': finishReason}], 'model': modelName,
     'usage': {'prompt_tokens': usage.input, 'completion_tokens': usage.output,
       'completion_tokens_details': {'reasoning_tokens': usage.reasoning}, 'total_tokens': usage.total}};
 }
@@ -168,7 +168,7 @@ class ThirdChannelClient {
             ..headers.addAll({'Content-Type': 'application/json', 'Accept': stream ? 'text/event-stream' : 'application/json',
               'X-Request-ID': '$requestId-$attempt',
               'Authorization': 'Bearer ${config.apiKey.trim()}'})
-            ..body = jsonEncode({'model': ThirdChannelConfig.model, 'messages': messages,
+            ..body = jsonEncode({'model': config.requestedModel, 'messages': messages,
               'stream': stream, 'max_tokens': maxTokens.clamp(1, 65536),
               'reasoning_effort': config.reasoningEffort,
               if (responseFormat != null) 'response_format': responseFormat,
@@ -263,7 +263,7 @@ class ThirdChannelClient {
             firstContentElapsedMs = clock.elapsedMilliseconds;
             await collector.add(jsonDecode(raw), streaming: false);
           }
-          final result = collector.finish();
+          final result = collector.finish(config.requestedModel);
           final format = responseFormat?['json_schema'];
           if (format is Map && format['strict'] == true && format['schema'] is Map) {
             _validateSchema(jsonDecode(result.content), format['schema'] as Map);
@@ -406,7 +406,7 @@ class _ThirdCollector {
       throw const ThirdChannelFailure('response_too_large');
     }
   }
-  ThirdChannelResponse finish() {
+  ThirdChannelResponse finish(String modelName) {
     if (usage == null) throw const ThirdChannelFailure('usage_missing');
     if (!const {'stop', 'tool_calls', 'length', 'content_filter'}.contains(finishReason)) {
       throw const ThirdChannelFailure('finish_missing');
@@ -426,7 +426,7 @@ class _ThirdCollector {
     if (content.toString().trim().isEmpty && tools.isEmpty &&
         finishReason != 'length' && finishReason != 'content_filter') throw const ThirdChannelFailure('empty');
     if (structured && jsonDecode(content.toString()) is! Map) throw const ThirdChannelFailure('structured_shape');
-    return ThirdChannelResponse(content: content.toString(), reasoning: reasoning.toString(),
+    return ThirdChannelResponse(modelName:modelName, content: content.toString(), reasoning: reasoning.toString(),
       finishReason: finishReason, toolCalls: tools, usage: usage!);
   }
 }

@@ -145,6 +145,8 @@ APP = Path(__file__).resolve().parents[1]
 # transactionally persisted full-history owner index as well as the recent list.
 # Existing job state, work fence, blob ownership and publication checks remain.
 # No schema, crypto or restore-flow changes; history export/import regression added.
+# +505: reviewed QQ local-consent resume after the restore consistency marker;
+# process-kill restore regression and native opt-out/standby tests cover recovery.
 # +444: restore coordinator only adds explicit snapshot_restore reason to existing QQ stop.
 # +447: snapshot service injects its own DB into StickerPackStorage for the
 # collection-only portable v3 adapter. Restore sequencing/crypto are unchanged;
@@ -159,7 +161,7 @@ APP = Path(__file__).resolve().parents[1]
 # +459: isolated in-memory database factory and portable profile defaults/word-slice record reviewed.
 # +467 reviewed separate collection ZIP, filtered caption and enable settings, legacy extraction;
 # confirmed normal restore still uses the existing journal and validated archive path.
-PROTECTED = {'lib/core/database/app_database.dart': '8fcab4688cd4ae3ccdd384568dc05b6f4538ce14bb066ee75bca28093aaeab8c', 'lib/core/sync/snapshot_service.dart': 'ae7e21eb4e17a702d66c67464b3911556bd5f09c8ff82e566ed886dd82935edb', 'lib/core/sync/snapshot_restore_coordinator.dart': '3c3332686d88b04041dcd296be1c6a20e2311c605ca2668bf735458dd006a999', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'faa4c948cdad22695b19a08a02d8c2457ef604955e5a3c1d2d1a43a7f195ba89'}
+PROTECTED = {'lib/core/database/app_database.dart': '8fcab4688cd4ae3ccdd384568dc05b6f4538ce14bb066ee75bca28093aaeab8c', 'lib/core/sync/snapshot_service.dart': 'ae7e21eb4e17a702d66c67464b3911556bd5f09c8ff82e566ed886dd82935edb', 'lib/core/sync/snapshot_restore_coordinator.dart': 'c551dede2e1607915979739b53221eed695236b7fa17af32727767906f6b573c', 'lib/core/sync/snapshot_cache_janitor.dart': '9e9dc7e44747f184b9359565512906ef24cb88666ac7c6456a92a9dfbd5f1d9b', 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeEventStore.kt': '6cead2621c92ab42701dbe3e7081089e4a37648abb63fb2f96b1bad90f221002', 'android/app/src/main/kotlin/com/aicompanion/localfirst/ManualSnapshotCrypto.kt': '3497404b13f2c388a276545db6342d16a44d8c17e18e2318dabfb84248a5dc84', 'android/app/src/main/kotlin/com/aicompanion/localfirst/PortableCompanionState.kt': 'faa4c948cdad22695b19a08a02d8c2457ef604955e5a3c1d2d1a43a7f195ba89'}
 # +384 reviewed: additive QQ schema63 note source ranges and edit revision, with
 # old-source token compatibility; no encryption/restore-journal/transfer-owner changes.
 # QQ raw/note migration, cross-month cleanup and existing restore CI cover it.

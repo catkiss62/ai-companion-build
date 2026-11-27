@@ -208,7 +208,7 @@ class _QqPrivateSettingsPageState extends State<QqPrivateSettingsPage> {
           ]),
           CheckboxListTile(contentPadding:EdgeInsets.zero,
             title:const Text('自动保持 QQ 连接'),
-            subtitle:const Text('勾选后启动连接，并监测后台异常、自动重试。关闭连接或恢复存档会取消勾选；权限和凭据错误需先修正。'),
+            subtitle:const Text('勾选后启动连接，并监测后台异常、自动重试。恢复本机存档后会按原设置续连；手动关闭连接会取消勾选；权限和凭据错误需先修正。'),
             value:_state['autoReconnect']==true,onChanged:_busy || _state['autoReconnect'] is! bool?null:(value)=>unawaited(_setAutoReconnect(value==true))),
           const SizedBox(height: 12),
           Text('连接：${_labels[_state['connection']] ?? '未连接'}'),

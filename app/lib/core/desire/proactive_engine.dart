@@ -2014,7 +2014,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       );
       if (generated == null) return null;
       if (finalRoute.usedThirdChannel) {
-        visibleModelName = 'gemini-3.8-flash';
+        visibleModelName = finalRoute.thirdModelName;
         await db.setSetting('proactive_last_final_provider_notice', '');
         await noteAttempts(0, generated.failures, outcome: 'third_channel_success');
       } else if (generated.usedSecondChannel) {

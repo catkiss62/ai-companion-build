@@ -201,7 +201,7 @@ void main() {
       final db = await AppDatabase.createForTesting(databaseFactoryFfi);
       final secure = SecureConfig.forTesting(const FlutterSecureStorage());
       await secure.writeApiKey('first-fixture'); await secure.writeEndpoint('http://first.invalid/chat');
-      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, baseUrl: 'http://gateway.invalid/v1', apiKey: 'third-fixture'));
+      await secure.writeThirdChannel(const ThirdChannelConfig(enabled: true, modelName:'custom-route-fixture', baseUrl: 'http://gateway.invalid/v1', apiKey: 'third-fixture'));
       if (scenario == 'second_key_missing' || scenario.endsWith('_fallback')) await secure.writeChatProvider(ChatApiProvider.aiWangYouGemini);
       if (scenario.endsWith('_fallback')) {
         await secure.writeAiWangYouApiKey('second-fixture');
@@ -274,7 +274,7 @@ void main() {
         } else {
           expect(result.notice ?? '', isNot(contains('第三通道调用失败')));
           expect(posts, greaterThanOrEqualTo(1)); expect(assistant.content, contains('我在听'));
-          expect(assistant.model, ThirdChannelConfig.model);
+          expect(assistant.model, 'custom-route-fixture');
           expect(jsonDecode((await db.getSetting('generation_final_route_v1'))!)['reason'], 'third_channel');
           final requestState=jsonDecode((await db.getSetting('generation_request_state_v1'))!) as Map;
           expect(requestState['provider'],'third_channel');

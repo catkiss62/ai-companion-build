@@ -2,8 +2,10 @@ import 'dart:convert';
 
 /// One device-local gateway profile. Upstream accounts belong to the gateway.
 class ThirdChannelConfig {
-  const ThirdChannelConfig({this.enabled = false, this.baseUrl = '', this.apiKey = '',this.effort='high'});
-  static const model = 'gemini-3.8-flash';
+  const ThirdChannelConfig({this.enabled = false, this.baseUrl = '', this.apiKey = '',this.effort='high', this.modelName=defaultModel});
+  static const defaultModel = 'gemini-3.8-flash';
+  final String modelName;
+  String get requestedModel => modelName.trim().isEmpty ? defaultModel : modelName.trim();
   final bool enabled;
   final String baseUrl, apiKey;
   final String effort;
@@ -23,11 +25,11 @@ class ThirdChannelConfig {
     return uri.replace(path: path);
   }
   Uri get health => endpoint.replace(path: '/health');
-  String encode() => jsonEncode({'enabled': enabled, 'base_url': baseUrl.trim(), 'api_key': apiKey.trim(),'reasoning_effort':reasoningEffort});
+  String encode() => jsonEncode({'enabled': enabled, 'model': requestedModel, 'base_url': baseUrl.trim(), 'api_key': apiKey.trim(),'reasoning_effort':reasoningEffort});
   static ThirdChannelConfig decode(String? raw) {
     if (raw == null || raw.isEmpty) return const ThirdChannelConfig();
     final data = jsonDecode(raw) as Map;
-    return ThirdChannelConfig(enabled: data['enabled'] == true,
+    return ThirdChannelConfig(modelName: data['model'] as String? ?? defaultModel, enabled: data['enabled'] == true,
       baseUrl: data['base_url'] as String? ?? '', apiKey: data['api_key'] as String? ?? '',effort:data['reasoning_effort'] as String? ?? 'high');
   }
 }

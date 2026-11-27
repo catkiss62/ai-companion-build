@@ -667,7 +667,7 @@ class PreflightDiagnosticsService {
       try {
         final third = await SecureConfig.instance.readThirdChannel();
         report['thirdChannel'] = {'enabled': third.enabled, 'configured': third.configured,
-          'model': 'gemini-3.8-flash', 'clientAccountPool': false,'requestedReasoningEffort':third.reasoningEffort,
+          'model': third.requestedModel, 'clientAccountPool': false,'requestedReasoningEffort':third.reasoningEffort,
           'totalTimeoutSeconds': 120, 'healthTimeoutSeconds': 15,
           'diagnostics': await ThirdChannelDiagnostics.read(db),
           'maxResends': 1, 'credentialsIncluded': false,

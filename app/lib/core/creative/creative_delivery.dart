@@ -4,7 +4,6 @@ import 'package:sqflite/sqflite.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/final_reply_failure_policy.dart';
 import '../ai/final_reply_route.dart';
-import '../ai/third_channel_config.dart';
 import '../diagnostics/third_channel_diagnostics.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
@@ -193,7 +192,7 @@ class CreativeDelivery {
             }
           }
           if (text.isEmpty) text = await request(false);
-          if (route.usedThirdChannel) modelName = ThirdChannelConfig.model;
+          if (route.usedThirdChannel) modelName = route.thirdModelName;
           // Persist the body before delivery. A restart can commit it without
           // buying another answer, provided the user's conversation is unchanged.
           await save({'text': text, 'model': modelName, 'phase': 'generated',

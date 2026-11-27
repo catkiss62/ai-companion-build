@@ -222,6 +222,7 @@ class DurableGenerationRunner {
       await db.getSetting('generation_final_effort_v1:${requested.id}') ?? requested.reasoningEffort);
     var finalTextFromGemini = false;
     var finalTextFromThird = false;
+    var thirdModelName = '';
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -974,7 +975,7 @@ class DurableGenerationRunner {
           )) {
             if (usageLane == 'final_reply') {
               finalTextFromThird = allowThird && finalRoute.usedThirdChannel;
-              if (finalTextFromThird) { finalTextFromGemini = true; providerNotice = null; }
+              if (finalTextFromThird) { thirdModelName = finalRoute.thirdModelName; finalTextFromGemini = true; providerNotice = null; }
             }
             if (!requestProgressSeen) {
               requestProgressSeen = true;
@@ -2130,6 +2131,7 @@ $finalGenerationReminder
       );
       final initialCandidateFromGemini = finalTextFromGemini;
       final initialCandidateFromThird = finalTextFromThird;
+      final initialCandidateThirdModel = thirdModelName;
       final initialSubmittedMessages = submittedMessages;
       final initialGenerated = generated;
       final initialEnvelope = envelope;
@@ -2196,6 +2198,7 @@ $finalGenerationReminder
         ];
         final initialWasGemini = finalTextFromGemini;
         final initialWasThird = finalTextFromThird;
+        final initialThirdModel = thirdModelName;
         try {
           // One correction by the provider that wrote the visible draft.
           // DeepSeek takes over only after the configured second channel fails.
@@ -2225,6 +2228,7 @@ $finalGenerationReminder
               !(takeover.requested && initialWasGemini)) {
             finalTextFromGemini = initialWasGemini;
             finalTextFromThird = initialWasThird;
+            thirdModelName = initialThirdModel;
             if (initialWasGemini) providerNotice = '';
             generated = initialGenerated;
             submittedMessages = initialSubmittedMessages;
@@ -2247,6 +2251,7 @@ $finalGenerationReminder
           submittedMessages = initialSubmittedMessages;
           finalTextFromGemini = initialWasGemini;
             finalTextFromThird = initialWasThird;
+            thirdModelName = initialThirdModel;
           if (initialWasGemini) providerNotice = '';
           envelope = initialEnvelope;
           finalContent = initialFinalContent;
@@ -2280,6 +2285,7 @@ $finalGenerationReminder
           submittedMessages = initialSubmittedMessages;
         finalTextFromGemini = initialCandidateFromGemini;
         finalTextFromThird = initialCandidateFromThird;
+        thirdModelName = initialCandidateThirdModel;
         envelope = initialEnvelope;
         finalContent = initialFinalContent;
       }
@@ -2315,7 +2321,7 @@ $finalGenerationReminder
         role: 'assistant',
         content: finalContent,
         reasoningContent: visibleReasoning,
-        model: finalTextFromThird ? 'gemini-3.8-flash' : finalTextFromGemini
+        model: finalTextFromThird ? thirdModelName : finalTextFromGemini
             ? (configuredFinalModel.isEmpty
                 ? ChatApiProvider.aiWangYouModel
                 : configuredFinalModel)
@@ -2653,7 +2659,7 @@ $finalGenerationReminder
         formContextJson: generationFormContext.encode(),
         content: visible,
         reasoningContent: preserveProviderReasoning(e.reasoning),
-        model: finalTextFromThird ? 'gemini-3.8-flash' : finalTextFromGemini
+        model: finalTextFromThird ? thirdModelName : finalTextFromGemini
             ? (configuredFinalModel.isEmpty ? ChatApiProvider.aiWangYouModel : configuredFinalModel)
             : firstModel.apiName,
         createdAt: DateTime.now(),

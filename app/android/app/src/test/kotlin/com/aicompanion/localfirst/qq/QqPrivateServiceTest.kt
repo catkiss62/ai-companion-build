@@ -98,16 +98,38 @@ class QqPrivateServiceTest {
         val rows=org.json.JSONArray(QqPrivateService.snapshot(app)["autoReconnectHistory"] as String)
         assertEquals(1,rows.length())
     }
-    @Test fun restoreAndUnbindHaveDistinctBoundedPreferenceRecords() {
-        val app:Application=RuntimeEnvironment.getApplication()
-        app.getSharedPreferences("qq_private_service_v1",0).edit().clear().commit()
-        repeat(25) { QqPrivateService.setAutoReconnect(app,true) }
-        QqPrivateService.stop(app,reason="snapshot_restore") {}
-        val rows=org.json.JSONArray(QqPrivateService.snapshot(app)["autoReconnectHistory"] as String)
-        assertEquals(20,rows.length());assertEquals("snapshot_restore",rows.getJSONObject(0).getString("reason"))
-        assertTrue(rows.getJSONObject(0).getBoolean("before"));assertFalse(rows.getJSONObject(0).getBoolean("after"))
-        QqPrivateService.stop(app,reason="unbind") {}
-        assertEquals("unbind",QqPrivateService.snapshot(app)["autoReconnectReason"])
+    @Test fun restoreRetainsLocalConsentAndWaitsForActiveDevice() {
+        val app: Application = RuntimeEnvironment.getApplication()
+        val p = app.getSharedPreferences("qq_private_service_v1", 0)
+        p.edit().clear().putBoolean("enabled", true).putBoolean("autoReconnect", true).commit()
+        QqPrivateService.stop(app, reason = "snapshot_restore") {}
+        assertFalse(QqPrivateService.enabled(app))
+        assertTrue(QqPrivateService.autoReconnect(app))
+        QqPrivateService.finishRestore(app, false)
+        assertFalse(QqPrivateService.enabled(app))
+        QqPrivateService.finishRestore(app, true)
+        assertTrue(QqPrivateService.enabled(app))
+        QqPrivateService.stop(app, reason = "unbind") {}
+        QqPrivateService.finishRestore(app, true)
+        assertFalse(QqPrivateService.autoReconnect(app))
+        assertFalse(QqPrivateService.enabled(app))
+        assertEquals("unbind", QqPrivateService.snapshot(app)["autoReconnectReason"])
+    }
+
+    @Test fun restoreDoesNotGrantConsentOrUndoExplicitStop() {
+        val app: Application = RuntimeEnvironment.getApplication()
+        val p = app.getSharedPreferences("qq_private_service_v1", 0)
+        for (wasEnabled in listOf(false, true)) {
+            p.edit().clear().putBoolean("enabled", wasEnabled).commit()
+            QqPrivateService.stop(app, reason = "snapshot_restore") {}
+            QqPrivateService.finishRestore(app, true)
+            assertFalse(QqPrivateService.enabled(app))
+        }
+        p.edit().putBoolean("enabled", true).putBoolean("autoReconnect", true).commit()
+        QqPrivateService.stop(app, reason = "snapshot_restore") {}
+        QqPrivateService.stop(app, reason = "explicit_stop") {}
+        QqPrivateService.finishRestore(app, true)
+        assertFalse(QqPrivateService.enabled(app))
     }
     private fun recoveredHost(): QqPrivateService {
         val app:Application=RuntimeEnvironment.getApplication()

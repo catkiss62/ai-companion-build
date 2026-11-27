@@ -637,7 +637,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       thirdChannelSecure: secureConfig,
     )) {
       if (finalReplyRoute?.usedThirdChannel == true) {
-        _finalModelRoute = {'source': 'third', 'model': 'gemini-3.8-flash', 'provider': 'third_channel'};
+        _finalModelRoute = {'source': 'third', 'model': finalReplyRoute!.thirdModelName, 'provider': 'third_channel'};
         notice = null;
       }
       cancellation.throwIfCancelled();
