@@ -454,6 +454,18 @@ class CedarExecutableCallPolicy {
     return result;
   }
 
+  static bool unresolvedRevisedIdentity(String continuation, String outcome, Map<String, Object?> params,
+      {required bool readOnly}) {
+    final values = <String, List<Object?>>{};
+    _collectKnownTransportValues(_decodeObject(outcome), values);
+    final explicit = hydrateTransportParams(planned: const {}, continuationParamsJson: continuation, lastOutcome: '');
+    for (final key in const ['room_id', 'session_id', 'match_id']) {
+      if (explicit[key] == null && (values[key]?.length ?? 0) > 1 &&
+          (!readOnly || !_isMissing(params[key]))) return true;
+    }
+    return false;
+  }
+
   /// Reads only explicit action-scoped `required` declarations. Ambiguous
   /// prose is ignored so the APK cannot become a second, stricter game server.
   static Set<String> missingExplicitRequiredFields({
@@ -514,7 +526,9 @@ class CedarExecutableCallPolicy {
   }
 
   static Map<String, Object?>? _decodeObject(String raw) {
-    final clean = raw.trim();
+    const marker = '[MCP_STRUCTURED_CONTENT]\n';
+    final boundary = raw.lastIndexOf(marker);
+    final clean = (boundary < 0 ? raw : raw.substring(boundary + marker.length)).trim();
     if (clean.isEmpty) return null;
     try {
       final decoded = jsonDecode(clean);

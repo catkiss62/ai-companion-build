@@ -47,6 +47,29 @@ void main() {
     toolCalls: [if (c != null) c],
   );
 
+  for (final change in ['reschedule','cancel']) {
+    test('same-order $change supersedes the creation receipt on resume',() async {
+      final db=await AppDatabase.createForTesting(databaseFactoryFfi);
+      addTearDown(db.closeForTesting); mock((_) async=>true);
+      final goal='明天九点提醒我喝水，${change=='cancel'?'取消喝水提醒':'把喝水提醒改到十点'}';
+      WorkHostActions host()=>WorkHostActions(db,'mixed','T',WorkHostActions.requested(goal),GenerationCancellationToken(),goal:goal);
+      final day=DateTime.now().add(const Duration(days:2)).toIso8601String().substring(0,10);
+      final h=host();
+      final created=await h.execute({'action':'remind','text':'喝水','local_time':'${day}T09:00'});
+      final initial=await db.getSetting(CalendarReminderStore.settingKey);
+      final changed=await h.execute({'action':change,'target':'喝水',if(change=='reschedule')'local_time':'${day}T10:00'});
+      expect(created['id'],changed['id']);
+      final result=await ResearchCommission.run(goal:goal,context:[],workspace:await workspace(),host:host(),
+        cancellation:GenerationCancellationToken(),progress:(_,__) {},plan:(_)async=>plan());
+      expect(result['end'],'planner_finished');
+      expect((await host().execute({'action':'remind','text':'喝水','local_time':'${day}T09:00'}))['reused'],true);
+      final live=await CalendarReminderStore(db).load();
+      if(change=='cancel') { expect(live,isEmpty); } else { expect(live.single.hour,10); }
+      await db.setSetting(CalendarReminderStore.settingKey,initial!);
+      await expectLater(host().verifyExisting(),throwsStateError);
+    });
+  }
+
   for(final resume in [false,true]) {
     test('separate cancellation receipts across restart $resume',() async {
       final db=await AppDatabase.createForTesting(databaseFactoryFfi);

@@ -278,6 +278,18 @@ class WorkHostActions {
     return latest;
   }
 
+  Future<Map?> _effectiveReminderEntry(String action, String id, Map? original) async {
+    // A cancellation is terminal for a reminder ID. Old saves use the same IDs
+    // and can recover the final state without timestamps or a new journal.
+    for (final later in [if (action != 'cancel') 'cancel', if (action == 'remind') 'reschedule']) {
+      final raw = await db.getSetting('work_action_${order}_$later');
+      if (raw == null || raw.isEmpty) continue;
+      final recorded = _records(jsonDecode(raw) as Map).where((r) => r['id'] == id).lastOrNull;
+      if (recorded != null) return recorded['entry'] as Map?;
+    }
+    return original;
+  }
+
   Future<Map<String, Object?>> _reminder(
     String action,
     Map args, {
@@ -351,9 +363,10 @@ class WorkHostActions {
     Map? entry;
     if (receipt != null) {
       entry = receipt['entry'] as Map?;
-      if (action == 'cancel'
+      final effective = await _effectiveReminderEntry(action, id, entry);
+      if (effective == null
           ? index >= 0
-          : index < 0 || jsonEncode(entries[index]) != jsonEncode(entry)) {
+          : index < 0 || jsonEncode(entries[index]) != jsonEncode(effective)) {
         throw const FormatException('提醒随后已被更改或移除，请确认新的目标');
       }
       if (entry != null && verifying == null) {

@@ -35,8 +35,8 @@ class WishEngine {
   static const generationKey = 'companion_wish_generation_v2';
   static const diagnosticKey = 'companion_wish_last_review_v2';
   static const fingerprintKey = 'companion_wish_sources_v2';
-  static const upgradeKey = 'companion_wish_review_v11_completed';
-  static const upgradeAttemptKey = 'companion_wish_review_v11_attempt';
+  static const upgradeKey = 'companion_wish_review_v12_completed';
+  static const upgradeAttemptKey = 'companion_wish_review_v12_attempt';
   static const upgradeRetry = Duration(minutes: 5);
   static String anon(String id) => sha256.convert(utf8.encode(id)).toString().substring(0,12);
   static const reviewGap = Duration(hours: 2);
@@ -144,7 +144,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (evidence.isEmpty) {
         return upgradeOnly && await store.save(wishes, expected: raw, fence: fence,
             sourceGuard: batch.matches, extra: {upgradeKey: '1', diagnosticKey: jsonEncode({
-              'status':'reviewed','upgrade_review':true,'contract':11,'source_count':0,
+              'status':'reviewed','upgrade_review':true,'contract':12,'source_count':0,
               'at':instant.millisecondsSinceEpoch,'decisions':[
                 for (final w in wishes.where((w) => w.active && WishReviewMaterial.reviewable(w)))
                   {'wish_hash':anon(w.id),'result':'unchanged','reason':'no_new_evidence','state':w.state}
@@ -159,7 +159,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
               generationGap.inMilliseconds;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":11,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+            utf8.encode(jsonEncode({"contract":12,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       // An updates-only review cannot consume the next opportunity to propose
@@ -250,13 +250,22 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           if (wish?.completionKind != 'user_photo' || row['state'] != 'completed' ||
               byId[row['evidence_id']]?.kind != 'user_text') return false;
           final photo = row['supporting_photo'];
-          return row['confirms_photo_meets_criterion'] == null || photo is! Map ||
-              photo['evidence_id'] is! String || photo['quote'] is! String;
+          if (row['confirms_photo_meets_criterion'] == false) return false;
+          bool blank(Object? value) => value is! String || value.trim().isEmpty;
+          return row['confirms_photo_meets_criterion'] != true || photo is! Map ||
+              blank(photo['evidence_id']) || blank(photo['quote']);
         }).toList();
         if (needsRepair.isNotEmpty) {
           final ids = needsRepair.map((row) => row['id'] as String).toSet();
           final subset = wishes.where((w) => ids.contains(w.id)).toList();
-          final sources = {for (final w in subset) for (final e in batch.groups[w.id] ?? <WishEvidence>[]) e.id:e,
+          // The first pass can cite photos from the shared catalogue even when
+          // the wish has aged out of the active candidate groups.
+          final latestConfirmation = needsRepair.map((row) => byId[row['evidence_id']]!.at)
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+          final sources = {
+            for (final e in evidence)
+              if (e.kind == 'user_photo' && !e.at.isAfter(latestConfirmation)) e.id: e,
+            for (final w in subset) for (final e in batch.groups[w.id] ?? <WishEvidence>[]) e.id:e,
             for (final row in needsRepair) if (byId[row['evidence_id']] != null)
               byId[row['evidence_id']]!.id:byId[row['evidence_id']]!};
           // One repair for this batch, restricted to the structurally incomplete items.
@@ -302,7 +311,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 11, 'source_count': evidence.length,
+            'contract': 12, 'source_count': evidence.length,
             'source_kinds': {for (final kind in evidence.map((e) => e.kind).toSet())
               kind: evidence.where((e) => e.kind == kind).length},
             'active_routes': {for (final route in ['game', 'user', 'aspiration'])

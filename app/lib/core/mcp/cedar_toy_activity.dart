@@ -332,9 +332,11 @@ class CedarGameSession {
   static const revisedContinuationScope = 'guide_revision_check';
   bool get continuationNeedsReview => continuationWaitScope == revisedContinuationScope;
   bool permitsRevisedCall(String action, Map<String, Object?> params) {
-    if (continuationParamsJson.isNotEmpty) {
+    if (continuationNeedsReview || continuationParamsJson.isNotEmpty) {
       final scoped = CedarExecutableCallPolicy.hydrateTransportParams(
-        planned: const {}, continuationParamsJson: continuationParamsJson, lastOutcome: '',
+        planned: const {},
+        continuationParamsJson: continuationParamsJson,
+        lastOutcome: continuationNeedsReview ? lastOutcome : '',
       );
       for (final key in const ['room_id', 'session_id', 'match_id']) {
         if (scoped[key] != null && params[key] != null &&
@@ -342,6 +344,10 @@ class CedarGameSession {
       }
     }
     if (!continuationNeedsReview) return true;
+    if (CedarExecutableCallPolicy.unresolvedRevisedIdentity(
+      continuationParamsJson, lastOutcome, params,
+      readOnly: CedarPlatformActionPolicy.isReadOnlyCall(action, params),
+    )) return false;
     final verb = action == 'cmd' ? (params['command']?.toString() ?? '').trim().split(RegExp(r'\s+')).first : action;
     if (verb.isEmpty) return false;
     final label = RegExp.escape(verb);

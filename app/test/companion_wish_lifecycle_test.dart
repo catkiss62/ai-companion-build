@@ -616,7 +616,7 @@ void main() {
       expect(calls,2);
     });
 
-    for(final scenario in ['valid','missing_support','unchanged','aged','aged_late','repair_exhausted']) {
+    for(final scenario in ['valid','missing_support','unchanged','aged','aged_late','repair_exhausted','aged_missing','empty_fields','denied']) {
       test('photo evidence upgrade and automatic pause $scenario',() async {
         final store=WishStore(db);await store.initialize();
         final w=CompanionWish(id:'blue',goal:'看蓝色积木成品',reason:'想看完成样子',
@@ -639,7 +639,10 @@ void main() {
             {'id':'blue','state':'unchanged','reason_code':'target_ambiguous','evidence_ids':['chat:clar']}:
             {'id':'blue','state':'completed','evidence_id':'chat:clar','quote':clarify,
              'confidence':.96,'same_target':true,'observed':true,
-             if(scenario!='repair_exhausted' && (scenario!='missing_support' || calls==2)) ...{'confirms_photo_meets_criterion':true,
+             if (scenario=='empty_fields' && calls==1) ...{
+               'confirms_photo_meets_criterion':true,'supporting_photo':{'evidence_id':'','quote':'   '}},
+             if (scenario=='denied') 'confirms_photo_meets_criterion':false,
+             if(!{'denied','repair_exhausted'}.contains(scenario) && (!{'missing_support','aged_missing','empty_fields'}.contains(scenario) || calls==2)) ...{'confirms_photo_meets_criterion':true,
                'supporting_photo':{'evidence_id':'photo:img:piece','quote':'蓝色积木成品'}}}]};
         });
         expect(await engine.maybeRefresh(now:now,upgradeOnly:true),true);
@@ -648,8 +651,8 @@ void main() {
         final live=(await store.load()).single;
         expect(await db.getSetting(WishEngine.upgradeKey),'1');
         expect(await engine.maybeRefresh(now:now.add(const Duration(days:1)),upgradeOnly:true),true);
-        expect(calls,{'missing_support','repair_exhausted'}.contains(scenario)?2:1);
-        expect(live.state,scenario=='aged_late'?'paused':{'repair_exhausted','unchanged'}.contains(scenario)?'active':'completed');
+        expect(calls,{'missing_support','repair_exhausted','aged_missing','empty_fields'}.contains(scenario)?2:1);
+        expect(live.state,scenario=='aged_late'?'paused':{'repair_exhausted','unchanged','denied'}.contains(scenario)?'active':'completed');
         expect(decision['reason'],isNotEmpty);
       });
     }

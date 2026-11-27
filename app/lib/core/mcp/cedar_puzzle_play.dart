@@ -278,7 +278,7 @@ extension CedarPuzzleControls on CedarToyActivityStore {
       final previous = session.puzzle;
       final selection = preference ?? previous.preference;
       final inferred = preference == 'auto' && previous.preference != 'auto'
-          ? CedarParticipationMode.unknown
+          ? CedarPuzzleState.declaredMode(session.guide)
           : session.mode;
       final mode = CedarPuzzleState.effective(
         session.gameId,

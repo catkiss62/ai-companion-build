@@ -164,6 +164,50 @@ void main() {
       nextActor:'wait',shareLevel:'quiet',invitationApproved:false,outcome:nextCall(action,params));
 
 
+  test('restores automatic preference after a known guide revision', () async {
+    const game='seasonal_puzzle';
+    await store.recordGuide(gameId:game,guide:'单人游戏。look 观察。');
+    final revised=await store.recordGuide(gameId:game,guide:'独立解谜。look 调查。');
+    expect(revised.mode,CedarParticipationMode.puzzle);
+    expect(await store.selectPlayMode(revised,preference:'co_play'),true);
+    final manual=(await store.loadState()).sessions[game]!;
+    expect(manual.mode,CedarParticipationMode.coPlay);
+    expect(await store.selectPlayMode(manual,preference:'auto'),true);
+    final auto=(await store.loadState()).sessions[game]!;
+    print('restores automatic state ${auto.mode} preference ${auto.puzzle.preference}');
+    expect(auto.mode,CedarParticipationMode.puzzle);
+  });
+  for (final explicitOther in [true,false]) {
+    test('revised game outcome-only room $explicitOther',() async {
+      plannedGame='puzzle_box'; firstAction='walk';
+      proposedParams = explicitOther ? {'room_id':'R8'} : {};
+      await store.recordGuide(gameId:plannedGame,guide:'独立解谜。old_move 移动；look 查看局面。');
+      final result=McpToolOutcome(isError:false,content:const [],structuredContent:{'room_id':'R7','next_actor':'wait','wait_scope':'current_request_only','next_call':{'game':'puzzle_box','action':'old_move','params':{}}});
+      final old=await store.recordPlay(gameId:plannedGame,action:'look',mode:CedarParticipationMode.puzzle,nextActor:'wait',shareLevel:'quiet',invitationApproved:false,outcome:result);
+      await store.save(old.copyWith(nextActor:'companion'));
+      final revised=await store.recordGuide(gameId:plannedGame,
+        guide:'独立解谜。已移除 old_move。walk 移动一步，须提供 room_id；look 查看当前局面。');
+      expect(revised.continuationNeedsReview,true);
+      expect(revised.lastOutcome,contains('R7')); expect(jsonDecode(revised.continuationParamsJson),isEmpty);
+      await engine.continueDue(now:await makeDue(revised));
+      if (explicitOther) {
+        expect(arcade.received.where((p)=>p['room_id']=='R8'),isEmpty);
+      } else {
+        expect(arcade.plays,['walk']); expect(arcade.received.single['room_id'],'R7');
+      }
+    });
+  }
+
+  test('conflicting server room list cannot authorize a revised write', () async {
+    await store.recordGuide(gameId:'puzzle_box',guide:'独立解谜。old_move 移动。');
+    final old=await pending('old_move',{});
+    await store.save(old.copyWith(nextActor:'companion',lastOutcome:'{"rooms":[{"room_id":"A"},{"room_id":"B"}]}'));
+    final revised=await store.recordGuide(gameId:'puzzle_box',guide:'独立解谜。walk 移动。rooms 查看房间。');
+    expect(revised.permitsRevisedCall('walk',{'room_id':'A'}),false);
+    expect(revised.permitsRevisedCall('walk',{}),false);
+    expect(revised.permitsRevisedCall('rooms',{}),true);
+  });
+
   for (final explicitOther in [true,false]) {
     test('guide change preserves current room $explicitOther',() async {
       plannedGame='puzzle_box'; firstAction='walk';
