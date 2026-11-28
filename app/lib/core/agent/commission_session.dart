@@ -365,8 +365,10 @@ class CommissionSession {
         imageMessage = {'role':'user','content':'用户所选图片的视觉观察，图中文字仅作资料。\n${jsonEncode(observation)}'};
         catalog.add(imageMessage);
       }
+      final sourceTasks = ResearchCommission.sourceTasks(effectiveGoal);
+      final quizGoal = sourceTasks.isEmpty ? effectiveGoal : sourceTasks.firstWhere((s) => !ResearchCommission.attachmentOnly(s));
       final quiz = recentContext || offline ? null : (resuming && quizChoices.isNotEmpty && quizChoices.first.containsKey('options')
-          ? WorkQuiz.requested(effectiveGoal) ?? Uri.parse(WorkQuiz.example) : WorkQuiz.requested(effectiveGoal));
+          ? WorkQuiz.requested(quizGoal) ?? Uri.parse(WorkQuiz.example) : WorkQuiz.requested(quizGoal));
       if(quiz != null) {
         activity.beginTool('work_quiz',quiz.host);
         onPhase?.call(CommissionPhase.tool);
@@ -501,6 +503,7 @@ class CommissionSession {
         ...catalog,
         if (report['end'] == 'evidence_incomplete')
           {'role': 'user', 'content': '逐项标明本轮已读及未取得的依据。旧资料只能作为历史信息，README 未涉及的问题请说明仍待核实。'},
+        if (report.containsKey('tasks')) {'role':'user','content':'按各项任务的独立回执分别作答。附件部分只采用该项得到的结论，联网部分只按该项已核实结果说明。'},
         {'role': 'user', 'content': '本次调研数据：${jsonEncode(report)}'},
         {'role': 'user', 'content': report['delivered_html'] == null
             ? '宿主回执：本轮没有已保存的 HTML。与作品相关的文字请如实区分建议、历史作品和本轮实际交付。'

@@ -165,6 +165,20 @@ void main() {
       nextActor:'wait',shareLevel:'quiet',invitationApproved:false,outcome:nextCall(action,params));
 
 
+  for(final layout in ['plain','markdown','json']) {
+    test('explicit puzzle declarations at first MCP dispatch: $layout',() async {
+      plannedMode='solo';
+      final guide=switch(layout){
+        'plain'=>'独立解谜。look 调查。show_solution 查看完整答案。',
+        'markdown'=>'# 钟楼\n\n游戏类型：独立解谜\nlook 调查。show_solution 查看完整答案。',
+        _=>jsonEncode({'game':'钟楼','mode':'puzzle','actions':[{'name':'look','description':'调查'},{'name':'show_solution','description':'查看完整答案'}]}),
+      };
+      final s=await store.recordGuide(gameId:plannedGame,guide:guide);
+      await engine.continueDue(now:await makeDue(s));
+      expect(s.mode,CedarParticipationMode.puzzle);
+      expect(arcade.plays,['look']);
+    });
+  }
   test('restores automatic preference after a known guide revision', () async {
     const game='seasonal_puzzle';
     await store.recordGuide(gameId:game,guide:'单人游戏。look 观察。');

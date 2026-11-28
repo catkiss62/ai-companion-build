@@ -251,6 +251,7 @@ class WishEvidence {
     required this.text,
     required this.at,
     this.gameId = '',
+    this.gameOutcome,
     this.caption,
     this.vision,
     this.timeKnown = true,
@@ -258,7 +259,9 @@ class WishEvidence {
   final String id, kind, text, gameId;
   final DateTime at;
   final bool timeKnown;
-  final String? caption, vision;
+  final String? caption, vision, gameOutcome;
+
+  bool quotesOutcome(String quote) => (gameOutcome ?? text).contains(quote);
 
   bool quotesVision(String quote) {
     final actual = vision ?? (text.startsWith('视觉识别：') ? text.substring('视觉识别：'.length) : '');
@@ -269,6 +272,7 @@ class WishEvidence {
     'id': id,
     'kind': kind,
     if (vision == null) 'text': text,
+    if (gameOutcome != null) 'returned_outcome': gameOutcome,
     if (vision != null) 'vision': vision,
     if (caption != null && caption!.isNotEmpty) 'caption': caption,
     'at': timeKnown ? at.toIso8601String() : null,

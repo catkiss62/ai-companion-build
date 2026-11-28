@@ -35,8 +35,8 @@ class WishEngine {
   static const generationKey = 'companion_wish_generation_v2';
   static const diagnosticKey = 'companion_wish_last_review_v2';
   static const fingerprintKey = 'companion_wish_sources_v2';
-  static const upgradeKey = 'companion_wish_review_v13_completed';
-  static const upgradeAttemptKey = 'companion_wish_review_v13_attempt';
+  static const upgradeKey = 'companion_wish_review_v14_completed';
+  static const upgradeAttemptKey = 'companion_wish_review_v14_attempt';
   static const upgradeRetry = Duration(minutes: 5);
   static String anon(String id) => sha256.convert(utf8.encode(id)).toString().substring(0,12);
   static const reviewGap = Duration(hours: 2);
@@ -78,7 +78,7 @@ class WishEngine {
 最多建议一个新愿望；can_generate=false 仅禁止生成 new_wish，仍须审查已有愿望的完成或自主处置，不等于停止 updates。结合已有/历史愿望语义去重，近期放弃、过期或已完成的同一目标不得换句话重新产生。
 新愿望的 goal 用第一人称写一件具体想一起做的事（6~100字），reason 说明为什么，next_step 是一个可选的小行动。criterion 写清真实参与怎样体现，completion_kind 只填 user_photo 或 user_text。需要用户照片时，网络图片或口头答应不能代替。缺少可核验的互动就让 new_wish 为 null。
 wishes 是要复查的完整状态。wish_history 仅用于语义去重；其中的旧进度不能作为新经历或完成证据。
-复查旧条目时保留原 route 和 criterion。game 表示真实游戏结果，aspiration 表示暂时只有向往，两种旧标签均可能包含共同愿望。游戏目录、指南和历史回执仅供核对机制、角色和已发生的结果，资料多不代表偏好更强。缺资料时保留旧目标，不自行编造玩法、时间、感官或计数。涉及首次或增加时须有基线或明确回执。愿望不能替代用户同意共玩、覆盖存档或继续游戏。
+复查旧条目时保留原 route 和 criterion。game 表示真实游戏结果，aspiration 表示暂时只有向往，两种旧标签均可能包含共同愿望。游戏目录、指南和历史回执仅供核对机制、角色和已发生的结果，资料多不代表偏好更强。缺资料时保留旧目标，不自行编造玩法、时间、感官或计数。客观游戏达成的 quote 必须逐字引用 returned_outcome；submitted_input 仅供理解动作。涉及首次或增加时须有基线或明确回执。愿望不能替代用户同意共玩、覆盖存档或继续游戏。
 source_ids 引用实际灵感来源，game baseline 来自给定游戏真实结果；不得把助手说过/念头/愿望本身当成发生过的事实。deadline 仅目标本身带时间时填写 ISO8601，不能默认给所有愿望加截止时间。
 updates 只评估给定愿望的资料；旧创建的愿望也须评估。按来源使用完整格式：
 客观结果或用户决定：{id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
@@ -144,7 +144,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (evidence.isEmpty) {
         return upgradeOnly && await store.save(wishes, expected: raw, fence: fence,
             sourceGuard: batch.matches, extra: {upgradeKey: '1', diagnosticKey: jsonEncode({
-              'status':'reviewed','upgrade_review':true,'contract':13,'source_count':0,
+              'status':'reviewed','upgrade_review':true,'contract':14,'source_count':0,
               'at':instant.millisecondsSinceEpoch,'decisions':[
                 for (final w in wishes.where((w) => w.active && WishReviewMaterial.reviewable(w)))
                   {'wish_hash':anon(w.id),'result':'unchanged','reason':'no_new_evidence','state':w.state}
@@ -159,7 +159,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
               generationGap.inMilliseconds;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":13,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+            utf8.encode(jsonEncode({"contract":14,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       // An updates-only review cannot consume the next opportunity to propose
@@ -324,7 +324,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 13, 'source_count': evidence.length,
+            'contract': 14, 'source_count': evidence.length,
             'source_kinds': {for (final kind in evidence.map((e) => e.kind).toSet())
               kind: evidence.where((e) => e.kind == kind).length},
             'active_routes': {for (final route in ['game', 'user', 'aspiration'])
@@ -415,7 +415,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
     final games = await CedarToyActivityStore.readStateInTransaction(txn);
     Object gameStamp(String game, CedarGameEvent e) => [game, e.id, e.kind,
       e.action, e.inputJson, e.summary, e.createdAt.millisecondsSinceEpoch];
-    final wishGames = wishes.where((w) => w.active && w.route == 'game')
+    final wishGames = wishes.where((w) => WishGameEvidence.eligible(w, includePaused: upgrade))
         .map((w) => w.gameId).toSet();
     for (final session in games.sessions.values) {
       // Finish reviewing existing legacy game criteria. New interaction wishes
@@ -426,6 +426,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         final stamp = gameStamp(session.gameId, e);
         add(WishEvidence(id: 'game:${session.gameId}:${e.id}', gameId: session.gameId,
           kind: e.kind == 'outcome' ? 'game_result' : 'game_context',
+          gameOutcome: e.kind == 'outcome' ? clip(e.summary, 4000) : null,
           text: clip('${e.action}\nsubmitted_input=${e.inputJson}\n${e.summary}', 4000), at: e.createdAt),
           stamp, (handle) async {
             final live = (await CedarToyActivityStore.readStateInTransaction(handle))
@@ -484,11 +485,11 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
       if (targetEvidence.contains(e.id) && selectedIds.add(e.id)) selected.add(e);
     }
     final receiptsRaw = await BrainWorkFence.value(txn, WishGameEvidence.key);
-    for (final receipt in WishGameEvidence.collect(receiptsRaw, wishes, now)) {
+    for (final receipt in WishGameEvidence.collect(receiptsRaw, wishes, now, includePaused: upgrade)) {
       // Durable outcome receipts survive short activity-log rotation and reply
       // regeneration. Their own identity, not a later assistant, is authority.
       final rows = WishGameEvidence.decode(receiptsRaw).where((r) => r['id'] == receipt.id &&
-        wishes.any((w) => w.id == r['wish_id'] && w.active && !w.manualHold)).toList();
+        wishes.any((w) => w.id == r['wish_id'] && WishGameEvidence.eligible(w, includePaused: upgrade))).toList();
       final stamp = jsonEncode(rows);
       selected.removeWhere((e) => e.id == receipt.id);
       selected.add(receipt);
@@ -690,8 +691,15 @@ class WishPolicy {
       }
       if (!e.at.isAfter(w.createdAt) || e.at.isAfter(now) ||
           (w.deadline != null && e.at.isAfter(w.deadline!))) return reject('source_time');
-      if (quote.length < 3 || (e.kind == 'user_photo' && u['state'] == 'completed'
-          ? !e.quotesVision(quote) : !e.text.contains(quote))) return reject('quote_mismatch');
+      final completion = u['state'] == 'completed';
+      final quoteMatches = switch (e.kind) {
+        'user_photo' when completion => e.quotesVision(quote),
+        'game_result' when completion => e.quotesOutcome(quote),
+        _ => e.text.contains(quote),
+      };
+      if (quote.length < 3 || !quoteMatches) {
+        return reject(completion && e.kind == 'game_result' ? 'game_outcome_quote_mismatch' : 'quote_mismatch');
+      }
       if (u['same_target'] != true) return reject('target_unconfirmed');
       if (u['confidence'] is! num || (u['confidence'] as num) < .85) return reject('low_confidence');
       if (w.state == 'expired' && u['state'] != 'completed') return reject('expired');

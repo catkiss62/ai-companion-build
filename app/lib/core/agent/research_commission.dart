@@ -50,7 +50,28 @@ class ResearchCommission {
     return restricted;
   }
 
-  static bool offline(String goal) => attachmentOnly(goal) || RegExp(
+  static List<String> sourceTasks(String goal) {
+    final masked = goal.replaceAllMapped(RegExp(r'「[^」]*」|“[^”]*”|"[^"]*"|`[^`]*`'), (m) => 'Ｘ' * m[0]!.length);
+    if (!attachmentOnly(masked) || RegExp(r'(?:全程|整单|整个任务|两[件项](?:事)?都|全部任务|所有任务)[^，。；;\n]{0,12}(?:只|仅|不|禁|离线)').hasMatch(masked)) return const [];
+    final separators = RegExp(r'(?:^|[。；;，,\n]\s*)(?:第[一二12][项件步](?:事)?[：:、]?|另外[一另]?[件项]?(?:事)?[：:]?|同时(?=请?联网))');
+    final explicit = separators.allMatches(masked).map((m) => m.start).where((i) => i > 0).toList();
+    final fallback = RegExp(r'[。；;\n](?=\s*(?:请|再|然后)?(?:联网|上网|在线核对|只根据附件|仅根据附件))');
+    final cuts = explicit.isEmpty ? fallback.allMatches(masked).map((m) => m.start).toList() : explicit;
+    if (cuts.length != 1) return const [];
+    final parts = [goal.substring(0,cuts.single), goal.substring(cuts.single).replaceFirst(RegExp(r'^[。；;，,\n]\s*'),'')];
+    final local = parts.where(attachmentOnly).toList();
+    if (local.length != 1) return const [];
+    final remote = parts.firstWhere((p) => p != local.single);
+    final remoteInstruction = masked.substring(parts.first == remote ? 0 : cuts.single,
+        parts.first == remote ? cuts.single : masked.length);
+    if (_explicitOffline(remoteInstruction) ||
+        !RegExp(r'(?:联网|上网|在线)(?:去|来|再|帮我)?(?:查|读|核|搜|看|获取|确认|对照|比较|访问|打开)').hasMatch(remoteInstruction)) return const [];
+    if (RegExp(r'(?:[，,。；;]\s*)(?:不要|不用|禁止|全程不)(?:联网|上网)[。！!\s]*$').hasMatch(goal)) return const [];
+    return parts;
+  }
+
+  static bool offline(String goal) => sourceTasks(goal).isEmpty && (attachmentOnly(goal) || _explicitOffline(goal));
+  static bool _explicitOffline(String goal) => RegExp(
     r'(?:不需要|不允许|不要|不用|不必|无需|禁止|别|不得|不能)(?:再|去|主动)?(?:联网|上网|网络搜索|外部检索)|离线(?:完成|整理|处理)',
   ).hasMatch(goal);
 
@@ -271,7 +292,47 @@ class ResearchCommission {
     void Function(String)? proposeEdit,
     Map<String, String> savedReadmes = const {},
     http.Client? transport,
+    bool onlineTask = false,
   }) async {
+    final tasks = sourceTasks(goal);
+    if (tasks.isNotEmpty) {
+      final reports = <Map<String,Object?>>[];
+      final receipts = <Map<String,Object?>>[];
+      final refreshed = <String>{}, verified = <String>{}, missing = <String>{};
+      for (final task in tasks) {
+        final local = attachmentOnly(task);
+        final named = reportTargets(task);
+        final childActions = WorkHostActions.requested(task);
+        final childHost = host == null || childActions.isEmpty ? null :
+            WorkHostActions(host.db, host.order, host.thread, host.allowed.intersection(childActions), host.token, goal: task);
+        final html = requestsHtml(task);
+        final result = await run(goal: task, context: const [],
+            supplement: local ? [
+              if (reference != null) reference.message,
+              ...supplement.where((m) => m['content'] is String && (m['content'] as String).startsWith('用户所选图片的视觉观察')),
+            ] : const [], workspace: workspace, host: childHost,
+            reference: local ? reference : null, proposeEdit: local ? proposeEdit : null,
+            priorReports: priorReports.where((r) => named.contains(r['reportTarget'])).toList(),
+            expectedHtml: html, candidateHtml: html ? candidateHtml : null,
+            expectedDigest: html ? expectedDigest : null, onDigest: onDigest, onHtmlCandidate: onHtmlCandidate,
+            cancellation: cancellation, progress: progress, onToolStart: onToolStart, onToolResult: onToolResult,
+            checkpoint: checkpoint == null ? null : (items) => checkpoint([...receipts, ...items]),
+            plan: plan, finishHtml: finishHtml, transport: transport, onlineTask: !local);
+        if (childHost != null) host!.confirmed.addAll(childHost.confirmed);
+        reports.add({'task':task, 'source':local ? 'attachment' : 'online', ...result});
+        receipts.addAll((result['evidence'] as List).whereType<Map<String,Object?>>());
+        refreshed.addAll((result['refresh_targets'] as List? ?? []).whereType<String>());
+        verified.addAll((result['live_readmes'] as List? ?? []).whereType<String>());
+        missing.addAll((result['unverified_repositories'] as List? ?? []).whereType<String>());
+      }
+      final incomplete = reports.any((r) => r['end'] == 'evidence_incomplete');
+      // One failed source must not erase a sibling's successful receipt.
+      return {'tasks':reports, 'end':incomplete ? 'evidence_incomplete' :
+          reports.any((r) => r['end'] == 'budget') ? 'budget' : 'planner_finished',
+        'evidence':receipts,'verified_repositories':verified.toList(),
+        if (refreshed.isNotEmpty) ...{'refresh_targets':refreshed.toList(),'live_readmes':verified.toList(),'unverified_repositories':missing.toList()},
+        for(final report in reports) if(report['delivered_html'] != null) 'delivered_html':report['delivered_html']};
+    }
     final history = <Map<String, Object?>>[
       {'role': 'system', 'content': instruction},
       if (!attachmentOnly(goal)) ...context,
@@ -314,6 +375,7 @@ class ResearchCommission {
         (liveReads.isEmpty || missingTargets().isNotEmpty);
     final seen = <String>{};
     var rounds = 0, calls = 0, pages = 0;
+    var fetchedOnline = false;
     final prompted = <String>{};
     final readRepositories = <String>{};
     final readmes = <String, String>{};
@@ -484,6 +546,10 @@ class ResearchCommission {
                   call.name == 'workspace_read' && (args is! Map || args['name'] != reference?.name && !namedReports.contains(args['name'])))) {
                 throw const FormatException('本轮只使用用户指定的附件');
               }
+              if (onlineTask && call.name == 'workspace_read' &&
+                  (args is! Map || !namedReports.contains(args['name']))) {
+                throw const FormatException('联网子任务只能核对本项指定的报告');
+              }
               if (localOnly && (call.name == search || call.name == read)) {
                 throw const FormatException('本轮资料范围限于本地，外部检索未执行');
               }
@@ -573,7 +639,7 @@ class ResearchCommission {
                   var end = (offset + 16000).clamp(0, original.length).toInt();
                   if (end < original.length && end > offset &&
                       (original.codeUnitAt(end) & 0xfc00) == 0xdc00) end--;
-                  result = attachmentOnly(goal) && name != reference?.name
+                  result = (onlineTask || attachmentOnly(goal)) && name != reference?.name
                       ? {'file':name,'display':'已核对指定写回目标，正文仅使用所选附件'}
                       : {'file': name, 'excerpt': original.substring(offset, end),
                     if (end < original.length) 'next_offset': end};
@@ -742,6 +808,7 @@ class ResearchCommission {
                     }
                     result = {'query': value, 'repositories': rows};
                   }
+                  if (saved == null) fetchedOnline = true;
                 } finally {
                   if (transport == null) client.close();
                 }
@@ -824,7 +891,7 @@ class ResearchCommission {
         final missing = host.allowed.difference(host.confirmed).map((a) => WorkHostActions.labels[a]).join('、');
         throw StateError(host.lastError ?? '$missing 未执行，请明确操作要求、时间或内容');
       }
-      if (lacksFreshEvidence() || unavailableAppReads.isNotEmpty) end = 'evidence_incomplete';
+      if (lacksFreshEvidence() || onlineTask && !fetchedOnline || unavailableAppReads.isNotEmpty) end = 'evidence_incomplete';
       return {
         if (needsLiveRead) ...{
           'refresh_targets': targets.toList(),

@@ -1124,7 +1124,7 @@ class CedarToyAutonomyEngine {
         body: (scope) async {
           final refresh = await _refreshPlayingGuide(now, _client(token), store, session, scope);
           if (refresh != null) return refresh;
-          if (CedarPuzzleState.revealsSolution(session.mode, 'rest', const {}, guide: session.guide)) {
+          if (CedarPuzzleState.revealsSolution(session.mode, 'rest', const {}, guide: session.guide, automatic: session.puzzle.preference == 'auto')) {
             return const CedarAutonomyProgress('puzzle_action_withheld');
           }
           final claimKey='cedar_self_reset_claim_v1:${session.gameId}';
@@ -1903,7 +1903,7 @@ $selectionCatalog''',
       );
       return const CedarAutonomyProgress('invalid_continuation_params');
     }
-    if (CedarPuzzleState.revealsSolution(session.mode, action, params, guide: session.guide)) {
+    if (CedarPuzzleState.revealsSolution(session.mode, action, params, guide: session.guide, automatic: session.puzzle.preference == 'auto')) {
       final saved = await store.discardPuzzleContinuation(session, scope.executionId, now);
       return CedarAutonomyProgress(saved ? 'puzzle_continuation_withheld' : 'planning_or_write_fenced');
     }
@@ -1953,7 +1953,7 @@ $selectionCatalog''',
             guide: '${session.guide}\n${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}',
             playProtocol: await store.loadPlayProtocol());
         if (room.isEmpty || !_containsIdentifier(session.guide, 'state') || missing.isNotEmpty ||
-            CedarPuzzleState.revealsSolution(session.mode, 'state', stateParams, guide: session.guide)) {
+            CedarPuzzleState.revealsSolution(session.mode, 'state', stateParams, guide: session.guide, automatic: session.puzzle.preference == 'auto')) {
           await store.deferContinuation(gameId: session.gameId,
               delay: const Duration(minutes: 2), executionId: scope.executionId);
           return const CedarAutonomyProgress('write_reconciliation_target_unknown');
@@ -2111,7 +2111,7 @@ $selectionCatalog''',
           continuationParamsJson: session.continuationParamsJson,
           lastOutcome: session.lastOutcome,
         );
-        if (CedarPuzzleState.revealsSolution(mode, candidate.action, hydrated, guide: session.guide)) return false;
+        if (CedarPuzzleState.revealsSolution(mode, candidate.action, hydrated, guide: session.guide, automatic: session.puzzle.preference == 'auto')) return false;
         if (!session.permitsRevisedCall(candidate.action, hydrated)) return false;
         if (readOnlyRecovery && !CedarPlatformActionPolicy.isReadOnlyCall(candidate.action, hydrated)) return false;
         if (!session.continuationNeedsReview && session.nextActor == 'companion' && session.repeatsUnchangedRead(candidate.action, hydrated)) return false;
@@ -2257,7 +2257,7 @@ ${arrangements.prompt}'''.trim(),
       continuationParamsJson: session.continuationParamsJson,
       lastOutcome: session.lastOutcome,
     );
-    if (CedarPuzzleState.revealsSolution(mode, action, params, guide: session.guide)) {
+    if (CedarPuzzleState.revealsSolution(mode, action, params, guide: session.guide, automatic: session.puzzle.preference == 'auto')) {
       return const CedarAutonomyProgress('puzzle_action_withheld');
     }
     if (!session.permitsRevisedCall(action, params)) return const CedarAutonomyProgress('guide_recheck_required');
@@ -2402,7 +2402,7 @@ ${arrangements.prompt}'''.trim(),
             action: 'state',
           );
           scope.throwIfPreempted();
-          if (CedarPuzzleState.revealsSolution(mode, 'state', stateParams, guide: session.guide)) {
+          if (CedarPuzzleState.revealsSolution(mode, 'state', stateParams, guide: session.guide, automatic: session.puzzle.preference == 'auto')) {
             return const CedarAutonomyProgress('puzzle_action_withheld');
           }
           await CedarTimedPlayTaskStore(db).recordWork(gameId:session.gameId,

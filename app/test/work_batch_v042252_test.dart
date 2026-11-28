@@ -49,7 +49,8 @@ void main() {
 
   for (final task in ['不要取消取药提醒，取消喝水提醒','取消喝水提醒，不要取消取药提醒',
       '取消喝水和取药提醒，取药那个别取消','取消喝水和取药提醒，保留取药提醒',
-      '取消喝水和取药提醒，不要把取药提醒取消']) {
+      '取消喝水和取药提醒，不要把取药提醒取消', '取消喝水和取药提醒，取药那条先别取消',
+      '取消喝水和取药提醒，取药提醒暂时不要取消']) {
     test('named exclusion survives cancellation and resume: $task',() async {
       final db=await AppDatabase.createForTesting(databaseFactoryFfi);
       addTearDown(db.closeForTesting);mock((_)async=>true);
@@ -373,6 +374,35 @@ void main() {
       expect(ResearchCommission.reportTargets(goal), {'报告-周报.md'});
     });
   }
+  for (final reverse in [true,false]) {
+    test('independent attachment and online sources, reverse=$reverse',() async {
+      const local='只根据附件概括排班', online='联网读取 https://github.com/octocat/hello-world 的最新 README';
+      final goal=reverse?'第一项$online。第二项$local':'第一项$local。第二项$online';
+      var requests=0;
+      final passes=<String,int>{};
+      final result=await ResearchCommission.run(goal:goal,context:[],
+        reference:WorkTextSnapshot('排班.txt','ATTACHMENT_ONLY_SENTINEL'),
+        cancellation:GenerationCancellationToken(),progress:(_,__){},
+        transport:MockClient((_)async{requests++;return http.Response('# VERIFIED_REMOTE',200);}),
+        plan:(messages)async{
+          final g=messages[1]['content'] as String;
+          final isLocal=g.contains(local);
+          final all=jsonEncode(messages);
+          expect(all.contains('ATTACHMENT_ONLY_SENTINEL'), isLocal);
+          if(isLocal)expect(all, isNot(contains('VERIFIED_REMOTE')));
+          passes[g]=(passes[g]??0)+1;
+          return plan(passes[g]==1?call(ResearchCommission.read,{'repository':'octocat/hello-world'}):null);
+        });
+      expect(requests,1);
+      expect(result['end'],'planner_finished');
+      expect(result['verified_repositories'],['octocat/hello-world']);
+      expect(result['tasks'],hasLength(2));
+    });
+  }
+  test('global offline clause still covers both goals',(){
+    expect(ResearchCommission.offline('第一项只根据附件。第二项联网核对项目。全程不要联网'),true);
+  });
+
   test('attachments used alongside web inputs',() {
     expect(ResearchCommission.offline('只根据附件写报告'),true);
     expect(ResearchCommission.offline('不要只根据附件，也不要联网'),true);

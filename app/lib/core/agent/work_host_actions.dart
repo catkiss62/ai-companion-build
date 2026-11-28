@@ -248,10 +248,10 @@ class WorkHostActions {
     return subject.split(RegExp(r'、|以及|和|与')).map(aliases).toList();
   }
 
-  static ({List<Set<String>> targets, Set<String> excluded, bool hasExclusions})
+  static ({List<Set<String>> targets, Set<String> excluded, bool hasExclusions, bool unresolved})
       _scope(String goal, String action, Set<String> knownTitles) {
     final targets = <Set<String>>[], excluded = <String>{};
-    var hasExclusions = false;
+    var hasExclusions = false, unresolved = false;
     for (final raw in _instructionParts(goal)) {
       final clause = raw.trim()
           .replaceFirstMapped(RegExp(r'^(?:请)?(别|不要|不用)把(.+?)(取消|撤销|删除|关闭|改动|修改|调整)(了)?$'),
@@ -281,11 +281,34 @@ class WorkHostActions {
         subject = (after.isNotEmpty ? after : before)
             .split(RegExp(r'改到|改成|改为|推迟到|提前到')).first.trim();
         hasExclusions = true;
+        // Resolve the protected title against the actual reminders or explicit targets.
+        // A longer exact title wins over a title contained inside it.
+        final titles = {...knownTitles, for (final t in targets) ...t}
+            .where((t) => t.isNotEmpty && t != '提醒' && t != '闹钟').toSet();
+        final parts = _names(subject, knownTitles);
+        final resolved = <String>{};
+        for (final aliases in parts) {
+          final exact = titles.intersection(aliases);
+          final matched = exact.isNotEmpty ? exact : titles.where((t) => aliases.any((a) => a.contains(t))).toSet();
+          resolved.addAll(matched.where((t) => !matched.any((longer) => longer != t && longer.contains(t))));
+        }
+        if (resolved.isNotEmpty) {
+          for (final title in resolved) {
+            final names = _names(title, {title}).single;
+            excluded.addAll(names);
+            targets.removeWhere((t) => t.any(names.contains));
+          }
+          continue;
+        }
+        subject = subject.replaceAll(RegExp(r'(?:暂时|暂且|先|目前|现在|那个|那条|这个|这条)+$'), '');
         if (RegExp(r'^(?:都|全部|所有|一律|这些|两个|这两个|任何)?(?:的)?(?:提醒|闹钟)?$').hasMatch(subject)) {
           targets.clear();
           excluded.clear();
+          unresolved = false;
           continue;
         }
+        if (knownTitles.isNotEmpty && action != 'remind' &&
+            RegExp(r'那个|这个|那条|这条|前者|后者|其中|另一个|上一个').hasMatch(clause)) unresolved = true;
       } else {
         final createShort = action == 'remind' && targets.isNotEmpty &&
             RegExp(r'^(?:今天|明天|后天)?(?:上午|下午|早上|晚上)?[零一二三四五六七八九十两0-9]+(?:点|时|[:：]\d\d)').hasMatch(clause);
@@ -309,7 +332,7 @@ class WorkHostActions {
         }
       }
     }
-    return (targets: targets, excluded: excluded, hasExclusions: hasExclusions);
+    return (targets: targets, excluded: excluded, hasExclusions: hasExclusions, unresolved: unresolved);
   }
 
   Future<String> _target(List<Set<String>> subjects, List entries, String latest, Map args) async {
@@ -393,6 +416,11 @@ class WorkHostActions {
       for (final receipt in items) if (receipt['target_title'] is String) receipt['target_title'] as String,
     });
     final targets = scope.targets;
+    final protectedIds = {
+      for (final e in entries.whereType<Map>()) if (scope.excluded.contains(e['title'])) e['id'],
+      for (final e in items) if (scope.excluded.contains(e['target_title'])) e['id'],
+    };
+    if (scope.unresolved) throw const FormatException('尚不能确定要求保留的是哪条提醒');
     if (scope.hasExclusions && targets.isEmpty) throw const FormatException('这项提醒操作已撤回');
     final count = action == 'remind' && !scope.hasExclusions ? explicitCount ?? clauses.toSet().length :
         targets.map((s) => (s.toList()..sort()).join('|')).toSet().length;
@@ -434,7 +462,7 @@ class WorkHostActions {
     final index = entries.indexWhere((e) => e is Map && e['id'] == id);
     final targetTitle = index >= 0 ? entries[index]['title'] : null;
     final requestedTitle = action == 'remind' ? text : args['target'];
-    if ([requestedTitle, targetTitle, receipt?['target_title'], receipt?['entry']?['title']].any(scope.excluded.contains)) {
+    if (protectedIds.contains(id) || [requestedTitle, targetTitle, receipt?['target_title'], receipt?['entry']?['title']].any(scope.excluded.contains)) {
       throw const FormatException('本轮要求保留这条提醒');
     }
     if (action == 'remind' && scope.hasExclusions && verifying == null &&

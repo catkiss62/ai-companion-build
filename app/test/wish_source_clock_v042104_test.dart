@@ -81,6 +81,42 @@ void main() {
         expected: await db.getSetting(WishStore.stateKey) ?? '',
         fence: (await db.captureBrainWorkFence())!), isTrue);
     }
+    for(final scenario in ['input','output','aged','manual']){
+      test('game receipt completion and upgrade eligibility: $scenario',()async{
+        final w=wish();
+        final persisted=WishGameEvidence.append(raw:'',wishes:[w],gameId:'white_room',eventId:'one',
+          action:'submit',input:scenario=='input'?'纸角折痕指向钟楼':'按下按钮',
+          output:scenario=='input'?'猜测错误，请再试一次':'纸角折痕指向钟楼',at:at(10));
+        await seed(scenario=='manual'?w.copyWith(state:'paused',manualHold:true):w);
+        await db.setSetting(WishGameEvidence.key,persisted);
+        var calls=0; var found=false;
+        final app=WishEngine(db,reviewer:(m)async{
+          calls++;found=(m['sources'] as List).any((s)=>s['id']=='game:white_room:one');
+          if(found) return update('game:white_room:one','completed','纸角折痕指向钟楼');
+          return {'updates':[]};
+        });
+        await app.maybeRefresh(now:scenario=='aged'?at(14).add(const Duration(days:32)):at(14),upgradeOnly:true);
+        final state=(await WishStore(db).load()).single.state,marked=await db.getSetting(WishEngine.upgradeKey);
+        final kept=WishGameEvidence.decode((await db.getSetting(WishGameEvidence.key))!).length;
+        expect(state, scenario == 'input' ? 'active' : scenario == 'manual' ? 'paused' : 'completed');
+        expect(marked,'1');
+        expect(calls,scenario=='manual'?0:1);
+        expect(found, scenario != 'manual');
+        expect(kept,1);
+      });
+    }
+    test('legacy game receipt survives rotation for its naturally paused owner', () {
+      final paused=wish().copyWith(state:'paused',autoPausedAt:at(12));
+      final old=jsonEncode([{'id':'game:white_room:old','wish_id':'w','game_id':'white_room',
+        'at':at(10).millisecondsSinceEpoch,
+        'text':'action=guess\nsubmitted_input=错误猜测\nreturned_outcome=真正的回包'}]);
+      final retained=WishGameEvidence.append(raw:old,wishes:[paused],gameId:'other',
+        eventId:'later',action:'step',input:'',output:'',at:at(13));
+      final item=WishGameEvidence.collect(retained,[paused],at(14),includePaused:true).single;
+      expect(item.quotesOutcome('错误猜测'),false);
+      expect(item.quotesOutcome('真正的回包'),true);
+      expect(WishGameEvidence.collect(retained,[paused],at(14)),isEmpty);
+    });
     test('review 12 progress cannot hide decision 11 from review 14 beyond latest sixteen', () async {
       await seed(wish());
       const quote = '白房间的愿望我想通了，不再追求纸角折痕的答案了';

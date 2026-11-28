@@ -36,14 +36,39 @@ class CedarPuzzleState {
   }
 
   static CedarParticipationMode declaredMode(String guide) {
-    // Prefer an explicit guide header; leave ambiguous prose to the normal planner.
-    final heading = guide.split(RegExp(r'[。；;\n]')).first.trim();
-    if (RegExp(
-      r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?(?:(?:独立|单人)(?:推理)?解谜|解谜模式|解谜游戏)',
-    ).hasMatch(heading))
-      return CedarParticipationMode.puzzle;
-    if (RegExp(r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?单人(?:游戏)?$').hasMatch(heading))
-      return CedarParticipationMode.solo;
+    CedarParticipationMode decodeLabel(String value) {
+      final label = value.trim().toLowerCase();
+      if (RegExp(r'^(?:puzzle|(?:独立|单人)?(?:推理)?解谜(?:模式|游戏)?)$').hasMatch(label)) {
+        return CedarParticipationMode.puzzle;
+      }
+      return RegExp(r'^(?:solo|单人(?:游戏)?)$').hasMatch(label)
+          ? CedarParticipationMode.solo : CedarParticipationMode.unknown;
+    }
+    final text = guide.trim();
+    if (text.startsWith('{')) {
+      try {
+        final data = jsonDecode(text);
+        if (data is Map) {
+          for (final key in ['participation_mode','game_type','mode','游戏类型','游玩方式','模式']) {
+            final value = data[key];
+            if (value is String && decodeLabel(value) != CedarParticipationMode.unknown) {
+              return decodeLabel(value);
+            }
+          }
+          if (data['guide'] is String) return declaredMode(data['guide'] as String);
+        }
+      } on FormatException { /* A mixed-format guide may still contain a declaration. */ }
+    }
+    final lines = const LineSplitter().convert(text);
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trim().replaceFirst(RegExp(r'^#{1,6}\s+|^[-*]\s+'), '')
+          .replaceAll('**','').split(RegExp(r'[。；;]')).first.trim();
+      final field = RegExp(r'^(?:游玩方式|游戏类型|模式)\s*[:：]\s*(.+)$').firstMatch(line);
+      if (field != null || i == 0) {
+        final mode = decodeLabel(field?[1] ?? line);
+        if (mode != CedarParticipationMode.unknown) return mode;
+      }
+    }
     return CedarParticipationMode.unknown;
   }
 
@@ -76,8 +101,9 @@ class CedarPuzzleState {
     String action,
     Map<String, Object?> params, {
     String guide = '',
+    bool automatic = false,
   }) {
-    if (mode != CedarParticipationMode.puzzle &&
+    if (!automatic && mode != CedarParticipationMode.puzzle &&
         mode != CedarParticipationMode.unknown)
       return false;
     final raw = (action == 'cmd' ? params['command']?.toString() ?? '' : action)
