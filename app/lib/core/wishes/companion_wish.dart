@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 /// A durable intention, independent of a transient Thought or tool attempt.
@@ -262,6 +263,44 @@ class WishEvidence {
   final String? caption, vision, gameOutcome;
 
   bool quotesOutcome(String quote) => (gameOutcome ?? text).contains(quote);
+
+  bool contradictsGameCriterion(String criterion, String quote) {
+    final wantsFailure = RegExp(r'体验失败|观察失败|(?:猜错|答错|失败)(?:一次|时的反应|的结果)|不要求(?:答对|猜对|成功)|无论.{0,4}(?:成败|对错)').hasMatch(criterion);
+    final actionOnly = RegExp(r'尝试|提交|试一次|试一试').hasMatch(criterion) &&
+        !RegExp(r'猜中|猜对|答对|正确|通关|获胜|赢得|赢下|破解|解开|解出').hasMatch(criterion);
+    if (wantsFailure || actionOnly || !RegExp(r'猜中|猜对|答对|解开|解出|破解|通关|获胜|赢得|赢下|成功|solve|win|guess correctly',caseSensitive:false).hasMatch(criterion)) return false;
+    final outcome=(gameOutcome ?? text).trim();
+    const marker='[MCP_STRUCTURED_CONTENT]';
+    final split=outcome.lastIndexOf(marker);
+    final prose=split<0 ? outcome : outcome.substring(0,split);
+    final data=split<0 ? outcome : outcome.substring(split+marker.length).trim();
+    if (data.startsWith('{')) {
+      try {
+        final root=jsonDecode(data);
+        if (root is Map) {
+          for (final verdict in [root,root['result'],root['outcome']].whereType<Map>()) {
+            final keys = {
+              if (RegExp(r'猜|答|谜|解开|破解|解出|solve|guess',caseSensitive:false).hasMatch(criterion))
+                ...['correct','is_correct','solved'],
+              if (RegExp(r'获胜|胜利|通关|赢得|赢下|win',caseSensitive:false).hasMatch(criterion))
+                ...['won','solved'],
+              'success',
+            };
+            if (keys.any((key)=>verdict[key]==false) ||
+                ['verdict','status','result','outcome'].any((key)=>
+                    const {'wrong','incorrect','lost','defeat','failed'}.contains(verdict[key]))) return true;
+          }
+        }
+      } on FormatException { /* Other games return only text. */ }
+    }
+    final statements=prose.split(RegExp(r'[。！？!？;；\n]'));
+    final failure=RegExp(r'^(?:可惜[，, ]*)?(?:(?:你|本次|这次|本轮)(?:的猜测|作答|回答|提交)?[，,：: ]*)?(?:猜错了?|答错了?|答案错误|回答错误|猜测错误|回答不正确|未猜中|未通过|挑战失败|未通关|wrong answer\b|incorrect\b|you lost\b)(?:$|[，,：:！!\s])',caseSensitive:false);
+    if (statements.any((line)=>failure.hasMatch(line.trim()))) return true;
+    final echo=RegExp(r'^(?:你(?:提交|输入|填写)的(?:猜测|答案|作答)|你的(?:猜测|作答|答案)|your (?:guess|answer|submission))\s*(?:是|为|[:：])',caseSensitive:false);
+    return statements.any((s)=>echo.hasMatch(s.trim()) && s.contains(quote)) &&
+        !statements.any((s)=>!echo.hasMatch(s.trim()) &&
+            RegExp(r'答对|猜对|正确答案|猜中|成功|恭喜|通关|胜利|correct|solved',caseSensitive:false).hasMatch(s));
+  }
 
   bool quotesVision(String quote) {
     final actual = vision ?? (text.startsWith('视觉识别：') ? text.substring('视觉识别：'.length) : '');

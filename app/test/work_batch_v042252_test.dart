@@ -47,6 +47,58 @@ void main() {
     toolCalls: [if (c != null) c],
   );
 
+  for(final which in ['two_reminders','one_reminder','resume','remote_miss']){
+    test('per-task calendar receipts across completion and restart: $which',()async{
+      final db=await AppDatabase.createForTesting(databaseFactoryFfi);addTearDown(db.closeForTesting);mock((_)async=>true);
+      const first='第一项只根据附件概括排班，明天九点提醒我喝水';
+      const second='第二项联网读取 https://github.com/octocat/hello-world 的最新 README';
+      final goal='$first。$second${which=='one_reminder'?'':'，明天十点提醒我取药'}';
+      final host=WorkHostActions(db,'mixed','T',WorkHostActions.requested(goal),GenerationCancellationToken(),goal:goal);
+      final day=DateTime.now().add(const Duration(days:1)).toIso8601String().substring(0,10);
+      if(which=='resume'){
+        await WorkHostActions(db,'mixed','T',{'remind'},GenerationCancellationToken(),goal:first)
+          .execute({'action':'remind','text':'喝水','local_time':'${day}T09:00'});
+      }
+      final rounds=<String,int>{};final errors=<Object?>[];
+      final res=await ResearchCommission.run(goal:goal,context:[],host:host,reference:WorkTextSnapshot('表.txt','明天上班'),
+        cancellation:GenerationCancellationToken(),progress:(_,__){}, onToolResult:(r){if(r.containsKey('error'))errors.add(r['error']);},
+        transport:MockClient((_)async=>http.Response('Repository README',200)),
+        plan:(msgs)async{
+          final g=msgs[1]['content'] as String;final local=g.contains('排班');
+          final n=rounds.update(g,(i)=>i+1,ifAbsent:()=>0);
+          if(!local && n==0)return plan(call(ResearchCommission.read,{'repository':'octocat/hello-world'}));
+          if(local && n==0 || !local && n==1 && which!='one_reminder' && which!='remote_miss')
+            return plan(call(WorkHostActions.name,{'action':'remind','text':local?'喝水':'取药','local_time':local?'${day}T09:00':'${day}T10:00'}));
+          return plan();
+        });
+      expect(res['end'],which=='remote_miss'?'delivery_incomplete':'planner_finished');
+      expect(errors,isEmpty);
+      expect((await CalendarReminderStore(db).load()).map((r)=>r.title).toList(),
+        which=='one_reminder'||which=='remote_miss'?['喝水']:['喝水','取药']);
+    });
+  }
+
+  for(final missing in [true,false]){
+    test('independent online sibling still runs after missing report=$missing',()async{
+      final ws=await workspace();const goal='第一项只根据附件生成并保存报告-排班.md。第二项联网读取 https://github.com/octocat/hello-world 的最新 README';
+      final rounds=<String,int>{}; var requests=0; String end='';
+      try {
+        final res=await ResearchCommission.run(goal:goal,context:[],workspace:ws,reference:WorkTextSnapshot('表.txt','明天上班'),
+          cancellation:GenerationCancellationToken(),progress:(_,__){},
+          transport:MockClient((_)async{requests++;return http.Response('README',200);}),
+          plan:(msgs)async{
+            final g=msgs[1]['content'] as String;final n=rounds.update(g,(i)=>i+1,ifAbsent:()=>0);
+            if(n==0 && g.contains('第一项') && !missing)return plan(call('workspace_save',{'kind':'报告','title':'排班','body':'明天上班'}));
+            if(n==0 && g.contains('第二项'))return plan(call(ResearchCommission.read,{'repository':'octocat/hello-world'}));
+            return plan();
+          });end=res['end'].toString();
+      }on StateError catch(e){end='interrupted: ${e.message}';}
+      expect(rounds,hasLength(2));
+      expect(requests,1);
+      expect(end,missing?'delivery_incomplete':'planner_finished');
+    });
+  }
+
   for (final task in ['不要取消取药提醒，取消喝水提醒','取消喝水提醒，不要取消取药提醒',
       '取消喝水和取药提醒，取药那个别取消','取消喝水和取药提醒，保留取药提醒',
       '取消喝水和取药提醒，不要把取药提醒取消', '取消喝水和取药提醒，取药那条先别取消',

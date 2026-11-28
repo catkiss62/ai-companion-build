@@ -179,6 +179,29 @@ void main() {
       expect(arcade.plays,['look']);
     });
   }
+  for (final item in ['get_answer','read_draft','show_solution']) {
+    test('ordinary player draft dispatched while official solution stays hidden: $item',()async{
+      plannedMode='solo';firstAction=item;
+      final description=item=='show_solution'?'打开本题官方完整谜底':'读取玩家上次保存的作答草稿，不含标准解答';
+      final s=await store.recordGuide(gameId:plannedGame,guide:'单人游戏。$item：$description。look：观察。');
+      final progress=await engine.continueDue(now:await makeDue(s));
+      expect(arcade.plays,[item=='show_solution'?'look':item],reason:progress.state);
+    });
+  }
+
+  for (final separator in ['，', '。', '\n']) {
+    test('a draft read that also displays the solution stays blocked ($separator)', () async {
+      plannedMode = 'solo';
+      firstAction = 'get_answer';
+      final session = await store.recordGuide(
+        gameId: plannedGame,
+        guide: '单人游戏。get_answer：读取玩家保存的作答草稿${separator}同时显示完整答案。look：观察。',
+      );
+      await engine.continueDue(now: await makeDue(session));
+      expect(arcade.plays, ['look']);
+    });
+  }
+
   test('restores automatic preference after a known guide revision', () async {
     const game='seasonal_puzzle';
     await store.recordGuide(gameId:game,guide:'单人游戏。look 观察。');

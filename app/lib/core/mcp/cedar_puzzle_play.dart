@@ -96,6 +96,59 @@ class CedarPuzzleState {
     return false;
   }
 
+  // Some games use get_answer to read the player's saved draft. Only a matching,
+  // unambiguous entry for the argument-free draft read can override its name.
+  static bool _readsOwnDraft(String action, String guide, Map<String,Object?> params) {
+    if (!RegExp(r'^(?:get|read|view)[_-]answer$',caseSensitive:false).hasMatch(action) ||
+        params.keys.any((k) => !const {'command','room','room_id','session_id','game_id'}.contains(k))) {
+      return false;
+    }
+    final descriptions = <String>[];
+    void add(Object? item) {
+      if (item is String) descriptions.add(item);
+      if (item is Map) {
+        // A selector or default may point at a different page of the same tool.
+        if (['parameters','params','inputSchema','arguments','properties'].any((key) {
+          final spec=item[key];
+          return spec is Map && (spec['properties'] ?? spec) is Map &&
+              ((spec['properties'] ?? spec) as Map).keys.any((k) => k != 'type');
+        })) descriptions.add('');
+        descriptions.add(['description','desc','summary','label','title','说明','描述']
+            .map((k)=>item[k]).whereType<String>().join(' '));
+      }
+    }
+    void visit(Object? node) {
+      if (node is List) { for (final entry in node) { visit(entry); } }
+      if (node is! Map) return;
+      if (node.containsKey(action)) add(node[action]);
+      if (['name','id','action','command'].any((k)=>node[k]==action)) add(node);
+      for (final key in ['actions','commands','tools','guide']) { visit(node[key]); }
+    }
+    final raw=guide.trim();
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+      try { visit(jsonDecode(raw)); } on FormatException { return false; }
+    } else {
+      final entry=RegExp('(?:^|[。；;\\n])\\s*(?:[-*]\\s*)?[`]?'+RegExp.escape(action)+
+          '[`]?\\s*[:：—-]?\\s*([^。；;\\n]+)',caseSensitive:false);
+      final plain = raw.replaceAll('**', '');
+      final nextAction = RegExp(
+        r'(?:^|[。；;\n])\s*(?:[-*]\s*)?`?[a-zA-Z][\w-]*`?\s*[:：—-]',
+      );
+      for (final match in entry.allMatches(plain)) {
+        final rest = plain.substring(match.end);
+        final end = nextAction.firstMatch(rest)?.start ?? rest.length;
+        descriptions.add('${match[1]}${rest.substring(0, end)}');
+      }
+    }
+    bool draft(String description) {
+      final clean=description.replaceAll(RegExp(r'(?:不含|不包含|不显示|不提供|不会显示)(?:标准|正确|官方)?(?:答案|解答|谜底)|without (?:the )?(?:official |correct )?(?:solution|answer)',caseSensitive:false),'');
+      if (_describesReveal(clean)) return false;
+      return RegExp(r'(?:读取|查看|返回|显示).{0,8}(?:玩家|你|自己).{0,18}(?:草稿|已提交的作答|保存的作答)|(?:read|view|get|return)s?\s+(?:the\s+)?(?:player.s|your|own)\s+(?:saved\s+|previous\s+)?(?:draft|submission)',caseSensitive:false).hasMatch(clean) &&
+          !RegExp(r'谜底|攻略|标准答案|官方解答|正确答案|或者|也可|也会|\bor\b|solution|answer key',caseSensitive:false).hasMatch(clean);
+    }
+    return descriptions.isNotEmpty && descriptions.every(draft);
+  }
+
   static bool revealsSolution(
     CedarParticipationMode mode,
     String action,
@@ -109,7 +162,8 @@ class CedarPuzzleState {
     final raw = (action == 'cmd' ? params['command']?.toString() ?? '' : action)
         .trim();
     if (raw.isEmpty) return false;
-    if (_revealName.hasMatch(raw.toLowerCase().replaceAll(RegExp(r'\s+'), '_')))
+    if (_revealName.hasMatch(raw.toLowerCase().replaceAll(RegExp(r'\s+'), '_')) &&
+        !_readsOwnDraft(raw, guide, params))
       return true;
     final command = raw.split(RegExp(r'\s+')).first;
     final selections = <String,Object?>{...params};

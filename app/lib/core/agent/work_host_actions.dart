@@ -16,8 +16,54 @@ class WorkHostActions {
     this.allowed,
     this.token, {
     this.goal = '',
+    this.relatedOrders = const [],
   });
   final String goal;
+  final List<String> relatedOrders;
+
+  Future<WorkHostActions> forTask(List<String> tasks, int index) async {
+    final ids = [for (var i = 0; i < tasks.length; i++) '$order-part-${i+1}'];
+    final actions = allowed.intersection(requested(tasks[index]));
+    final child = WorkHostActions(db, ids[index], thread, actions, token,
+        goal: tasks[index], relatedOrders: [order, ...ids]);
+    // Old multi-part orders shared a key. Only reuse receipts uniquely attributable
+    // to this part; leave original data intact for an interrupted upgrade.
+    for (final action in actions) {
+      final oldKey = 'work_action_${order}_$action';
+      final key = 'work_action_${ids[index]}_$action';
+      final raw = await db.getSetting(oldKey);
+      if (raw == null || raw.isEmpty || (await db.getSetting(key) ?? '').isNotEmpty) continue;
+      final eligible = [for (var i=0;i<tasks.length;i++) if (requested(tasks[i]).contains(action)) i];
+      final original = jsonDecode(raw) as Map;
+      final audio = action == 'speak' || action == 'ring';
+      final mine = <Map>[];
+      for (final item in audio ? [original] : _records(original)) {
+        var owners = eligible;
+        if (eligible.length > 1) {
+          final title = item['target_title'] ?? item['entry']?['title'];
+          if (title is String && title.isNotEmpty) {
+            owners = eligible.where((i) {
+              final scope = _scope(tasks[i],action,{title});
+              return scope.targets.any((t) => t.contains(title)) && !scope.excluded.contains(title);
+            }).toList();
+          }
+          if (owners.length != 1) {
+            throw WorkDeliveryFailure('旧版的操作回执无法唯一归属到子任务，请核对后重新指定');
+          }
+        }
+        if (owners.single == index) mine.add(item);
+      }
+      if (mine.isNotEmpty) {
+        final ok=await db.setSettingsAtomically({key:jsonEncode(audio ? mine.single : {'items':mine})},
+            expectedSettings:{key:'',oldKey:raw});
+        if (!ok && (await db.getSetting(key) ?? '').isEmpty) {
+          throw WorkDeliveryFailure('旧版操作回执已更新，请继续任务重新核对');
+        }
+      }
+    }
+    return child;
+  }
+
   final AppDatabase db;
   final String order;
   final String thread;
@@ -154,7 +200,7 @@ class WorkHostActions {
         }
       } catch (error) {
         token.throwIfCancelled();
-        if (error is FormatException) throw StateError(error.message);
+        if (error is FormatException) throw WorkDeliveryFailure(error.message);
         rethrow;
       }
     }
@@ -376,10 +422,12 @@ class WorkHostActions {
     // A cancellation is terminal for a reminder ID. Old saves use the same IDs
     // and can recover the final state without timestamps or a new journal.
     for (final later in [if (action != 'cancel') 'cancel', if (action == 'remind') 'reschedule']) {
-      final raw = await db.getSetting('work_action_${order}_$later');
-      if (raw == null || raw.isEmpty) continue;
-      final recorded = _records(jsonDecode(raw) as Map).where((r) => r['id'] == id).lastOrNull;
-      if (recorded != null) return recorded['entry'] as Map?;
+      for (final owner in {order,...relatedOrders}) {
+        final raw = await db.getSetting('work_action_${owner}_$later');
+        if (raw == null || raw.isEmpty) continue;
+        final recorded = _records(jsonDecode(raw) as Map).where((r) => r['id'] == id).lastOrNull;
+        if (recorded != null) return recorded['entry'] as Map?;
+      }
     }
     return original;
   }
@@ -560,4 +608,9 @@ class WorkHostActions {
       'reused': receipt != null,
     };
   }
+}
+
+/// A known unmet deliverable that an independent sibling can work past.
+class WorkDeliveryFailure extends StateError {
+  WorkDeliveryFailure(super.message);
 }

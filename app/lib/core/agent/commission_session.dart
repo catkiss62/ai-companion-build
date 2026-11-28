@@ -475,6 +475,10 @@ class CommissionSession {
                 if (success == null) onPhase?.call(CommissionPhase.tool);
                 reportStep(s);
               },
+              onTaskProgress: (parts) async {
+                record['sourceTasks'] = parts;
+                await save();
+              },
               checkpoint: (items) async {
                 final checked = items.map((item)=>item['reportTarget']).whereType<String>().toSet();
                 record['evidence'] = [
@@ -520,7 +524,13 @@ class CommissionSession {
         }
       }
       cancel.throwIfCancelled();
-      if(deferred.isNotEmpty) {
+      final partial = report['tasks'] is List && (report['tasks'] as List)
+          .whereType<Map>().any((t) => t['end'] != 'planner_finished');
+      final pending = partial ? (report['tasks'] as List).whereType<Map>()
+          .where((t) => t['end'] != 'planner_finished')
+          .map((t) => '${t['task']}（${t['reason'] ?? '交付或资料仍待核实'}）').join('；') : '';
+      if (partial) answer += '\n\n尚未完成：$pending';
+      if(deferred.isNotEmpty && !partial) {
         final after = WorkHostActions(db,order,threadId ?? id,deferred,cancel,goal:effectiveGoal);
         activity.beginTool(WorkHostActions.name,'整理后响铃');
         try {
@@ -532,7 +542,8 @@ class CommissionSession {
         cancel.throwIfCancelled();
       }
       record.addAll({
-        'state': 'completed',
+        'state': partial ? 'interrupted' : 'completed',
+        if(partial) 'failureReason':pending,
         'answer': answer,
         'at': DateTime.now().millisecondsSinceEpoch,
       });

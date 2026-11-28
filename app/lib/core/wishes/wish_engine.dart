@@ -78,7 +78,7 @@ class WishEngine {
 最多建议一个新愿望；can_generate=false 仅禁止生成 new_wish，仍须审查已有愿望的完成或自主处置，不等于停止 updates。结合已有/历史愿望语义去重，近期放弃、过期或已完成的同一目标不得换句话重新产生。
 新愿望的 goal 用第一人称写一件具体想一起做的事（6~100字），reason 说明为什么，next_step 是一个可选的小行动。criterion 写清真实参与怎样体现，completion_kind 只填 user_photo 或 user_text。需要用户照片时，网络图片或口头答应不能代替。缺少可核验的互动就让 new_wish 为 null。
 wishes 是要复查的完整状态。wish_history 仅用于语义去重；其中的旧进度不能作为新经历或完成证据。
-复查旧条目时保留原 route 和 criterion。game 表示真实游戏结果，aspiration 表示暂时只有向往，两种旧标签均可能包含共同愿望。游戏目录、指南和历史回执仅供核对机制、角色和已发生的结果，资料多不代表偏好更强。缺资料时保留旧目标，不自行编造玩法、时间、感官或计数。客观游戏达成的 quote 必须逐字引用 returned_outcome；submitted_input 仅供理解动作。涉及首次或增加时须有基线或明确回执。愿望不能替代用户同意共玩、覆盖存档或继续游戏。
+复查旧条目时保留原 route 和 criterion。game 表示真实游戏结果，aspiration 表示暂时只有向往，两种旧标签均可能包含共同愿望。游戏目录、指南和历史回执仅供核对机制、角色和已发生的结果，资料多不代表偏好更强。缺资料时保留旧目标，不自行编造玩法、时间、感官或计数。客观游戏达成的 quote 必须逐字引用 returned_outcome；submitted_input 和回显猜测仅供理解动作，须核实本次判词。判断成功型愿望时，回包明确判错不能结案；尝试或观察失败按原条件。涉及首次或增加时须有基线或明确回执。愿望不能替代用户同意共玩、覆盖存档或继续游戏。
 source_ids 引用实际灵感来源，game baseline 来自给定游戏真实结果；不得把助手说过/念头/愿望本身当成发生过的事实。deadline 仅目标本身带时间时填写 ISO8601，不能默认给所有愿望加截止时间。
 updates 只评估给定愿望的资料；旧创建的愿望也须评估。按来源使用完整格式：
 客观结果或用户决定：{id,state,progress,evidence_id,quote,confidence,same_target,observed,expressed}。
@@ -745,6 +745,9 @@ class WishPolicy {
       if (state == 'completed') {
         if (w.route == 'aspiration' || w.criterion.isEmpty) return reject('missing_objective_criterion');
         if (u['observed'] != true || !e.timeKnown) return reject('result_not_observed');
+        if (e.kind == 'game_result' && e.contradictsGameCriterion(w.criterion, quote)) {
+          return reject('game_verdict_contradicts_criterion');
+        }
         if (e.kind != w.completionKind) {
           if (w.route != 'user' || w.completionKind != 'user_photo' || e.kind != 'user_text') {
             return reject('completion_source_kind');

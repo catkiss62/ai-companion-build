@@ -1,3 +1,5 @@
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
+import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/database/app_database.dart';
@@ -80,6 +82,36 @@ void main() {
       expect(await WishStore(db).save([value],
         expected: await db.getSetting(WishStore.stateKey) ?? '',
         fence: (await db.captureBrainWorkFence())!), isTrue);
+    }
+    for(final which in ['echo_wrong','true_result','transport_error','no_echo','attempt','structured_wrong']) {
+      test('current outcome verdict validates game criterion $which',()async{
+        final now=DateTime.now();
+        final w=CompanionWish(id:'w',goal:'解出钟楼谜题',reason:'一起解谜',route:'game',gameId:'white_room',
+            criterion:which=='attempt'?'成功提交一次猜测':'成功猜中这个谜底',completionKind:'game_result',
+            createdAt:now.subtract(const Duration(hours:4)),updatedAt:now.subtract(const Duration(hours:2)));
+        await seed(w);
+        final game=CedarToyActivityStore(db);
+        await game.recordGuide(gameId:'white_room',guide:'独立解谜。submit 提交自己的猜测');
+        const answer='纸角折痕指向钟楼';
+        final out=which=='structured_wrong'?'你的推断为纸角折痕指向钟楼':which=='true_result'?'答对了，谜底是纸角折痕指向钟楼。':
+           which=='no_echo'?'猜错了，请重试。':'你提交的猜测是「纸角折痕指向钟楼」。猜错了，请重试。';
+        await game.recordPlay(gameId:'white_room',action:'submit',submittedParams:{'guess':answer},
+            outcome:McpToolOutcome(isError:which=='transport_error',
+              structuredContent:which=='structured_wrong'?{'result':{'correct':false}}:null,
+              content:[McpContentBlock(kind:McpContentKind.text,text:out)]),
+            mode:CedarParticipationMode.puzzle,nextActor:'companion',shareLevel:'quiet',invitationApproved:false);
+        String kind='';
+        final engine=WishEngine(db,reviewer:(m)async{
+          final rows=(m['sources'] as List).cast<Map>().where((s)=>s['kind']=='game_result');
+          if(rows.isEmpty)return {'updates':[{'id':'w','state':'unchanged','reason_code':'no_new_evidence','evidence_ids':[]}]};
+          kind=rows.first['kind'].toString();
+          return update(rows.first['id'].toString(),'completed',answer);
+        });
+        await engine.maybeRefresh(now:DateTime.now().add(const Duration(minutes:2)),upgradeOnly:true);
+        expect((await WishStore(db).load()).single.state,
+            ['true_result','attempt'].contains(which)?'completed':'active');
+        if(which=='transport_error')expect(kind,isEmpty);
+      });
     }
     for(final scenario in ['input','output','aged','manual']){
       test('game receipt completion and upgrade eligibility: $scenario',()async{

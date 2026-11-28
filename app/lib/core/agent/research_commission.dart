@@ -293,41 +293,58 @@ class ResearchCommission {
     Map<String, String> savedReadmes = const {},
     http.Client? transport,
     bool onlineTask = false,
+    Future<void> Function(List<Map<String,Object?>> tasks)? onTaskProgress,
   }) async {
     final tasks = sourceTasks(goal);
     if (tasks.isNotEmpty) {
       final reports = <Map<String,Object?>>[];
       final receipts = <Map<String,Object?>>[];
       final refreshed = <String>{}, verified = <String>{}, missing = <String>{};
-      for (final task in tasks) {
+      for (var i=0; i<tasks.length; i++) {
+        final task = tasks[i];
+        cancellation.throwIfCancelled();
         final local = attachmentOnly(task);
         final named = reportTargets(task);
         final childActions = WorkHostActions.requested(task);
-        final childHost = host == null || childActions.isEmpty ? null :
-            WorkHostActions(host.db, host.order, host.thread, host.allowed.intersection(childActions), host.token, goal: task);
-        final html = requestsHtml(task);
-        final result = await run(goal: task, context: const [],
-            supplement: local ? [
-              if (reference != null) reference.message,
-              ...supplement.where((m) => m['content'] is String && (m['content'] as String).startsWith('用户所选图片的视觉观察')),
-            ] : const [], workspace: workspace, host: childHost,
-            reference: local ? reference : null, proposeEdit: local ? proposeEdit : null,
-            priorReports: priorReports.where((r) => named.contains(r['reportTarget'])).toList(),
-            expectedHtml: html, candidateHtml: html ? candidateHtml : null,
-            expectedDigest: html ? expectedDigest : null, onDigest: onDigest, onHtmlCandidate: onHtmlCandidate,
-            cancellation: cancellation, progress: progress, onToolStart: onToolStart, onToolResult: onToolResult,
-            checkpoint: checkpoint == null ? null : (items) => checkpoint([...receipts, ...items]),
-            plan: plan, finishHtml: finishHtml, transport: transport, onlineTask: !local);
-        if (childHost != null) host!.confirmed.addAll(childHost.confirmed);
+        Map<String,Object?> result;
+        var childEvidence = <Map<String,Object?>>[];
+        try {
+          final childHost = host == null || childActions.isEmpty ? null : await host.forTask(tasks,i);
+          final html = requestsHtml(task);
+          result = await run(goal: task, context: const [],
+              supplement: local ? [
+                if (reference != null) reference.message,
+                ...supplement.where((m) => m['content'] is String && (m['content'] as String).startsWith('用户所选图片的视觉观察')),
+              ] : const [], workspace: workspace, host: childHost,
+              reference: local ? reference : null, proposeEdit: local ? proposeEdit : null,
+              priorReports: priorReports.where((r) => named.contains(r['reportTarget'])).toList(),
+              expectedHtml: html, candidateHtml: html ? candidateHtml : null,
+              expectedDigest: html ? expectedDigest : null, onDigest: onDigest, onHtmlCandidate: onHtmlCandidate,
+              cancellation: cancellation, progress: progress, onToolStart: onToolStart, onToolResult: onToolResult,
+              checkpoint: (items) async {
+                childEvidence = List.of(items);
+                await checkpoint?.call([...receipts,...childEvidence]);
+              },
+              plan: plan, finishHtml: finishHtml, transport: transport, onlineTask: !local);
+          if (childHost != null) host!.confirmed.addAll(childHost.confirmed);
+        } on WorkDeliveryFailure catch (error) {
+          cancellation.throwIfCancelled();
+          if (host != null && !await host.db.brainWorkAllowed()) rethrow;
+          result = {'end':'delivery_incomplete','reason':error.message,'evidence':childEvidence};
+        }
         reports.add({'task':task, 'source':local ? 'attachment' : 'online', ...result});
-        receipts.addAll((result['evidence'] as List).whereType<Map<String,Object?>>());
+        await onTaskProgress?.call([for (final r in reports) {
+          'task':r['task'],'source':r['source'],'end':r['end'],if(r['reason']!=null)'reason':r['reason']
+        }]);
+        // Checkpoints intentionally omit private history payloads.
+        receipts.addAll(childEvidence);
         refreshed.addAll((result['refresh_targets'] as List? ?? []).whereType<String>());
         verified.addAll((result['live_readmes'] as List? ?? []).whereType<String>());
         missing.addAll((result['unverified_repositories'] as List? ?? []).whereType<String>());
       }
       final incomplete = reports.any((r) => r['end'] == 'evidence_incomplete');
       // One failed source must not erase a sibling's successful receipt.
-      return {'tasks':reports, 'end':incomplete ? 'evidence_incomplete' :
+      return {'tasks':reports, 'end':reports.any((r) => r['end']=='delivery_incomplete') ? 'delivery_incomplete' : incomplete ? 'evidence_incomplete' :
           reports.any((r) => r['end'] == 'budget') ? 'budget' : 'planner_finished',
         'evidence':receipts,'verified_repositories':verified.toList(),
         if (refreshed.isNotEmpty) ...{'refresh_targets':refreshed.toList(),'live_readmes':verified.toList(),'unverified_repositories':missing.toList()},
@@ -881,15 +898,16 @@ class ResearchCommission {
           cancellation.throwIfCancelled();
           final reason = workErrorReason(e, fallback: '未能保存或校验网页文件');
           await recordResult({'error': reason});
-          throw StateError('网页未交付，$reason');
+          if (e is StateError || e is DeepSeekException) rethrow;
+          throw WorkDeliveryFailure('网页未交付，$reason');
         }
         await recordResult(result);
         progress('已保存可预览作品', true);
       }
-      if (missingReport()) throw StateError('委托要求的报告尚未保存并核实，请继续任务补交${outstandingReports.isEmpty ? "" : "：${outstandingReports.join("、")}"}');
+      if (missingReport()) throw WorkDeliveryFailure('委托要求的报告尚未保存并核实，请继续任务补交${outstandingReports.isEmpty ? "" : "：${outstandingReports.join("、")}"}');
       if (host != null && !host.confirmed.containsAll(host.allowed)) {
         final missing = host.allowed.difference(host.confirmed).map((a) => WorkHostActions.labels[a]).join('、');
-        throw StateError(host.lastError ?? '$missing 未执行，请明确操作要求、时间或内容');
+        throw WorkDeliveryFailure(host.lastError ?? '$missing 未执行，请明确操作要求、时间或内容');
       }
       if (lacksFreshEvidence() || onlineTask && !fetchedOnline || unavailableAppReads.isNotEmpty) end = 'evidence_incomplete';
       return {
