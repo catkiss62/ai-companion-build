@@ -7,14 +7,14 @@ class WishReviewMaterial {
   static bool reviewable(CompanionWish wish) => !wish.legacy && !wish.manualHold &&
       (wish.active || wish.state == 'paused' || wish.state == 'expired');
 
-  /// Evidence is copied next to the criterion only for active wishes. Other
+  /// Evidence is grouped for active wishes and targeted natural pauses during upgrades. Other
   /// reviewable records retain access to the shared source catalogue.
   static Map<String, List<WishEvidence>> candidates(
     List<CompanionWish> wishes, List<WishEvidence> evidence,
-    Map<String, List<String>> targetIds,
+    Map<String, List<String>> targetIds, {bool includePaused = false}
   ) {
     final result = <String,List<WishEvidence>>{};
-    for (final wish in wishes.where((w) => w.active && reviewable(w))) {
+    for (final wish in wishes.where((w) => reviewable(w) && (w.active || includePaused && w.autoPausedAt != null))) {
       final target = '${wish.goal} ${wish.criterion}';
       final terms = <String>{
         for (var i = 0; i + 2 <= target.length; i++)
@@ -30,6 +30,9 @@ class WishReviewMaterial {
         if (e.kind == 'game_result' && !matchingGame) continue;
         final index = targetIds[wish.id]?.indexOf(e.id) ?? -1;
         final overlap = terms.where(e.text.contains).length;
+        if (!wish.active && (e.at.isAfter(wish.autoPausedAt!) ||
+            overlap == 0 && !matchingGame && !wish.sourceIds.contains(e.id) &&
+            !(index >= 0 && e.kind == 'user_text' && RegExp(r'那张|之前|上次|愿望').hasMatch(e.text)))) continue;
         final score = overlap + (matchingGame ? 30 : 0) +
             (index >= 0 ? 36 - index.clamp(0,30).toInt() : 0) +
             (wish.sourceIds.contains(e.id) ? 20 : 0);
@@ -48,8 +51,8 @@ class WishReviewMaterial {
   }
 
   static Map<String,Object?> forReviewer(List<CompanionWish> items,
-      Map<String,List<WishEvidence>> groups) {
-    final view = wishes(items);
+      Map<String,List<WishEvidence>> groups, {Set<String> requiredIds = const {}}) {
+    final view = wishes(items, requiredIds: requiredIds);
     for (final w in (view['wishes'] as List).whereType<Map>()) {
       final group = groups[w['id']];
       if (group != null) w['candidate_evidence'] = group.map((e)=>e.toJson()).toList();
@@ -60,7 +63,7 @@ class WishReviewMaterial {
   /// Updates on paused/expired wishes are optional. Every active item needs
   /// exactly one disposition; a malformed batch must not consume the upgrade.
   static String? responseError(List<CompanionWish> items, Map payload, Set<String> sourceIds,
-      {Set<String> archived = const {}}) {
+      {Set<String> archived = const {}, Set<String> requiredIds = const {}}) {
     final rows = payload['updates'];
     if (rows is! List) return 'missing_updates';
     final allowed = items.where(reviewable).map((w) => w.id).toSet();
@@ -87,12 +90,13 @@ class WishReviewMaterial {
       }
     }
     seen.addAll(archived);
-    return seen.containsAll(active) ? null : 'missing_wish_review';
+    return seen.containsAll(active) && seen.containsAll(requiredIds) ? null : 'missing_wish_review';
   }
-  static Map<String, Object?> wishes(List<CompanionWish> items) => {
+  static Map<String, Object?> wishes(List<CompanionWish> items, {Set<String> requiredIds = const {}}) => {
     'wishes': [
       ...items.where((w) => w.active && reviewable(w)),
-      ...items.where((w) => !w.active && reviewable(w)).take(historyLimit),
+      ...items.where((w) => !w.active && reviewable(w) && requiredIds.contains(w.id)),
+      ...items.where((w) => !w.active && reviewable(w) && !requiredIds.contains(w.id)).take(historyLimit),
     ].map((w) => w.toJson()).toList(),
     'wish_history': items.where((w) => !reviewable(w)).take(historyLimit).map((w) => {
       'id': w.id, 'goal': w.goal, 'route': w.route, 'game_id': w.gameId,

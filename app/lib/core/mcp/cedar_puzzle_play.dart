@@ -39,7 +39,7 @@ class CedarPuzzleState {
     // Prefer an explicit guide header; leave ambiguous prose to the normal planner.
     final heading = guide.split(RegExp(r'[。；;\n]')).first.trim();
     if (RegExp(
-      r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?(?:(?:独立|单人)(?:推理)?解谜|解谜模式)',
+      r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?(?:(?:独立|单人)(?:推理)?解谜|解谜模式|解谜游戏)',
     ).hasMatch(heading))
       return CedarParticipationMode.puzzle;
     if (RegExp(r'^(?:(?:游玩方式|游戏类型|模式)[:：]\s*)?单人(?:游戏)?$').hasMatch(heading))

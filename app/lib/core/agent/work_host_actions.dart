@@ -35,25 +35,46 @@ class WorkHostActions {
     'speak': '朗读',
     'ring': '响铃',
   };
+  static final _clauses = RegExp(
+    r'[，,。；;！!……\n]|(?:并且|然后|但是|同时|并|再)(?=(?:请|帮我|把|将|取消|撤销|删除|关闭|保留|修改|调整|不要|别))',
+  );
+  static final _quoted = RegExp(r'「[^」]*」|“[^”]*”|"[^"]*"|《[^》]*》');
+  static String _maskTitles(String text) =>
+      text.replaceAllMapped(_quoted, (m) => 'Ｘ' * m[0]!.length);
+
+  static Iterable<String> _instructionParts(String text) sync* {
+    var start = 0;
+    for (final delimiter in _clauses.allMatches(_maskTitles(text))) {
+      yield text.substring(start, delimiter.start);
+      start = delimiter.end;
+    }
+    yield text.substring(start);
+  }
+
+  static final _withdrawal = RegExp(
+    r'(?:别|不要|不用|不必|无需|不再|不)(?:再)?(取消|撤销|删除|关闭|改动|修改|调整|改期|改|提醒|设置|朗读|响铃)',
+  );
+
   static Set<String> requested(String goal) {
+    final actions = _positiveActions(goal);
+    for (final action in ['cancel', 'reschedule', 'remind']) {
+      if (actions.contains(action)) {
+        final scope = _scope(goal, action, const {});
+        if (scope.hasExclusions && scope.targets.isEmpty) actions.remove(action);
+      }
+    }
+    return actions;
+  }
+
+  static Set<String> _positiveActions(String goal) {
     final result = <String>{};
     final instruction = goal
-        .replaceAll(RegExp(r'「[^」]*」|“[^”]*”|"[^"]*"|《[^》]*》'), '…')
+        .replaceAll(RegExp(r'「[^」]*」|“[^”]*”|"[^"]*"|《[^》]*》'), 'Ｘ')
         .replaceAll(RegExp(r'(?:别|不要)忘(?:了|记)?'), '记得');
-    for (final part in instruction.split(RegExp(r'[，,。；;！!\n]'))) {
-      final withdrawal = RegExp(
-        r'(?:别|不要|不用|不必|无需|不再|不)(?:再)?(取消|撤销|删除|改动|修改|调整|提醒|设置|朗读|响铃)',
-      ).firstMatch(part);
-      if (withdrawal != null) {
-        final verb = withdrawal[1];
-        result.remove(switch (verb) {
-          '取消' || '撤销' || '删除' => 'cancel',
-          '改动' || '修改' || '调整' => 'reschedule',
-          '朗读' => 'speak',
-          '响铃' => 'ring',
-          _ => 'remind',
-        });
-      }
+    for (final part in instruction.split(_clauses)) {
+      final withdrawal = _withdrawal.firstMatch(part);
+      if (withdrawal?[1] == '朗读') result.remove('speak');
+      if (withdrawal?[1] == '响铃') result.remove('ring');
       if (RegExp(
         r'不要|不用|不必|无需|不想|禁止|不(?:取消|撤销|删除|关闭|改动|修改|调整|设置|建立|朗读|响铃|播放|提醒)|(?<!分)(?<!特)别(?!人|的|处|名|致)',
       ).hasMatch(part))
@@ -99,7 +120,7 @@ class WorkHostActions {
     'function': {
       'name': name,
       'description':
-          '执行本轮明确要求的本机操作，各条提醒分别调用。提醒使用手机本地日期时间 YYYY-MM-DDTHH:mm。一项任务中相同操作重试复用原回执。即时语音和提示音只能立即播放，需等待其他交付时先完成那些步骤。点名修改或取消时 target 传入原提醒标题；仅指代最近一条时省略。',
+          '执行本轮明确要求的本机操作，各条提醒分别调用。提醒使用手机本地日期时间 YYYY-MM-DDTHH:mm。一项任务中相同操作重试复用原回执。即时语音和提示音只能立即播放，需等待其他交付时先完成那些步骤。先区分每个目标的要求、保留对象和后续改口。只对仍需执行的目标调用；已撤回和保留项不调用。同名无法区分时说明需要澄清的那一项。点名修改或取消时 target 传入原提醒标题；仅指代最近一条时省略。',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -213,32 +234,82 @@ class WorkHostActions {
       )
       .toList();
 
-  List<Set<String>> _subjects(String action, Set<String> knownTitles) {
-    final clauses = goal.split(RegExp(
-      r'[，,。；;！!\n]|(?:并且|然后|但是|同时|并|再)(?=(?:请|帮我|把|将|取消|撤销|删除|关闭|保留|修改|调整|不要|别))',
-    ));
-    final subjects = <Set<String>>[];
-    for (final clause in clauses.where((part) => requested(part).contains(action))) {
-      final beforeTime = clause.split(RegExp(r'改到|改成|改为|推迟到|提前到')).first;
-      final subject = beforeTime.trim()
-          .replaceFirst(RegExp(r'^(?:(?:请|帮我|麻烦|把|将|取消|撤销|删除|关闭|修改|调整|一下|掉)\s*)+'), '')
-          .replaceFirst(RegExp(r'(?:取消|撤销|删除|关掉|一下|掉|了)+$'), '').trim();
-      String unquote(String s) => s.replaceFirst(RegExp(r'^[「“"]'), '')
-          .replaceFirst(RegExp(r'[」”"]$'), '').trim();
-      Set<String> aliases(String title) => {
-        unquote(title),
-        unquote(title.replaceFirst(RegExp(r'的?(?:提醒|闹钟)$'), '')),
-        unquote(title.replaceFirst(RegExp(r'^(?:提醒|闹钟)\s*'), '')),
-      };
-      final whole = aliases(subject);
-      final parts = subject.split(RegExp(r'、|以及|和|与'));
-      if (parts.length > 1 && !whole.any(knownTitles.contains)) {
-        subjects.addAll(parts.map(aliases));
+  static List<Set<String>> _names(String subject, Set<String> knownTitles) {
+    String unquote(String s) => s.trim().replaceFirst(RegExp(r'^[「“"]'), '')
+        .replaceFirst(RegExp(r'[」”"]$'), '').trim();
+    Set<String> aliases(String title) => {
+      unquote(title),
+      unquote(title.replaceFirst(RegExp(r'的?(?:提醒|闹钟)$'), '')),
+      unquote(title.replaceFirst(RegExp(r'^(?:提醒|闹钟)\s*'), '')),
+    };
+    final whole = aliases(subject);
+    if (whole.any(knownTitles.contains) ||
+        RegExp(r'^[「“"].+[」”"](?:的?(?:提醒|闹钟))?$').hasMatch(subject)) return [whole];
+    return subject.split(RegExp(r'、|以及|和|与')).map(aliases).toList();
+  }
+
+  static ({List<Set<String>> targets, Set<String> excluded, bool hasExclusions})
+      _scope(String goal, String action, Set<String> knownTitles) {
+    final targets = <Set<String>>[], excluded = <String>{};
+    var hasExclusions = false;
+    for (final raw in _instructionParts(goal)) {
+      final clause = raw.trim()
+          .replaceFirstMapped(RegExp(r'^(?:请)?(别|不要|不用)把(.+?)(取消|撤销|删除|关闭|改动|修改|调整)(了)?$'),
+              (m) => '${m[1]}${m[3]}${m[2]}')
+          .replaceFirstMapped(RegExp(r'^(.+?(?:提醒|闹钟))(?:请)?保留$'), (m) => '保留${m[1]}')
+          .replaceFirst(RegExp(r'^(?:但|不过|然后|再|请|算了)[，, ]*'), '');
+      // Mask quotation contents while locating verbs; keep offsets for exact titles.
+      final visible = _maskTitles(clause);
+      final neg = _withdrawal.firstMatch(visible);
+      final keep = RegExp(r'^(?:请)?保留').firstMatch(visible);
+      final negative = neg != null || keep != null;
+      String subject;
+      if (negative) {
+        final kind = switch (neg?[1]) {
+          '取消' || '撤销' || '删除' || '关闭' => 'cancel',
+          '改动' || '修改' || '调整' || '改期' || '改' => 'reschedule',
+          '提醒' || '设置' => 'remind',
+          _ => '',
+        };
+        if (neg != null ? kind != action : action == 'remind') continue;
+        final match = neg ?? keep!;
+        final after = clause.substring(match.end).trim()
+            .replaceFirst(RegExp(r'^我'), '').replaceFirst(RegExp(r'了$'), '');
+        final before = clause.substring(0,match.start).trim()
+            .replaceFirst(RegExp(r'^(?:把|将)'), '')
+            .replaceFirst(RegExp(r'(?:那个|这个|这条|那条)$'), '');
+        subject = (after.isNotEmpty ? after : before)
+            .split(RegExp(r'改到|改成|改为|推迟到|提前到')).first.trim();
+        hasExclusions = true;
+        if (RegExp(r'^(?:都|全部|所有|一律|这些|两个|这两个|任何)?(?:的)?(?:提醒|闹钟)?$').hasMatch(subject)) {
+          targets.clear();
+          excluded.clear();
+          continue;
+        }
       } else {
-        subjects.add(whole);
+        final createShort = action == 'remind' && targets.isNotEmpty &&
+            RegExp(r'^(?:今天|明天|后天)?(?:上午|下午|早上|晚上)?[零一二三四五六七八九十两0-9]+(?:点|时|[:：]\d\d)').hasMatch(clause);
+        if (!_positiveActions(clause).contains(action) && !createShort) continue;
+        subject = clause.split(RegExp(r'改到|改成|改为|推迟到|提前到')).first.trim()
+            .replaceFirst(RegExp(r'^(?:(?:请|帮我|麻烦|把|将|取消|撤销|删除|关闭|修改|调整|一下|掉)\s*)+'), '')
+            .replaceFirst(RegExp(r'(?:取消|撤销|删除|关掉|一下|掉|了)+$'), '').trim();
+        if (action == 'remind') {
+          subject = subject.replaceFirst(RegExp(r'^.*(?:提醒我|叫醒我)'), '');
+          if (createShort) subject = subject.replaceFirst(RegExp(r'^.*?(?:点|时|[:：]\d\d)'), '');
+        }
+      }
+      for (final aliases in _names(subject, knownTitles)) {
+        final identifiers = aliases.where((a) => a.isNotEmpty && a != '提醒' && a != '闹钟').toSet();
+        if (negative) {
+          excluded.addAll(identifiers);
+          targets.removeWhere((t) => t.any(identifiers.contains));
+        } else {
+          excluded.removeAll(identifiers);
+          targets.add(aliases);
+        }
       }
     }
-    return subjects;
+    return (targets: targets, excluded: excluded, hasExclusions: hasExclusions);
   }
 
   Future<String> _target(List<Set<String>> subjects, List entries, String latest, Map args) async {
@@ -317,11 +388,13 @@ class WorkHostActions {
         ? null
         : int.tryParse(declared) ??
               '零一二三四五六七八九十'.indexOf(declared.replaceAll('两', '二'));
-    final targets = action == 'remind' ? const <Set<String>>[] : _subjects(action, {
+    final scope = _scope(goal, action, {
       for (final entry in entries.whereType<Map>()) if (entry['title'] is String) entry['title'] as String,
       for (final receipt in items) if (receipt['target_title'] is String) receipt['target_title'] as String,
     });
-    final count = action == 'remind' ? explicitCount ?? clauses.toSet().length :
+    final targets = scope.targets;
+    if (scope.hasExclusions && targets.isEmpty) throw const FormatException('这项提醒操作已撤回');
+    final count = action == 'remind' && !scope.hasExclusions ? explicitCount ?? clauses.toSet().length :
         targets.map((s) => (s.toList()..sort()).join('|')).toSet().length;
     final multiple = count > 1;
     final text = args['text'] is String
@@ -360,6 +433,14 @@ class WorkHostActions {
             : await _target(targets, entries, prior, args));
     final index = entries.indexWhere((e) => e is Map && e['id'] == id);
     final targetTitle = index >= 0 ? entries[index]['title'] : null;
+    final requestedTitle = action == 'remind' ? text : args['target'];
+    if ([requestedTitle, targetTitle, receipt?['target_title'], receipt?['entry']?['title']].any(scope.excluded.contains)) {
+      throw const FormatException('本轮要求保留这条提醒');
+    }
+    if (action == 'remind' && scope.hasExclusions && verifying == null &&
+        !targets.any((names) => names.contains(text))) {
+      throw const FormatException('请使用本轮明确要求创建的提醒标题');
+    }
     Map? entry;
     if (receipt != null) {
       entry = receipt['entry'] as Map?;

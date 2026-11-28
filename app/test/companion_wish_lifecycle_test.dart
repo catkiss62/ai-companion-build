@@ -616,6 +616,49 @@ void main() {
       expect(calls,2);
     });
 
+    for(final scenario in ['aged_omitted','direct_recheck','fresh_direct','active_omitted']) {
+      test('upgrade review obligations and progress promotion $scenario',() async {
+        final store=WishStore(db);await store.initialize();
+        final w=CompanionWish(id:'blue',goal:'看蓝色积木成品',reason:'想看完成样子',
+          route:'user',completionKind:'user_photo',criterion:'亲自展示拼完的模型',
+          createdAt:at,updatedAt:at);
+        expect(await store.save([w],expected:(await db.getSetting(WishStore.stateKey))!,
+          fence:(await db.captureBrainWorkFence())!),true);
+        final p=scenario.endsWith('direct') || scenario=='direct_recheck'?at.add(const Duration(hours:2)):at.subtract(const Duration(days:1));
+        await db.insertMessageWithAttachments(ChatMessage(id:'img',role:'user',content:'模型照片',createdAt:p),[
+          MessageAttachment(id:'piece',messageId:'img',kind:'image',originalPath:'',thumbnailPath:'',
+            width:1,height:1,byteSize:0,mimeType:'image/png',source:'gallery',
+            visionStatus:'completed',visionSummary:'蓝色积木成品',createdAt:p)]);
+        const clarify='上次那张就是拼完的模型';
+        await db.insertMessage(ChatMessage(id:'clar',role:'user',content:clarify,createdAt:at.add(Duration(days:1))));
+        final now=at.add(Duration(days:scenario.startsWith('aged')?32:3));var calls=0;
+        final engine=WishEngine(db,reviewer:(m) async {
+          calls++;
+          expect((m['sources'] as List).map((e)=>e['id']),containsAll(['photo:img:piece','chat:clar']));
+          if(scenario.endsWith('omitted') && calls==1)return {'updates':[]};
+          if(scenario.endsWith('omitted'))return {'updates':[{'id':'blue','state':'unchanged','reason_code':'target_ambiguous','evidence_ids':['chat:clar']}]};
+          return {'updates':[{'id':'blue','state':scenario=='direct_recheck' && calls==1?'active':'completed','evidence_id':'photo:img:piece',
+            'quote':'蓝色积木成品','confidence':.98,'same_target':true,'observed':true,'progress':'看到了积木'}]};
+        });
+        if(scenario=='direct_recheck') {
+          expect(await engine.maybeRefresh(now:now),true);
+          expect((await store.load()).single.evidenceIds,contains('photo:img:piece'));
+        }
+        final done=await engine.maybeRefresh(now:now.add(const Duration(hours:3)),upgradeOnly:true);
+        final diag=jsonDecode((await db.getSetting(WishEngine.diagnosticKey))!);
+        final live=(await store.load()).single;
+        if(scenario.endsWith('omitted')) {
+          expect(done,false);
+          expect(diag['unreviewed_wishes'],hasLength(1));
+          expect(await db.getSetting(WishEngine.upgradeKey),isNot('1'));
+          expect(await engine.maybeRefresh(now:now.add(const Duration(days:1)),upgradeOnly:true),true);
+          expect((await store.load()).single.state,scenario=='aged_omitted'?'paused':'active');
+        } else {
+          expect(live.state,'completed');
+          expect(live.evidenceIds.where((id)=>id=='photo:img:piece'),hasLength(1));
+        }
+      });
+    }
     for(final scenario in ['valid','missing_support','unchanged','aged','aged_late','repair_exhausted','aged_missing','empty_fields','denied']) {
       test('photo evidence upgrade and automatic pause $scenario',() async {
         final store=WishStore(db);await store.initialize();

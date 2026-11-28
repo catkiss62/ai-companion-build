@@ -63,6 +63,7 @@ void main() {
   var decisions = 0;
   var plannedGame = 'mystery_fixture';
   var firstAction = 'show_solution';
+  var plannedMode = 'puzzle';
   var proposedParams=<String,Object?>{};
   setUp(() async {
     db = await AppDatabase.createForTesting(databaseFactoryFfi);
@@ -74,7 +75,7 @@ void main() {
     arcade = _Arcade();
     decisions = 0;
     plannedGame='mystery_fixture';
-    firstAction='show_solution'; proposedParams={};
+    firstAction='show_solution'; plannedMode='puzzle'; proposedParams={};
     final ai = DeepSeekClient(
       streamClientFactory: () => MockClient((r) async {
         final action = decisions++ == 0 ? firstAction : 'look';
@@ -82,7 +83,7 @@ void main() {
           'game': plannedGame,
           'action': action,
           'params_json': jsonEncode(proposedParams),
-          'participation_mode': 'puzzle',
+          'participation_mode': plannedMode,
           'invitation_approved': false,
           'share_previous_outcome': false,
         };
@@ -177,6 +178,14 @@ void main() {
     print('restores automatic state ${auto.mode} preference ${auto.puzzle.preference}');
     expect(auto.mode,CedarParticipationMode.puzzle);
   });
+  test('explicit puzzle guide protects first move despite solo proposal', () async {
+    plannedMode='solo';
+    final session=await store.recordGuide(gameId:plannedGame,guide:'独立解谜。look 调查。show_solution 查看完整答案。');
+    expect(session.mode,CedarParticipationMode.puzzle);
+    await engine.continueDue(now:await makeDue(session));
+    expect(arcade.plays,['look']);
+  });
+
   for (final explicitOther in [true,false]) {
     test('revised game outcome-only room $explicitOther',() async {
       plannedGame='puzzle_box'; firstAction='walk';
@@ -306,7 +315,7 @@ void main() {
     () async {
       final session = await store.recordGuide(
         gameId: 'mystery_fixture',
-        guide: '解谜游戏。look 调查，show_solution 查看完整解答',
+        guide: '玩家指南。look 调查，show_solution 查看完整解答',
       );
       expect(session.mode, CedarParticipationMode.unknown);
       final result = await engine.continueDue(now: await makeDue(session));

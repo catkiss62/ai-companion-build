@@ -47,6 +47,49 @@ void main() {
     toolCalls: [if (c != null) c],
   );
 
+  for (final task in ['不要取消取药提醒，取消喝水提醒','取消喝水提醒，不要取消取药提醒',
+      '取消喝水和取药提醒，取药那个别取消','取消喝水和取药提醒，保留取药提醒',
+      '取消喝水和取药提醒，不要把取药提醒取消']) {
+    test('named exclusion survives cancellation and resume: $task',() async {
+      final db=await AppDatabase.createForTesting(databaseFactoryFfi);
+      addTearDown(db.closeForTesting);mock((_)async=>true);
+      WorkHostActions host(String order,String goal)=>WorkHostActions(db,order,'T',WorkHostActions.requested(goal),GenerationCancellationToken(),goal:goal);
+      final day=DateTime.now().add(const Duration(days:2)).toIso8601String().substring(0,10);
+      for (final title in ['喝水','取药']) {
+        await host(title,'明天九点提醒我$title').execute({'action':'remind','text':title,'local_time':'${day}T09:00'});
+      }
+      final h=host('mixed',task);
+      await expectLater(h.execute({'action':'cancel','target':'取药'}),throwsFormatException);
+      await h.execute({'action':'cancel','target':'喝水'});
+      final resumed=host('mixed',task);
+      await resumed.verifyExisting();
+      expect(resumed.confirmed,contains('cancel'));
+      expect((await CalendarReminderStore(db).load()).map((e)=>e.title),['取药']);
+    });
+  }
+  test('creation and rescheduling enforce the surviving target on the calendar',() async {
+    final db=await AppDatabase.createForTesting(databaseFactoryFfi);
+    addTearDown(db.closeForTesting); mock((_)async=>true);
+    WorkHostActions host(String order,String goal)=>WorkHostActions(db,order,'T',WorkHostActions.requested(goal),GenerationCancellationToken(),goal:goal);
+    final day=DateTime.now().add(const Duration(days:2)).toIso8601String().substring(0,10);
+    final create=host('create','明天九点提醒我喝水，十点提醒我取药，不要提醒我取药');
+    await expectLater(create.execute({'action':'remind','text':'取药','local_time':'${day}T10:00'}),throwsFormatException);
+    await create.execute({'action':'remind','text':'喝水','local_time':'${day}T09:00'});
+    await host('other','明天十点提醒我取药').execute({'action':'remind','text':'取药','local_time':'${day}T10:00'});
+    final move=host('move','把喝水和取药提醒改到十一点，取药那个别改了');
+    await expectLater(move.execute({'action':'reschedule','target':'取药','local_time':'${day}T11:00'}),throwsFormatException);
+    await move.execute({'action':'reschedule','target':'喝水','local_time':'${day}T11:00'});
+    expect({for(final r in await CalendarReminderStore(db).load()) r.title:r.hour},{'喝水':11,'取药':10});
+    expect(move.confirmed,contains('reschedule'));
+  });
+  test('later withdrawal applies to one named reminder or to all',() {
+    expect(WorkHostActions.requested('取消喝水提醒，喝水那个别取消'),isNot(contains('cancel')));
+    expect(WorkHostActions.requested('取消喝水和取药提醒，算了，都别取消'),isNot(contains('cancel')));
+    expect(WorkHostActions.requested('取消喝水和取药提醒，都别取消，然后取消喝水提醒'),contains('cancel'));
+    expect(WorkHostActions.requested('把喝水提醒改到十点，不要修改取药提醒'),contains('reschedule'));
+    expect(WorkHostActions.requested('明天九点提醒我喝水，不要提醒我取药'),contains('remind'));
+  });
+
   for (final change in ['reschedule','cancel']) {
     test('same-order $change supersedes the creation receipt on resume',() async {
       final db=await AppDatabase.createForTesting(databaseFactoryFfi);

@@ -1263,7 +1263,7 @@ class CedarToyActivityStore {
             guide: clean.length <= maxStoredTextChars ? clean : '',
             guideComplete: complete,
             guideCheckedAt: now,
-            mode: CedarPuzzleState.effective(gameId, preference, CedarParticipationMode.unknown),
+            mode: CedarPuzzleState.effective(gameId, preference, complete ? CedarPuzzleState.declaredMode(clean) : CedarParticipationMode.unknown),
             puzzle: CedarPuzzleState(preference: preference),
             phase: complete
                 ? CedarActivityPhase.guideReady
@@ -2635,7 +2635,9 @@ ${CedarSaveSlotPolicy.promptGuidance(session.guide, session.lastOutcome)}
     final sessions = Map<String, CedarGameSession>.from(state.sessions);
     for (final entry in state.sessions.entries) {
       var session = entry.value;
-      if (!session.useRevisedGuide && CedarPuzzleState.knownGames.contains(session.gameId) &&
+      final declaredPuzzle = session.guideComplete &&
+          CedarPuzzleState.declaredMode(session.guide) == CedarParticipationMode.puzzle;
+      if ((declaredPuzzle || !session.useRevisedGuide && CedarPuzzleState.knownGames.contains(session.gameId)) &&
           session.puzzle.preference == 'auto' && session.mode != CedarParticipationMode.puzzle) {
         session = session.copyWith(mode: CedarParticipationMode.puzzle);
         sessions[entry.key] = session;

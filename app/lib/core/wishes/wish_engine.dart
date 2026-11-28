@@ -35,8 +35,8 @@ class WishEngine {
   static const generationKey = 'companion_wish_generation_v2';
   static const diagnosticKey = 'companion_wish_last_review_v2';
   static const fingerprintKey = 'companion_wish_sources_v2';
-  static const upgradeKey = 'companion_wish_review_v12_completed';
-  static const upgradeAttemptKey = 'companion_wish_review_v12_attempt';
+  static const upgradeKey = 'companion_wish_review_v13_completed';
+  static const upgradeAttemptKey = 'companion_wish_review_v13_attempt';
   static const upgradeRetry = Duration(minutes: 5);
   static String anon(String id) => sha256.convert(utf8.encode(id)).toString().substring(0,12);
   static const reviewGap = Duration(hours: 2);
@@ -138,13 +138,13 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           (upgradeOnly ? upgradeRetry : reviewGap).inMilliseconds)
         return false;
       if (!upgradeOnly && await BackgroundCostPolicy.deferredUntil(db, instant) != null) return false;
-      final batch = await _collectSnapshot(instant, fence: fence, wishes: wishes, expectedWishRaw: raw);
+      final batch = await _collectSnapshot(instant, fence: fence, wishes: wishes, expectedWishRaw: raw, upgrade: upgradeOnly);
       if (batch == null) return false;
       final evidence = batch.evidence;
       if (evidence.isEmpty) {
         return upgradeOnly && await store.save(wishes, expected: raw, fence: fence,
             sourceGuard: batch.matches, extra: {upgradeKey: '1', diagnosticKey: jsonEncode({
-              'status':'reviewed','upgrade_review':true,'contract':12,'source_count':0,
+              'status':'reviewed','upgrade_review':true,'contract':13,'source_count':0,
               'at':instant.millisecondsSinceEpoch,'decisions':[
                 for (final w in wishes.where((w) => w.active && WishReviewMaterial.reviewable(w)))
                   {'wish_hash':anon(w.id),'result':'unchanged','reason':'no_new_evidence','state':w.state}
@@ -159,7 +159,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
               generationGap.inMilliseconds;
       final fingerprint = sha256
           .convert(
-            utf8.encode(jsonEncode({"contract":12,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
+            utf8.encode(jsonEncode({"contract":13,"wishes":wishes.map((w)=>w.toJson()).toList(),"sources":batch.manifest,"catalog":batch.catalog,"guides":batch.guides})),
           )
           .toString();
       // An updates-only review cannot consume the next opportunity to propose
@@ -189,13 +189,26 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
         sourceGuard: batch.matches,
       ))
         return false;
-      final groupedIds = batch.groups.values.expand((g)=>g).map((e)=>e.id).toSet();
+      final requiredPaused = upgradeOnly ? {
+        for (final w in wishes)
+          if (w.state == 'paused' && w.autoPausedAt != null && WishReviewMaterial.reviewable(w) &&
+              batch.groups[w.id]?.any((e) => e.timeKnown && e.at.isAfter(w.createdAt) &&
+                  !e.at.isAfter(w.autoPausedAt!) &&
+                  (e.kind == w.completionKind || w.completionKind == 'user_photo' && e.kind == 'user_text' &&
+                   batch.groups[w.id]!.any((p) => p.kind == 'user_photo' && !p.at.isAfter(e.at)))) == true)
+            w.id,
+      } : <String>{};
+      final reviewView = WishReviewMaterial.forReviewer(wishes, batch.groups, requiredIds: requiredPaused);
+      final groupedIds = {for (final row in (reviewView['wishes'] as List).whereType<Map>())
+        for (final item in batch.groups[row['id']] ?? <WishEvidence>[]) item.id};
       Map<String, dynamic>? payload;
       try {
         payload = await reviewer({
           'now': instant.toIso8601String(),
           'can_generate': canGenerate,
-          ...WishReviewMaterial.forReviewer(wishes, batch.groups),
+          ...reviewView,
+          if (requiredPaused.isNotEmpty) 'require_review_ids': requiredPaused.toList(),
+          if (requiredPaused.isNotEmpty) 'review_instruction':'这些自然暂停的愿望也需要逐条返回判断。证据不足请给 unchanged 和具体原因。',
           'catalog': batch.catalog,
           'known_game_guides': batch.guides,
           'sources': evidence.map((e) => e.kind == 'game_guide' ? <String, Object?>{
@@ -221,7 +234,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           [for (final e in entry.value) {'id':anon(e.id),'kind':e.kind}],
       };
       final invalid = WishReviewMaterial.responseError(wishes,payload,evidence.map((e)=>e.id).toSet(),
-          archived: WishPolicy.archiveIds(wishes, payload));
+          requiredIds: requiredPaused, archived: WishPolicy.archiveIds(wishes, payload));
       if (invalid != null) {
         final proposals = payload['updates'];
         final received = proposals is List
@@ -232,7 +245,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
           diagnosticKey: jsonEncode({'status':'incomplete_review','at':instant.millisecondsSinceEpoch,
             'upgrade_review':upgradeOnly,'reason':invalid,'candidate_sources':candidateIds,
             'unreviewed_wishes':[for (final w in wishes)
-              if (w.active && WishReviewMaterial.reviewable(w) && !received.contains(w.id) &&
+              if ((w.active || requiredPaused.contains(w.id)) && WishReviewMaterial.reviewable(w) && !received.contains(w.id) &&
                   !archived.contains(w.id)) anon(w.id)],
           }),
           // A malformed model response follows the ordinary two-hour backoff.
@@ -311,7 +324,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
             'added': updated.length - wishes.length,
             'active': updated.where((w) => w.active).length,
             'completed': updated.where((w) => w.state == 'completed').length,
-            'contract': 12, 'source_count': evidence.length,
+            'contract': 13, 'source_count': evidence.length,
             'source_kinds': {for (final kind in evidence.map((e) => e.kind).toSet())
               kind: evidence.where((e) => e.kind == kind).length},
             'active_routes': {for (final route in ['game', 'user', 'aspiration'])
@@ -349,7 +362,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
 
   Future<_WishMaterialBatch?> _collectSnapshot(DateTime now, {
     required BrainWorkFence fence, List<CompanionWish> wishes = const [],
-    String? expectedWishRaw,
+    String? expectedWishRaw, bool upgrade = false,
   }) => db.readSourceSnapshot<_WishMaterialBatch?>(workFence: fence, read: (txn) async {
     if (expectedWishRaw != null &&
         await BrainWorkFence.value(txn, WishStore.stateKey) != expectedWishRaw) return null;
@@ -517,7 +530,7 @@ expressed=true 仅 assistant_text 确实已经向用户说出了这一具体愿�
     return _WishMaterialBatch(groups: WishReviewMaterial.candidates(wishes, selected, {
       for (final entry in targetMessages.entries)
         entry.key: [for (final id in entry.value) ...?sourceIdsByMessage[id]],
-    }), evidence: selected, catalog: catalog, guides: guides,
+    }, includePaused: upgrade), evidence: selected, catalog: catalog, guides: guides,
       manifest: [for (final e in selected) [e.toJson(), stamps[e.id]]], guards: [
         for (final e in selected) guards[e.id]!,
         (handle) async => await BrainWorkFence.value(handle, CedarToyActivityStore.catalogSettingKey) == catalogRaw,
@@ -754,7 +767,8 @@ class WishPolicy {
           !e.at.isAfter(w.autoPausedAt!);
       if (w.state == 'paused' && !userDecision && !completedBeforePause)
         return reject('self_resume_required');
-      if (w.evidenceIds.contains(e.id) && (photo == null || w.evidenceIds.contains(photo.id))) return reject('duplicate_evidence');
+      // A previously recorded observation can verify a later transition to completed.
+      if (state != 'completed' && w.evidenceIds.contains(e.id) && (photo == null || w.evidenceIds.contains(photo.id))) return reject('duplicate_evidence');
       if (w.active && state != 'active') activeCount--;
       note('evidence_applied', applied: state);
       return w.copyWith(
