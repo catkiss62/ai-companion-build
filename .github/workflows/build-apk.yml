@@ -1908,14 +1908,14 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.266+510 Lens' \
-              --notes 'Independent task receipts, puzzle drafts and game verdicts.'
+              --notes '观察与旅行镜头首测：仅第一通道，本场画面与对话临时保留。'
           else
             test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --title 'AI Companion v0.42.266+510 Lens' \
-              --notes 'Independent task receipts, puzzle drafts and game verdicts.'
+              --notes '观察与旅行镜头首测：仅第一通道，本场画面与对话临时保留。'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -2014,7 +2014,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.42.266+510 Lens' \
-              --notes 'Independent task receipts, puzzle drafts and game verdicts.'
+              --notes '观察与旅行镜头首测：仅第一通道，本场画面与对话临时保留。'
           fi
           test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" = true || exit 1
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

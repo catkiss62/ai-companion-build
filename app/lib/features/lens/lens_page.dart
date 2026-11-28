@@ -166,7 +166,11 @@ class _LensPageState extends State<LensPage> with WidgetsBindingObserver {
       final words = await native<String>('voice');
       if (!mounted || manual || words == null || words.trim().isEmpty) return;
       // The system recognizer may return before this activity resumes.
-      pendingVoice = words;
+      if (active) {
+        unawaited(ask(words));
+      } else {
+        pendingVoice = words;
+      }
     } on PlatformException catch (e) {
       if (mounted) setState(() => status = e.message);
     } finally {
@@ -330,7 +334,9 @@ class _LensPageState extends State<LensPage> with WidgetsBindingObserver {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   status ??
-                      (userBusy
+                      (listening
+                          ? '正在听你说…'
+                          : userBusy
                           ? '小鲸鱼正在看…'
                           : widget.travel
                           ? '一起看 · 可以随时插话'
