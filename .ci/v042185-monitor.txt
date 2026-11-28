@@ -1,7 +1,7 @@
 status=success
-run_id=46075543159
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/46075543159
-head_sha=e5147a7b7b8bf2b5150c2ec3bccbd9dd13618445
+run_id=46124776147
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/46124776147
+head_sha=e0d93fc351e153d23eb2215f571f397b2c4254bf
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-9def887d47f343edb43a6434b8ea61df744c1fda286a5d88d183355f9c0efe98  AI-Companion-v0.42.262-506-Agent-Recovery-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a3535da1a192d28979f
+f378f5254b69b41c6817d8acf2faa9f7f79816aa7e5c4b5c402f151fbc858d12  AI-Companion-v0.42.263-507-Scoped-Actions-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1fa8a309349b8c36e935
