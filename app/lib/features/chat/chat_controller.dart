@@ -226,6 +226,17 @@ class ChatController extends ChangeNotifier {
   TtsQueueState ttsState = TtsQueueState.idle;
   Timer? _petSpeechHeartbeat;
   bool _disposed = false;
+  bool _lensOpen = false;
+  int _lensAudioEpoch = 0;
+
+  void setLensOpen(bool value) {
+    _lensOpen = value;
+    if (value) {
+      _lensAudioEpoch++;
+      unawaited(_stopTurnAudio());
+    }
+  }
+
   int _recoveryScheduleEpoch = 0;
   bool _secondChannelEnabled = false;
   bool _thirdChannelEnabled = false;
@@ -1601,6 +1612,8 @@ class ChatController extends ChangeNotifier {
     required ChatMessage user,
     required GenerationCancellationToken cancellation,
   }) async {
+    final audioEpoch = _lensAudioEpoch;
+    bool canPresentAudio() => !_lensOpen && audioEpoch == _lensAudioEpoch;
     PlaybackIntent? playbackIntent;
     var emotionCueStarted = false;
     var emotionLeadIn = Future<void>.value();
@@ -1673,7 +1686,7 @@ class ChatController extends ChangeNotifier {
       var projectedAssistant = result.assistant!;
       final replyForm = projectedAssistant.formContext;
       _holdFinalSmallForm(projectedAssistant, voice: autoTts);
-      if (autoTts) {
+      if (autoTts && canPresentAudio()) {
         playbackIntent = ttsPlayback.createIntent(
           ownerId: projectedAssistant.id,
           formForPlayback: replyForm.isKnown ? replyForm.form == 'q' : null,
@@ -1686,7 +1699,7 @@ class ChatController extends ChangeNotifier {
       // The cue belongs to the visible reply, not to an early hidden
       // <emotion> envelope. Start it in the same UI commit that exposes the
       // body so slow final providers cannot play a sound seconds too early.
-      if (playbackIntent?.valid != false) {
+      if (canPresentAudio() && playbackIntent?.valid != false) {
         startEmotionCue(projectedAssistant.emotionKey);
       }
       _safeNotify();
@@ -1719,8 +1732,8 @@ class ChatController extends ChangeNotifier {
           : ChatLanguage.chinese;
       final speechText = projectedAssistant.contentFor(speechLanguage);
       final leadIn = emotionCueStarted ? emotionLeadIn : Future<void>.value();
-      if (autoTts) {
-        final intent = playbackIntent!;
+      if (playbackIntent != null && canPresentAudio()) {
+        final intent = playbackIntent;
         unawaited(
           ttsPlayback.playText(
             speechText,

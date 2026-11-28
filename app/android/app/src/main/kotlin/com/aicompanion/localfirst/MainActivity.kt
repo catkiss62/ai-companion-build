@@ -7,6 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var lensHost: LensHost? = null
     private var wordSliceHost: WordSliceHost? = null
     private var reminderCardHost: CalendarReminderCardHost? = null
     private val reminderChanged: () -> Unit = { reminderCardHost?.refresh() }
@@ -44,6 +45,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        lensHost = LensHost(this, flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ai_companion/whale_ar")
             .setMethodCallHandler { call, result ->
                 if (call.method != "open") {
@@ -139,6 +141,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        lensHost?.onResume()
         com.aicompanion.localfirst.qq.QqPrivateService.maybeRecover(this)
         roomDepthMotion?.onResume()
         wordSliceHost?.onResume()
@@ -179,6 +182,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onPause() {
+        lensHost?.onPause()
         CalendarReminderAlarm.removeListener(reminderChanged)
         reminderCardHost?.stop()
         CalendarReminderRingingService.refreshIfRunning(this)
@@ -204,6 +208,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        lensHost?.dispose()
+        lensHost = null
         wordSliceHost?.dispose()
         wordSliceHost = null
         CompanionRuntimeState.setImmersiveChatPageVisible(false)
@@ -236,11 +242,13 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        lensHost?.permissionResult(requestCode)
         bridge?.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        lensHost?.voiceResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_NATIVE_FATE_WHEEL) {
             pendingFateWheelResult?.success(
                 if (resultCode == RESULT_OK) data?.getStringExtra(NativeFateWheelActivity.EXTRA_RESULT)

@@ -16,6 +16,7 @@ import '../../widgets/caicai_stage_viewport.dart';
 import '../../widgets/room_depth_background.dart';
 import '../../widgets/caicai_stage_editor.dart';
 import 'dart:async';
+import '../lens/lens_page.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MethodChannel, PlatformException;
@@ -2446,6 +2447,22 @@ class ChatPageState extends State<ChatPage> with WidgetsBindingObserver, RouteAw
                       }
                     },
                   ),
+                  for (final travel in [false, true])
+                    _QuickPanelTile(
+                      icon: travel ? Icons.directions_walk : Icons.center_focus_strong,
+                      title: travel ? '旅行模式' : '观察模式',
+                      subtitle: travel ? '一起看，遇到有意思的她会开口。' : '把镜头对准想看的东西，再问她。',
+                      onTap: () async {
+                        Navigator.pop(dialogContext);
+                        controller.setLensOpen(true);
+                        try {
+                          await Navigator.of(pageContext).push(MaterialPageRoute(
+                            builder: (_) => LensPage(travel: travel)));
+                        } finally {
+                          controller.setLensOpen(false);
+                        }
+                      },
+                    ),
                   ListTile(contentPadding:EdgeInsets.zero,leading:const WhaleTail(size:24),
                     title:const Text('工作模式'),trailing:const Icon(Icons.chevron_right_rounded),
                     onTap:(){Navigator.pop(dialogContext); _workSettings();}),
