@@ -2,6 +2,10 @@
 
 ## 当前接班快照
 
+- **视觉功能参考调研已完成（仅讨论，2026-11-29）。** 建议先做手机镜头观察，再验证分享 B 站视频，取得可靠播放进度后评估同步陪看。产品仍为 +509；下一步讨论镜头模式的交互。详细入口见文末「手机视觉与视频参考」。
+
+- 视觉功能调研开工（2026-11-29）。核对鱼眼、See Now、视频分镜与实时陪看，评估 Android 端的旅行观察、分享 B 站与同步陪看。产品基线 +509。
+
 - **v0.42.265+509 / schema67 已交付。** 分项提醒、独立交付失败、愿望判错与游戏作答草稿四项修复。本地 87 文件 914 项、23 项发布身份用例、三项 CI 和发布签名核验通过。下一步在 Redmi 日常使用中观察；下载入口与验证记录见文末「+509 四项修复」。
 
 - +509 开工。以 +508 交付后复查为基线，修复子任务回执和独立失败、愿望判错回包及游戏作答草稿误拦。
@@ -2182,3 +2186,14 @@ v0.42.246+490 / schema67 已实现。会话与选项编号修正后 Android 15 �
 交付复核：最终本地 87 个文件 914 项全部通过。产品提交 1de41b9；文档 46158103646、系统回归 46158103625、APK 构建 46158103632 均成功。APK 为 823313042 字节，SHA-256 055a9a215fee4b83d9272f65a7d5bea2ce2af8e00dc91ae7f48f57ada9bdff7e。证书 SHA-256 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，与 +508 相同。发布监测中的运行 ID 和产品提交相符。签名已核验，真机结果留待日常使用。
 
 [签名 APK 发布页](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d7a6ffdadf9b9804037e) · [备用 Actions 产物](https://github.com/catkiss62/ai-companion-build/actions/runs/46158103632/artifacts/15268654793)。
+
+
+## 手机视觉与视频参考（2026-11-29，仅调研）
+
+基线 +509 / 6958873。三个使用场景为手机摄像头一起看、将 B 站链接分享给她独立观看、与用户同步陪看。未开始产品实现、未测 Redmi 续航/延迟、未验证个人模型账单或联机 B 站素材可用性。
+
+- [see-on-phone](https://github.com/SAOS-3624/see-on-phone/tree/c9c4c42a1d20e680c0c7315cfbe35c66f4ad5e5a) 的 CameraEngine、CallCapture、CallStream、Pipeline、Tokens 可对照。Android Camera2，通话管线本地 5fps，持续累积变化、按批交图；按需 look 可单独使用。无需电脑，已有 Java 版本。相机开启、热量、模型轮次与出图是不同成本。
+- [dsh-see-now](https://github.com/SAOS-3624/dsh-see-now/tree/029321e8285f829f9e333ad82022bf97a2f3326b) 的 cuts、pipeline、节奏及切镜局限文档：小网格像素变化和慢变化积累适合筛帧；手抖、遮挡、小物体动作与语义重要性不能直接互推。结合现有识图、角色正文、语音；防旧图反复注入或每张图唤醒全部通道。
+- [dsh-video-storyboard](https://github.com/SAOS-3624/dsh-video-storyboard/tree/fa4477c7d4afa7feba3ccffa1c5c7f950b3d9028) 的 sprite-index 与 zoom：B 站现成时间索引可独立于视频解码取得，结合字幕和按时间局部补看。离线运行 parseBvid：裸 BV 与带 p=2 的视频页成功；b23.tv 示例直接输入被拒。真实分享入口需处理短链，且需区分无预览/无字幕/无媒体。桌面 FFmpeg、下载和转写能力不能直接计作安卓已支持。
+- [dsh-watch-together](https://github.com/SAOS-3624/dsh-watch-together/tree/cb3d819dfbc55dec87c3aa8c4fa581ca3f089b10) 从浏览器 video 获取位置，按进度预取、按时开口、过时丢弃。优先评估可读真实进度的播放器，再决定跨 B 站 App；屏幕采集单独授权，获取画面与获取播放位置是两件事。
+- 建议先验证镜头模式中的静止/步行/近处小字，记每分钟实际调用数和通道分布、开口延迟、漏看与温升；B 站按有字幕口播、纯画面与缺资料分开验证。同步陪看优先验证暂停、拖动、换片后不串台词。以上是讨论建议，需用户决定范围。未构建新 APK。
